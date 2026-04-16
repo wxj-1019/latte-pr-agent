@@ -199,6 +199,18 @@ async def test_router_skips_reasoner_for_large_pr():
     assert mock_deepseek.review.call_count == 1
 
 
+# ==================== Router Defensive Programming Tests ====================
+
+@pytest.mark.asyncio
+async def test_router_defensive_against_invalid_result():
+    from llm.base import LLMProvider
+    mock_deepseek = MagicMock(spec=LLMProvider)
+    mock_deepseek.review = AsyncMock(return_value="not a dict")
+    router = ReviewRouter(config={"enable_reasoner_review": True}, providers={"deepseek": mock_deepseek, "anthropic": MagicMock()})
+    result = await router.review("prompt", pr_size_tokens=100)
+    assert result == "not a dict"
+
+
 # ==================== Resilient Review Router Tests ====================
 
 @pytest.mark.asyncio

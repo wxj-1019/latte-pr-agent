@@ -6,6 +6,30 @@ from repositories import ReviewRepository, FindingRepository
 
 
 @pytest.mark.asyncio
+async def test_review_repo_create_handles_integrity_error(async_db_session: AsyncSession) -> None:
+    repo = ReviewRepository(async_db_session)
+    first = await repo.create(
+        platform="github",
+        repo_id="test/repo",
+        pr_number=42,
+        head_sha="abc123",
+        trigger_type="pull_request.opened",
+    )
+    assert first is not None
+
+    # Duplicate should return existing record instead of raising
+    second = await repo.create(
+        platform="github",
+        repo_id="test/repo",
+        pr_number=42,
+        head_sha="abc123",
+        trigger_type="pull_request.opened",
+    )
+    assert second is not None
+    assert second.id == first.id
+
+
+@pytest.mark.asyncio
 async def test_review_repo_create_and_get(async_db_session: AsyncSession) -> None:
     repo = ReviewRepository(async_db_session)
     review = await repo.create(
