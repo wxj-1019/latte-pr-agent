@@ -1,0 +1,138 @@
+import json
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
+
+PROMPT_DIR = Path(__file__).parent.parent / "llm" / "prompts"
+DEFAULT_PROMPT_PATH = PROMPT_DIR / "system_prompt.txt"
+
+
+class PromptVersion:
+    """内存中的 Prompt 版本表示"""
+
+    def __init__(self, version: str, text: str, metadata: Optional[dict] = None):
+        self.version = version
+        self.text = text
+        self.metadata = metadata or {}
+        self.created_at = datetime.now(timezone.utc)
+
+
+class PromptRegistry:
+    """Prompt 版本注册表：支持从文件系统和数据库加载多个 Prompt 版本。"""
+
+    def __init__(self, session: Optional[AsyncSession] = None):
+        self.session = session
+        self._versions: Dict[str, PromptVersion] = {}
+        self._load_default()
+
+    def _load_default(self) -> None:
+        text = DEFAULT_PROMPT_PATH.read_text(encoding="utf-8") if DEFAULT_PROMPT_PATH.exists() else ""
+        self._versions["v1"] = PromptVersion("v1", text)
+
+    async def load_from_db(self) -> None:
+        """从数据库加载所有已保存的 prompt 版本。"""
+        if not self.session:
+            return
+        from models import PromptExperiment  # local import to avoid circular deps
+
+        result = await self.session.execute(select(PromptExperiment))
+        rows = result.scalars().all()
+        for row in rows:
+            if row.prompt_text:
+                self._versions[row.version] = PromptVersion(
+                    version=row.version,
+                    text=row.prompt_text,
+                    metadata=row.metadata_json or {},
+                )
+        logger.info(f"Loaded {len(rows)} prompt versions from DB")
+
+    def get(self, version: str) -> Optional[PromptVersion]:
+        return self._versions.get(version)
+
+    def get_text(self, version: str) -> str:
+        pv = self._versions.get(version)
+        return pv.text if pv else self._versions["v1"].text
+
+    def list_versions(self) -> List[str]:
+        return list(self._versions.keys())
+
+    async def save_version(
+        self,
+        version: str,
+        text: str,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        """保存新版本到内存和数据库。"""
+        self._versions[version] = PromptVersion(version, text, metadata)
+        if not self.session:
+            return
+        from models import PromptExperiment
+
+        stmt = (
+            pg_insert(PromptExperiment)
+            .values(
+                version=version,
+                prompt_text=text,
+                metadata_json=metadata or {},
+                created_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_update(
+                index_elements=["version"],
+                set_={
+                    "prompt_text": text,
+                    "metadata_json": metadata or {},
+                    "created_at": datetime.now(timezone.utc),
+                },
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def get_experiment_assignment(
+        self,
+        repo_id: str,
+        experiment_name: str = "default",
+    ) -> str:
+        """根据 repo_id 的哈希决定使用哪个 prompt 版本（50/50 流量分配）。"""
+        if not self.session:
+            return "v1"
+        from models import PromptExperimentAssignment
+
+        result = await self.session.execute(
+            select(PromptExperimentAssignment).where(
+                PromptExperimentAssignment.repo_id == repo_id,
+                PromptExperimentAssignment.experiment_name == experiment_name,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing.version
+
+        # Deterministic assignment based on repo_id hash
+        import hashlib
+
+        hash_val = int(hashlib.md5(repo_id.encode()).hexdigest(), 16)
+        versions = self.list_versions()
+        if len(versions) < 2:
+            chosen = versions[0] if versions else "v1"
+        else:
+            # Exclude v1 if there are other experiment versions; otherwise include all
+            experiment_versions = [v for v in versions if v != "v1"] or versions
+            chosen = experiment_versions[hash_val % len(experiment_versions)]
+
+        stmt = pg_insert(PromptExperimentAssignment).values(
+            repo_id=repo_id,
+            experiment_name=experiment_name,
+            version=chosen,
+            created_at=datetime.now(timezone.utc),
+        ).on_conflict_do_nothing()
+        await self.session.execute(stmt)
+        await self.session.commit()
+        return chosen

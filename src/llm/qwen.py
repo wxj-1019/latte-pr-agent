@@ -10,14 +10,16 @@ from llm.base import LLMProvider
 from llm.prompts import REVIEW_SYSTEM_PROMPT
 
 
-class DeepSeekProvider(LLMProvider):
+class QwenProvider(LLMProvider):
+    """阿里云通义千问 (Qwen) 模型适配器，基于 OpenAI 兼容接口。"""
+
     def __init__(self, api_key: str | None = None):
         self.client = AsyncOpenAI(
-            api_key=api_key or os.getenv("DEEPSEEK_API_KEY"),
-            base_url="https://api.deepseek.com",
+            api_key=api_key or os.getenv("QWEN_API_KEY"),
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
 
-    async def review(self, prompt: str, model: str = "deepseek-chat", system_prompt: str | None = None) -> Dict:
+    async def review(self, prompt: str, model: str = "qwen-coder-plus-latest", system_prompt: str | None = None) -> Dict:
         return await self._call_with_retry(
             model=model,
             prompt=prompt,

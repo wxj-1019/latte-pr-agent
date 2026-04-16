@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from context.builder import PRDiff, ProjectContextBuilder
 from config.project_config import ReviewConfig
 from llm import ReviewRouter
+from prompts.registry import PromptRegistry
 from rag import RAGRetriever
 from repositories import ReviewRepository, FindingRepository
 from static import SemgrepAnalyzer, FindingMerger
@@ -42,7 +43,7 @@ class ReviewEngine:
         self.deduplicator = CommentDeduplicator(session)
         rag_retriever = RAGRetriever() if repo_id else None
         self.context_builder = ProjectContextBuilder(
-            db_session=session, repo_id=repo_id, rag_retriever=rag_retriever
+            db_session=session, repo_id=repo_id, rag_retriever=rag_retriever, project_config=project_config
         )
         self.semgrep = SemgrepAnalyzer()
         self.merger = FindingMerger()
@@ -61,6 +62,11 @@ class ReviewEngine:
         primary_model = getattr(self.router, "config", {}).get("primary_model", "deepseek-chat")
         if not primary_model:
             primary_model = "deepseek-chat"
+
+        # Load prompt registry and get system prompt for this version
+        prompt_registry = PromptRegistry(self.session)
+        await prompt_registry.load_from_db()
+        system_prompt = prompt_registry.get_text(self.prompt_version)
 
         # 1. Check cache
         if self.cache:
@@ -86,6 +92,7 @@ class ReviewEngine:
             built_context=built_context,
             pr_size_tokens=pr_size_tokens,
             router=effective_router,
+            system_prompt=system_prompt,
         )
 
         degraded = ai_result.get("degraded", False)
@@ -121,8 +128,11 @@ class ReviewEngine:
             if key in ai_result:
                 merged_result[key] = ai_result[key]
 
-        # 7. Persist findings
+        # 7. Persist findings and record prompt version
         await self._persist_findings(review_id, merged_result, primary_model)
+        review = await self.review_repo.get_by_id(review_id)
+        if review:
+            review.prompt_version = self.prompt_version
         await self.review_repo.update_status(review_id, "completed")
 
         # 8. Update cache
@@ -155,13 +165,14 @@ class ReviewEngine:
         built_context: Dict,
         pr_size_tokens: int,
         router,
+        system_prompt: str | None = None,
     ) -> Dict:
         """对 PR diff 执行 LLM 审查。超大 PR 自动分块审查后合并结果。"""
         max_chunk_tokens = 6000
         if pr_size_tokens <= max_chunk_tokens:
             prompt = self._build_prompt(pr_diff, built_context)
             try:
-                return await router.review(prompt, pr_size_tokens)
+                return await router.review(prompt, pr_size_tokens, system_prompt)
             except Exception as exc:
                 logger.exception(f"Review {review_id}: LLM call failed: {exc}")
                 return {"issues": [], "summary": "LLM error", "risk_level": "low", "degraded": True}
@@ -177,7 +188,7 @@ class ReviewEngine:
         for idx, chunk in enumerate(chunks):
             prompt = self._build_prompt(chunk["content"], built_context)
             try:
-                part_result = await router.review(prompt, chunk["tokens"])
+                part_result = await router.review(prompt, chunk["tokens"], system_prompt)
             except Exception as exc:
                 logger.exception(f"Review {review_id}: LLM chunk {idx} failed: {exc}")
                 continue

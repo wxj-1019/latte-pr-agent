@@ -25,6 +25,7 @@ class Review(Base):
     risk_level: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     trigger_type: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     review_mode: Mapped[str] = mapped_column(String(20), default="incremental")
+    prompt_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     diff_stats: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

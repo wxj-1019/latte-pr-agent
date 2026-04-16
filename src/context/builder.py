@@ -86,21 +86,24 @@ class ProjectContextBuilder:
         repo_id: str = "",
         file_content_map: Optional[Dict[str, Dict[str, bytes]]] = None,
         rag_retriever=None,
+        project_config=None,
     ):
         self.db = db_session
         self.embedding_model = embedding_model
         self.repo_id = repo_id
         self.file_content_map = file_content_map or {}
         self.rag_retriever = rag_retriever
+        self.project_config = project_config
 
     async def build_context(self, pr_diff: PRDiff) -> Dict:
+        api_contracts = await self._detect_api_changes(pr_diff)
         return {
             "pr_diff": pr_diff.content,
             "file_changes": self._parse_file_changes(pr_diff),
             "dependency_graph": await self._analyze_dependencies(pr_diff),
             "similar_bugs": await self._retrieve_similar_bugs(pr_diff),
-            "api_contracts": await self._detect_api_changes(pr_diff),
-            "cross_service_impact": None,  # Phase 3+ 启用
+            "api_contracts": api_contracts,
+            "cross_service_impact": await self._analyze_cross_service(api_contracts),
         }
 
     def _parse_file_changes(self, pr_diff: PRDiff) -> List[Dict]:
@@ -245,6 +248,14 @@ class ProjectContextBuilder:
             "api_changes": api_changes,
             "breaking_count": len([a for a in api_changes if a["breaking_change"]]),
         }
+
+    async def _analyze_cross_service(self, api_contracts: Dict) -> Optional[Dict]:
+        from context.cross_service import CrossServiceAnalyzer
+
+        if not self.project_config:
+            return None
+        analyzer = CrossServiceAnalyzer(self.project_config.cross_service)
+        return await analyzer.analyze(api_contracts.get("api_changes", []))
 
     def _detect_language(self, file_path: str) -> Optional[str]:
         if file_path.endswith(".py"):

@@ -6,5 +6,5 @@ class LLMProvider(ABC):
     """统一 LLM 提供商接口"""
 
     @abstractmethod
-    async def review(self, prompt: str, model: str) -> Dict:
+    async def review(self, prompt: str, model: str, system_prompt: str | None = None) -> Dict:
         pass

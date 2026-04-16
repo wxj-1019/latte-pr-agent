@@ -7,6 +7,7 @@ from openai import RateLimitError, APITimeoutError
 from llm.base import LLMProvider
 from llm.deepseek import DeepSeekProvider
 from llm.anthropic import AnthropicProvider
+from llm.qwen import QwenProvider
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +19,23 @@ class ReviewRouter:
         self.providers: Dict[str, LLMProvider] = providers or {
             "deepseek": DeepSeekProvider(),
             "anthropic": AnthropicProvider(),
+            "qwen": QwenProvider(),
         }
         self.config = config
 
-    async def review(self, prompt: str, pr_size_tokens: int) -> Dict:
+    async def review(self, prompt: str, pr_size_tokens: int, system_prompt: str | None = None) -> Dict:
         primary = self.config.get("primary_model", "deepseek-chat")
 
         # Enterprise user specified high-end model
         if "claude" in primary:
-            return await self.providers["anthropic"].review(prompt, primary)
+            return await self.providers["anthropic"].review(prompt, primary, system_prompt)
+
+        # Qwen strategy
+        if "qwen" in primary:
+            return await self.providers["qwen"].review(prompt, primary, system_prompt)
 
         # Default strategy: DeepSeek fast review
-        result = await self.providers["deepseek"].review(prompt, primary)
+        result = await self.providers["deepseek"].review(prompt, primary, system_prompt)
 
         # Dual-model verification
         if self.config.get("enable_reasoner_review", False):
@@ -41,7 +47,7 @@ class ReviewRouter:
             if has_risk and pr_size_tokens < 15000:
                 reasoner_prompt = self._build_reasoner_prompt(result, prompt)
                 reasoner_result = await self.providers["deepseek"].review(
-                    reasoner_prompt, "deepseek-reasoner"
+                    reasoner_prompt, "deepseek-reasoner", system_prompt
                 )
                 result = self._merge_results(result, reasoner_result)
 
@@ -87,10 +93,10 @@ class ReviewRouter:
 class ResilientReviewRouter(ReviewRouter):
     """具备降级能力的审查路由器"""
 
-    async def review(self, prompt: str, pr_size_tokens: int) -> Dict:
-        return await self.review_with_fallback(prompt, pr_size_tokens)
+    async def review(self, prompt: str, pr_size_tokens: int, system_prompt: str | None = None) -> Dict:
+        return await self.review_with_fallback(prompt, pr_size_tokens, system_prompt)
 
-    async def review_with_fallback(self, prompt: str, pr_size_tokens: int) -> Dict:
+    async def review_with_fallback(self, prompt: str, pr_size_tokens: int, system_prompt: str | None = None) -> Dict:
         models = [self.config.get("primary", "deepseek-chat")]
         models += self.config.get("fallback_chain", [])
 
@@ -100,7 +106,7 @@ class ResilientReviewRouter(ReviewRouter):
             for attempt in range(2):
                 try:
                     logger.info(f"Trying model {model}, attempt {attempt + 1}")
-                    return await provider.review(prompt, model)
+                    return await provider.review(prompt, model, system_prompt)
                 except RateLimitError:
                     await asyncio.sleep(2 ** attempt)
                 except APITimeoutError:
@@ -125,4 +131,6 @@ class ResilientReviewRouter(ReviewRouter):
     def _get_provider(self, model: str) -> LLMProvider:
         if "claude" in model:
             return self.providers["anthropic"]
+        if "qwen" in model:
+            return self.providers["qwen"]
         return self.providers["deepseek"]
