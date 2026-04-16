@@ -10,7 +10,9 @@ class RateLimiter:
     }
 
     @classmethod
-    def check_pr_size(cls, changed_files: int, diff_size_mb: float = 0) -> Tuple[bool, str]:
+    def check_pr_size(cls, changed_files: int, diff_content: str = "") -> Tuple[bool, str]:
+        diff_size_mb = len(diff_content.encode("utf-8")) / (1024 * 1024) if diff_content else 0
+
         if changed_files > cls.OVERSIZE_THRESHOLD["max_files"]:
             return (
                 False,

@@ -1,6 +1,7 @@
 from typing import Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Review, PRFile
@@ -21,7 +22,7 @@ class ReviewRepository:
         head_sha: Optional[str] = None,
         status: str = "pending",
         trigger_type: Optional[str] = None,
-    ) -> Review:
+    ) -> Optional[Review]:
         review = Review(
             platform=platform,
             repo_id=repo_id,
@@ -34,9 +35,15 @@ class ReviewRepository:
             trigger_type=trigger_type,
         )
         self.session.add(review)
-        await self.session.commit()
-        await self.session.refresh(review)
-        return review
+        try:
+            await self.session.commit()
+            await self.session.refresh(review)
+            return review
+        except IntegrityError:
+            await self.session.rollback()
+            if head_sha:
+                return await self.get_by_platform_repo_pr_sha(platform, repo_id, pr_number, head_sha)
+            return None
 
     async def get_by_id(self, review_id: int) -> Optional[Review]:
         result = await self.session.execute(select(Review).where(Review.id == review_id))
