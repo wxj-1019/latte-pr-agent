@@ -8,6 +8,7 @@ from webhooks.verifier import WebhookVerifier
 from webhooks.parser import WebhookParser
 from webhooks.rate_limiter import RateLimiter
 from services.review_service import run_review
+from tasks import get_celery_task
 
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
 
@@ -60,8 +61,22 @@ async def github_webhook(
         trigger_type=f"pull_request.{action}",
     )
 
-    background_tasks.add_task(run_review, review.id)
+    _dispatch_review(background_tasks, review.id)
     return {"message": "Review queued", "review_id": review.id}
+
+
+def _dispatch_review(background_tasks: BackgroundTasks, review_id: int) -> None:
+    """优先使用 Celery，失败则回退到 FastAPI BackgroundTasks。"""
+    try:
+        task = get_celery_task()
+        task.delay(review_id)
+    except Exception as exc:
+        # Fallback for environments without Celery/Redis available
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Celery dispatch failed ({exc}), falling back to BackgroundTasks"
+        )
+        background_tasks.add_task(run_review, review_id)
 
 
 @router.post("/gitlab")
@@ -108,5 +123,5 @@ async def gitlab_webhook(
         trigger_type=f"merge_request.{action}",
     )
 
-    background_tasks.add_task(run_review, review.id)
+    _dispatch_review(background_tasks, review.id)
     return {"message": "Review queued", "review_id": review.id}
