@@ -1,0 +1,419 @@
+/**
+ * Latte PR Agent - Apple-Style Theme Variables
+ * Theme: Latte Art meets Precision Engineering
+ * 
+ * Usage: Import this file at the root of your Next.js / React app.
+ * All variables use the --latte- prefix to avoid conflicts.
+ */
+
+:root {
+  /* ============================================
+     BACKGROUND LAYER - Espresso Black Family
+     ============================================ */
+  --latte-bg-deep: #030201;
+  --latte-bg-primary: #0A0806;
+  --latte-bg-secondary: #14110E;
+  --latte-bg-tertiary: #1E1A16;
+  --latte-bg-hover: #28231E;
+
+  /* ============================================
+     TEXT LAYER - Milk Foam Family
+     ============================================ */
+  --latte-text-primary: #F5E6D3;
+  --latte-text-secondary: #C4B5A5;
+  --latte-text-tertiary: #8B7D6D;
+  --latte-text-muted: #5C5246;
+
+  /* ============================================
+     ACCENT COLORS - The Latte Identity
+     ============================================ */
+  --latte-accent: #E8DCC4;
+  --latte-accent-hover: #F0E8D8;
+  --latte-gold: #C4A77D;
+  --latte-gold-dim: #8F7650;
+  --latte-rose: #D4A59A;
+  --latte-rose-dim: #A67B72;
+
+  /* ============================================
+     FUNCTIONAL COLORS - Organic Food Tones
+     ============================================ */
+  --latte-success: #7D8471;
+  --latte-success-bg: rgba(125, 132, 113, 0.12);
+  --latte-warning: #B85C38;
+  --latte-warning-bg: rgba(184, 92, 56, 0.12);
+  --latte-critical: #8B3A3A;
+  --latte-critical-bg: rgba(139, 58, 58, 0.12);
+  --latte-info: #9A8B7A;
+  --latte-info-bg: rgba(154, 139, 122, 0.12);
+
+  /* ============================================
+     EFFECTS - Glow & Shadow
+     ============================================ */
+  --latte-accent-glow: rgba(232, 220, 196, 0.15);
+  --latte-gold-glow: rgba(196, 167, 125, 0.25);
+  --latte-rose-glow: rgba(212, 165, 154, 0.2);
+  --latte-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --latte-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --latte-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.5);
+  --latte-shadow-gold: 0 8px 24px rgba(196, 167, 125, 0.15);
+
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", "PingFang SC", monospace;
+
+  /* ============================================
+     SPACING & RADIUS
+     ============================================ */
+  --latte-radius-sm: 8px;
+  --latte-radius-md: 12px;
+  --latte-radius-lg: 20px;
+  --latte-radius-xl: 24px;
+  --latte-radius-full: 9999px;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+html {
+  background-color: var(--latte-bg-primary);
+  color: var(--latte-text-primary);
+  font-family: var(--font-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--latte-bg-primary);
+  color: var(--latte-text-primary);
+}
+
+/* ============================================
+   HERO BACKGROUND GRADIENT
+   ============================================ */
+
+.latte-hero-bg {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 20% 40%,
+      rgba(196, 167, 125, 0.15),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 80%,
+      rgba(212, 165, 154, 0.08),
+      transparent
+    ),
+    var(--latte-bg-primary);
+}
+
+/* ============================================
+   GLASSMORPHISM PANEL
+   ============================================ */
+
+.latte-glass {
+  background: rgba(20, 17, 14, 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(245, 230, 211, 0.06);
+  border-radius: var(--latte-radius-xl);
+  box-shadow:
+    var(--latte-shadow-md),
+    inset 0 1px 0 rgba(245, 230, 211, 0.04);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.latte-glass:hover {
+  border-color: rgba(196, 167, 125, 0.2);
+  box-shadow:
+    var(--latte-shadow-gold),
+    inset 0 1px 0 rgba(245, 230, 211, 0.08);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.latte-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--latte-text-primary);
+  background: linear-gradient(
+    180deg,
+    rgba(232, 220, 196, 0.14),
+    rgba(232, 220, 196, 0.04)
+  );
+  border: 1px solid rgba(232, 220, 196, 0.22);
+  border-radius: var(--latte-radius-full);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.latte-btn-primary:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(232, 220, 196, 0.2),
+    rgba(232, 220, 196, 0.08)
+  );
+  border-color: rgba(232, 220, 196, 0.35);
+  box-shadow: var(--latte-shadow-gold);
+  transform: translateY(-1px);
+}
+
+.latte-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--latte-text-secondary);
+  background: transparent;
+  border: 1px solid rgba(245, 230, 211, 0.1);
+  border-radius: var(--latte-radius-full);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.latte-btn-secondary:hover {
+  background: var(--latte-bg-tertiary);
+  border-color: rgba(245, 230, 211, 0.18);
+  color: var(--latte-text-primary);
+}
+
+/* ============================================
+   BADGES
+   ============================================ */
+
+.latte-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: var(--latte-radius-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.latte-badge-success {
+  color: #D4DACA;
+  background: var(--latte-success-bg);
+}
+
+.latte-badge-warning {
+  color: #E8C4B0;
+  background: var(--latte-warning-bg);
+}
+
+.latte-badge-critical {
+  color: #E8B8B8;
+  background: var(--latte-critical-bg);
+}
+
+.latte-badge-info {
+  color: #D8CFC4;
+  background: var(--latte-info-bg);
+}
+
+.latte-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.latte-badge-success .latte-badge-dot { background: var(--latte-success); }
+.latte-badge-warning .latte-badge-dot { background: var(--latte-warning); }
+.latte-badge-critical .latte-badge-dot { background: var(--latte-critical); }
+.latte-badge-info .latte-badge-dot { background: var(--latte-info); }
+
+/* ============================================
+   FORM ELEMENTS
+   ============================================ */
+
+.latte-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--latte-text-primary);
+  background: var(--latte-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--latte-radius-md);
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+.latte-input::placeholder {
+  color: var(--latte-text-tertiary);
+}
+
+.latte-input:focus {
+  border-color: rgba(196, 167, 125, 0.4);
+  box-shadow: 0 0 0 3px rgba(196, 167, 125, 0.1);
+  background: var(--latte-bg-hover);
+}
+
+/* ============================================
+   TYPOGRAPHY HELPERS
+   ============================================ */
+
+.latte-display {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--latte-text-primary);
+}
+
+.latte-headline {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--latte-text-primary);
+}
+
+.latte-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  color: var(--latte-text-primary);
+}
+
+.latte-body {
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--latte-text-secondary);
+}
+
+.latte-caption {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--latte-text-tertiary);
+}
+
+/* ============================================
+   DASHBOARD SPECIFIC
+   ============================================ */
+
+.latte-sidebar {
+  width: 64px;
+  height: 100vh;
+  background: rgba(10, 8, 6, 0.8);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(245, 230, 211, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+  gap: 8px;
+}
+
+.latte-sidebar-item {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--latte-radius-md);
+  color: var(--latte-text-tertiary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.latte-sidebar-item:hover,
+.latte-sidebar-item.active {
+  color: var(--latte-gold);
+  background: rgba(196, 167, 125, 0.08);
+  box-shadow: 0 0 16px rgba(196, 167, 125, 0.1);
+}
+
+.latte-kpi-card {
+  padding: 28px;
+  background: var(--latte-bg-secondary);
+  border: 1px solid rgba(245, 230, 211, 0.04);
+  border-radius: var(--latte-radius-xl);
+}
+
+.latte-kpi-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--latte-text-primary);
+}
+
+/* ============================================
+   ANIMATION UTILITIES
+   ============================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  .latte-fade-up {
+    opacity: 0;
+    transform: translateY(40px);
+    filter: blur(8px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .latte-fade-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .latte-fade-up {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--latte-bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--latte-bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--latte-gold-dim);
+}

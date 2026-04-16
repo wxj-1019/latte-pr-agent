@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --latte-bg-deep: #030201;
+  --latte-bg-primary: #0A0806;
+  --latte-bg-secondary: #14110E;
+  --latte-bg-tertiary: #1E1A16;
+  --latte-bg-hover: #28231E;
+
+  --latte-text-primary: #F5E6D3;
+  --latte-text-secondary: #C4B5A5;
+  --latte-text-tertiary: #8B7D6D;
+  --latte-text-muted: #5C5246;
+
+  --latte-accent: #E8DCC4;
+  --latte-accent-hover: #F0E8D8;
+  --latte-gold: #C4A77D;
+  --latte-gold-dim: #8F7650;
+  --latte-gold-glow: rgba(196, 167, 125, 0.25);
+  --latte-rose: #D4A59A;
+  --latte-rose-dim: #A67B72;
+  --latte-rose-glow: rgba(212, 165, 154, 0.2);
+
+  --latte-success: #7D8471;
+  --latte-success-bg: rgba(125, 132, 113, 0.12);
+  --latte-warning: #B85C38;
+  --latte-warning-bg: rgba(184, 92, 56, 0.12);
+  --latte-critical: #8B3A3A;
+  --latte-critical-bg: rgba(139, 58, 58, 0.12);
+  --latte-info: #9A8B7A;
+  --latte-info-bg: rgba(154, 139, 122, 0.12);
+
+  --latte-severity-info: #9A8B7A;
+  --latte-severity-warning: #B85C38;
+  --latte-severity-critical: #8B3A3A;
+
+  --latte-github: #F5E6D3;
+  --latte-gitlab: #E8C4A0;
+
+  --latte-confidence-low: #8B7D6D;
+  --latte-confidence-med: #C4A77D;
+  --latte-confidence-high: #7D8471;
+
+  --latte-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --latte-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --latte-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.5);
+  --latte-shadow-gold: 0 8px 24px rgba(196, 167, 125, 0.15);
+
+  --latte-radius-sm: 8px;
+  --latte-radius-md: 12px;
+  --latte-radius-lg: 20px;
+  --latte-radius-xl: 24px;
+  --latte-radius-full: 9999px;
+}
+
+html {
+  background-color: var(--latte-bg-primary);
+  color: var(--latte-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--latte-bg-primary);
+  color: var(--latte-text-primary);
+  font-family: var(--font-text);
+}
+
+@layer components {
+  .latte-hero-bg {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 40%, rgba(196, 167, 125, 0.15), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(212, 165, 154, 0.08), transparent),
+      var(--latte-bg-primary);
+  }
+
+  .latte-glass {
+    background: rgba(20, 17, 14, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(245, 230, 211, 0.06);
+    border-radius: var(--latte-radius-xl);
+    box-shadow: var(--latte-shadow-md), inset 0 1px 0 rgba(245, 230, 211, 0.04);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .latte-glass:hover {
+    border-color: rgba(196, 167, 125, 0.2);
+    box-shadow: var(--latte-shadow-gold), inset 0 1px 0 rgba(245, 230, 211, 0.08);
+  }
+
+  .latte-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-300 ease-apple-smooth;
+    background: linear-gradient(180deg, rgba(232, 220, 196, 0.14), rgba(232, 220, 196, 0.04));
+    border: 1px solid rgba(232, 220, 196, 0.22);
+    border-radius: var(--latte-radius-full);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    color: var(--latte-text-primary);
+  }
+
+  .latte-btn-primary:hover {
+    background: linear-gradient(180deg, rgba(232, 220, 196, 0.2), rgba(232, 220, 196, 0.08));
+    border-color: rgba(232, 220, 196, 0.35);
+    box-shadow: var(--latte-shadow-gold);
+    transform: translateY(-1px);
+  }
+
+  .latte-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-300 ease-apple-smooth;
+    background: transparent;
+    border: 1px solid rgba(245, 230, 211, 0.1);
+    border-radius: var(--latte-radius-full);
+    color: var(--latte-text-secondary);
+  }
+
+  .latte-btn-secondary:hover {
+    background: var(--latte-bg-tertiary);
+    border-color: rgba(245, 230, 211, 0.18);
+    color: var(--latte-text-primary);
+  }
+
+  .latte-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold tracking-wide rounded-latte-sm;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .latte-badge-success { color: #D4DACA; background: var(--latte-success-bg); }
+  .latte-badge-warning { color: #E8C4B0; background: var(--latte-warning-bg); }
+  .latte-badge-critical { color: #E8B8B8; background: var(--latte-critical-bg); }
+  .latte-badge-info { color: #D8CFC4; background: var(--latte-info-bg); }
+
+  .latte-badge-dot {
+    @apply rounded-full;
+    width: 6px;
+    height: 6px;
+  }
+
+  .latte-input {
+    @apply w-full px-4 py-3 text-base outline-none transition-all duration-200;
+    font-family: inherit;
+    color: var(--latte-text-primary);
+    background: var(--latte-bg-tertiary);
+    border: 1px solid transparent;
+    border-radius: var(--latte-radius-md);
+  }
+
+  .latte-input::placeholder {
+    color: var(--latte-text-tertiary);
+  }
+
+  .latte-input:focus {
+    border-color: rgba(196, 167, 125, 0.4);
+    box-shadow: 0 0 0 3px rgba(196, 167, 125, 0.1);
+    background: var(--latte-bg-hover);
+  }
+
+  .latte-sidebar {
+    @apply flex flex-col items-center;
+    width: 64px;
+    height: 100vh;
+    background: rgba(10, 8, 6, 0.8);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(245, 230, 211, 0.04);
+  }
+
+  .latte-sidebar-item {
+    @apply flex items-center justify-center transition-all duration-200;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--latte-radius-md);
+    color: var(--latte-text-tertiary);
+    cursor: pointer;
+  }
+
+  .latte-sidebar-item:hover,
+  .latte-sidebar-item.active {
+    color: var(--latte-gold);
+    background: rgba(196, 167, 125, 0.08);
+    box-shadow: 0 0 16px rgba(196, 167, 125, 0.1);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-spin-slow {
+    animation: spin 2s linear infinite;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--latte-bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--latte-bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--latte-gold-dim);
+}
