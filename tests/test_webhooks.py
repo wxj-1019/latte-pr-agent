@@ -28,6 +28,17 @@ def test_verify_github_missing_signature():
     assert WebhookVerifier.verify_github(b"payload", "", "secret") is False
 
 
+@pytest.mark.asyncio
+async def test_github_webhook_missing_signature(client_with_db: TestClient):
+    response = client_with_db.post(
+        "/webhook/github",
+        content=b'{}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 401
+    assert "Missing" in response.json()["detail"]
+
+
 def test_verify_gitlab_valid():
     assert WebhookVerifier.verify_gitlab("token123", "token123") is True
 
@@ -95,7 +106,8 @@ def test_rate_limiter_oversize_files():
 
 
 def test_rate_limiter_oversize_diff():
-    allowed, msg = RateLimiter.check_pr_size(10, diff_size_mb=51)
+    big_diff = "x" * (51 * 1024 * 1024)
+    allowed, msg = RateLimiter.check_pr_size(10, diff_content=big_diff)
     assert allowed is False
     assert "50MB" in msg
 

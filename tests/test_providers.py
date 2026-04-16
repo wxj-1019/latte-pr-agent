@@ -1,5 +1,6 @@
+import httpx
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from providers import GitHubProvider, GitLabProvider, GitProviderFactory
 
@@ -73,6 +74,28 @@ async def test_github_provider_get_pr_info(mock_github_client):
     assert info["title"] == "Test PR"
     assert info["author"] == "testuser"
     assert info["head_sha"] == "abc123"
+
+
+# ==================== GitHub Provider Diff Tests ====================
+
+@pytest.mark.asyncio
+async def test_github_provider_get_diff_content_with_retry(mock_github_client):
+    with patch("providers.github_provider.Github", return_value=mock_github_client):
+        provider = GitHubProvider(token="fake_token", repo="owner/repo", pr_number=42)
+
+    with patch("providers.github_provider.httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.text = "diff content"
+        mock_response.raise_for_status = MagicMock()
+        mock_get.side_effect = [
+            httpx.TimeoutException("timeout"),
+            httpx.NetworkError("network error"),
+            mock_response,
+        ]
+        diff = await provider.get_diff_content()
+
+    assert diff == "diff content"
+    assert mock_get.call_count == 3
 
 
 # ==================== GitLab Provider Tests ====================
