@@ -20,6 +20,8 @@ async def github_webhook(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     payload_bytes = await request.body()
+    if not x_hub_signature_256:
+        raise HTTPException(status_code=401, detail="Missing webhook signature")
     if not WebhookVerifier.verify_github(
         payload_bytes, x_hub_signature_256, settings.github_webhook_secret
     ):

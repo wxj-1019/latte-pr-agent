@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 import httpx
@@ -47,16 +48,23 @@ class GitHubProvider(GitProvider):
         )
 
     async def get_diff_content(self) -> str:
-        async with httpx.AsyncClient() as http:
-            response = await http.get(
-                f"https://api.github.com/repos/{self.repo_name}/pulls/{self.pr_number}",
-                headers={
-                    "Authorization": f"token {self.token}",
-                    "Accept": "application/vnd.github.v3.diff",
-                },
-            )
-            response.raise_for_status()
-            return response.text
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            for attempt in range(3):
+                try:
+                    response = await http.get(
+                        f"https://api.github.com/repos/{self.repo_name}/pulls/{self.pr_number}",
+                        headers={
+                            "Authorization": f"token {self.token}",
+                            "Accept": "application/vnd.github.v3.diff",
+                        },
+                    )
+                    response.raise_for_status()
+                    return response.text
+                except (httpx.TimeoutException, httpx.NetworkError):
+                    if attempt == 2:
+                        raise
+                    await asyncio.sleep(2 ** attempt)
+        return ""
 
     async def get_pr_info(self) -> dict:
         return {

@@ -6,12 +6,21 @@ import redis.asyncio as redis
 
 from config import settings
 
+_redis_pool: Optional[redis.ConnectionPool] = None
+
+
+def get_redis_client() -> redis.Redis:
+    global _redis_pool
+    if _redis_pool is None:
+        _redis_pool = redis.ConnectionPool.from_url(settings.redis_url)
+    return redis.Redis(connection_pool=_redis_pool)
+
 
 class ReviewCache:
     """基于 diff hash 的审查结果缓存"""
 
     def __init__(self, redis_client: Optional[redis.Redis] = None):
-        self.redis = redis_client or redis.from_url(settings.redis_url)
+        self.redis = redis_client or get_redis_client()
         self.ttl_seconds = 3600  # 1 hour
 
     def _make_key(self, diff_content: str, prompt_version: str, model: str) -> str:

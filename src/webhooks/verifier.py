@@ -18,7 +18,7 @@ class WebhookVerifier:
 
     @staticmethod
     def verify_gitlab(token: str, secret: str) -> bool:
-        """GitHub: Secret Token 安全比对（防止时序攻击）"""
+        """GitLab: Secret Token 安全比对（防止时序攻击）"""
         if not token or not secret:
             return False
         return secrets.compare_digest(token, secret)

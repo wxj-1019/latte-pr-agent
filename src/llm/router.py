@@ -33,10 +33,11 @@ class ReviewRouter:
 
         # Dual-model verification
         if self.config.get("enable_reasoner_review", False):
+            issues = result.get("issues", []) if isinstance(result, dict) else []
             has_risk = any(
-                i.get("severity") in ["critical", "warning"]
-                for i in result.get("issues", [])
-            )
+                isinstance(i, dict) and i.get("severity") in ["critical", "warning"]
+                for i in issues
+            ) if issues else False
             if has_risk and pr_size_tokens < 15000:
                 reasoner_prompt = self._build_reasoner_prompt(result, prompt)
                 reasoner_result = await self.providers["deepseek"].review(

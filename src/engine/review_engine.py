@@ -4,11 +4,14 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from context.builder import PRDiff, ProjectContextBuilder
+from config.project_config import ReviewConfig
 from llm import ReviewRouter
+from rag import RAGRetriever
 from repositories import ReviewRepository, FindingRepository
 from static import SemgrepAnalyzer, FindingMerger
 from engine.deduplicator import CommentDeduplicator
 from engine.cache import ReviewCache
+from engine.rule_engine import RuleEngine
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +26,26 @@ class ReviewEngine:
         cache: Optional[ReviewCache] = None,
         prompt_version: str = "v1",
         enable_static_analysis: bool = True,
+        repo_id: str = "",
+        project_config: Optional[ReviewConfig] = None,
     ):
         self.session = session
         self.router = router
         self.cache = cache
         self.prompt_version = prompt_version
         self.enable_static_analysis = enable_static_analysis
+        self.repo_id = repo_id
+        self.project_config = project_config
         self.review_repo = ReviewRepository(session)
         self.finding_repo = FindingRepository(session)
         self.deduplicator = CommentDeduplicator(session)
-        self.context_builder = ProjectContextBuilder()
+        rag_retriever = RAGRetriever() if repo_id else None
+        self.context_builder = ProjectContextBuilder(
+            db_session=session, repo_id=repo_id, rag_retriever=rag_retriever
+        )
         self.semgrep = SemgrepAnalyzer()
         self.merger = FindingMerger()
+        self.rule_engine = RuleEngine(project_config) if project_config else None
 
     async def run(
         self,
@@ -59,8 +70,8 @@ class ReviewEngine:
                 return {**cached, "cached": True}
 
         # 2. Build context (ProjectContextBuilder)
-        pr_diff_obj = PRDiff(content=pr_diff)
-        built_context = self.context_builder.build_context(pr_diff_obj)
+        pr_diff_obj = PRDiff(content=pr_diff, repo_id=self.repo_id)
+        built_context = await self.context_builder.build_context(pr_diff_obj)
         if context:
             built_context.update(context)
 
@@ -85,10 +96,21 @@ class ReviewEngine:
             except Exception as exc:
                 logger.warning(f"Review {review_id}: static analysis failed: {exc}")
 
+        # 5.5 Rule engine analysis
+        rule_findings: List[dict] = []
+        if self.rule_engine and changed_files:
+            try:
+                rule_findings = self.rule_engine.analyze(changed_files, pr_diff)
+                logger.info(f"Review {review_id}: rule engine found {len(rule_findings)} issues")
+            except Exception as exc:
+                logger.warning(f"Review {review_id}: rule engine failed: {exc}")
+
+        all_static = static_findings + rule_findings
+
         # 6. Merge results
         merged_result = self.merger.merge_with_degraded(
             ai_result.get("issues", []),
-            static_findings,
+            all_static,
             degraded=degraded,
         )
         # Preserve extra fields from AI result
