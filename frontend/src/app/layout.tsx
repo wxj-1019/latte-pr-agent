@@ -1,0 +1,21 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Latte PR Agent - Enterprise AI Code Review",
+  description: "Enterprise AI Code Review System with multi-model intelligence, context-aware analysis, and quality gates.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="zh-CN">
+      <body className="antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
