@@ -1,8 +1,14 @@
+import asyncio
+import logging
 from typing import Dict, Optional
+
+from openai import RateLimitError, APITimeoutError
 
 from llm.base import LLMProvider
 from llm.deepseek import DeepSeekProvider
 from llm.anthropic import AnthropicProvider
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewRouter:
@@ -75,3 +81,47 @@ class ReviewRouter:
         primary["issues"] = merged_issues
         primary["reasoner_reviewed"] = True
         return primary
+
+
+class ResilientReviewRouter(ReviewRouter):
+    """具备降级能力的审查路由器"""
+
+    async def review(self, prompt: str, pr_size_tokens: int) -> Dict:
+        return await self.review_with_fallback(prompt, pr_size_tokens)
+
+    async def review_with_fallback(self, prompt: str, pr_size_tokens: int) -> Dict:
+        models = [self.config.get("primary", "deepseek-chat")]
+        models += self.config.get("fallback_chain", [])
+
+        last_error = None
+        for model in models:
+            provider = self._get_provider(model)
+            for attempt in range(2):
+                try:
+                    logger.info(f"Trying model {model}, attempt {attempt + 1}")
+                    return await provider.review(prompt, model)
+                except RateLimitError:
+                    await asyncio.sleep(2 ** attempt)
+                except APITimeoutError:
+                    if attempt == 1:
+                        break  # 切换下一个模型
+                except Exception as e:
+                    logger.warning(f"Model {model} failed: {e}")
+                    last_error = e
+                    if attempt == 1:
+                        break
+
+        # 所有模型均不可用：返回降级结果
+        logger.error(f"All models down. Last error: {last_error}")
+        return {
+            "summary": "AI 模型服务暂时不可用，本次仅展示静态分析结果",
+            "risk_level": "low",
+            "issues": [],
+            "degraded": True,
+            "error": str(last_error) if last_error else "unknown",
+        }
+
+    def _get_provider(self, model: str) -> LLMProvider:
+        if "claude" in model:
+            return self.providers["anthropic"]
+        return self.providers["deepseek"]

@@ -1,6 +1,6 @@
 from sqlalchemy import JSON
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from config import settings
 
@@ -12,7 +12,14 @@ class Base(AsyncAttrs, DeclarativeBase):
     }
 
 
-async_engine = create_async_engine(settings.database_url, echo=settings.app_env == "development")
+async_engine = create_async_engine(
+    settings.database_url,
+    echo=settings.app_env == "development",
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
 

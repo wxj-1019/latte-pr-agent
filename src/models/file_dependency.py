@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,4 +15,4 @@ class FileDependency(Base):
     downstream_file: Mapped[str] = mapped_column(Text)
     upstream_file: Mapped[str] = mapped_column(Text)
     relation_type: Mapped[str] = mapped_column(String(20), default="import")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))

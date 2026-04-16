@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import ForeignKey, String, Text, Integer, JSON, UniqueConstraint
@@ -26,7 +26,7 @@ class Review(Base):
     trigger_type: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     review_mode: Mapped[str] = mapped_column(String(20), default="incremental")
     diff_stats: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     findings: Mapped[List["ReviewFinding"]] = relationship(
@@ -60,4 +60,4 @@ class ProjectConfig(Base):
     platform: Mapped[str] = mapped_column(String(20))
     repo_id: Mapped[str] = mapped_column(String(100))
     config_json: Mapped[dict] = mapped_column(JSON)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))

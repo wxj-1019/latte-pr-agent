@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import String, Text
@@ -19,4 +19,4 @@ class BugKnowledge(Base):
     fix_commit: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     fix_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # embedding is handled via raw SQL for pgvector; kept nullable here for ORM compatibility
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))

@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import secrets
 
 
 class WebhookVerifier:
@@ -13,11 +14,11 @@ class WebhookVerifier:
         expected = "sha256=" + hmac.new(
             secret.encode(), payload, hashlib.sha256
         ).hexdigest()
-        return hmac.compare_digest(expected, signature)
+        return secrets.compare_digest(expected, signature)
 
     @staticmethod
     def verify_gitlab(token: str, secret: str) -> bool:
-        """GitLab: Secret Token 比对"""
+        """GitHub: Secret Token 安全比对（防止时序攻击）"""
         if not token or not secret:
             return False
-        return hmac.compare_digest(token, secret)
+        return secrets.compare_digest(token, secret)
