@@ -158,6 +158,48 @@ def test_review_cache_uses_connection_pool():
         cache_module._redis_pool = original_pool
 
 
+# ==================== ProjectConfig Model Override Tests ====================
+
+@pytest.mark.asyncio
+async def test_review_engine_uses_project_config_model(async_db_session: AsyncSession, mock_router, mock_cache):
+    from config.project_config import ReviewConfig
+
+    # Set up providers attribute so _get_effective_router can clone the router
+    mock_router.providers = {"deepseek": MagicMock(), "anthropic": MagicMock()}
+
+    config = ReviewConfig(ai_model={"primary": "claude-3-5-sonnet"})
+    engine = ReviewEngine(async_db_session, mock_router, mock_cache, project_config=config)
+
+    # Verify effective router was created with claude config
+    effective_router = engine._get_effective_router()
+    assert effective_router.config["primary_model"] == "claude-3-5-sonnet"
+    assert effective_router.config["primary"] == "claude-3-5-sonnet"
+
+
+@pytest.mark.asyncio
+async def test_review_engine_chunking_for_large_pr(async_db_session: AsyncSession, mock_router, mock_cache):
+    from repositories import ReviewRepository
+
+    review = await ReviewRepository(async_db_session).create(
+        platform="github", repo_id="o/r", pr_number=21, status="pending"
+    )
+
+    # Simulate a large diff with multiple files so chunking produces >1 chunks
+    parts = []
+    for i in range(20):
+        parts.append(f"diff --git a/src/f{i}.py b/src/f{i}.py\n--- a/src/f{i}.py\n+++ b/src/f{i}.py\n")
+        parts.append("@@ -1,1 +1,1 @@\n-old\n+new\n" * 100)
+    large_diff = "".join(parts)
+
+    mock_router.review = AsyncMock(return_value={"issues": [], "summary": "ok", "risk_level": "low"})
+
+    engine = ReviewEngine(async_db_session, mock_router, mock_cache)
+    result = await engine.run(review.id, large_diff, pr_size_tokens=20000)
+
+    # Chunking should cause multiple review calls
+    assert mock_router.review.call_count > 1
+
+
 # ==================== Static Analysis Integration Tests ====================
 
 @pytest.mark.asyncio

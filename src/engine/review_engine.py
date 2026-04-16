@@ -12,6 +12,7 @@ from static import SemgrepAnalyzer, FindingMerger
 from engine.deduplicator import CommentDeduplicator
 from engine.cache import ReviewCache
 from engine.rule_engine import RuleEngine
+from engine.chunker import PRChunker
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +76,17 @@ class ReviewEngine:
         if context:
             built_context.update(context)
 
-        # 3. Build prompt
-        prompt = self._build_prompt(pr_diff, built_context)
+        # 3. Determine effective model from project config if available
+        effective_router = self._get_effective_router()
 
-        # 4. Call LLM
-        try:
-            ai_result = await self.router.review(prompt, pr_size_tokens)
-        except Exception as exc:
-            logger.exception(f"Review {review_id}: LLM call failed: {exc}")
-            ai_result = {"issues": [], "summary": "LLM error", "risk_level": "low", "degraded": True}
+        # 4. Build prompt and call LLM (with chunking for large PRs)
+        ai_result = await self._run_llm_review(
+            review_id=review_id,
+            pr_diff=pr_diff,
+            built_context=built_context,
+            pr_size_tokens=pr_size_tokens,
+            router=effective_router,
+        )
 
         degraded = ai_result.get("degraded", False)
 
@@ -127,6 +130,75 @@ class ReviewEngine:
             await self.cache.set(pr_diff, self.prompt_version, primary_model, merged_result)
 
         return merged_result
+
+    def _get_effective_router(self):
+        """如果 project_config 中指定了 ai_model，则返回一个覆盖 primary 配置的 router。"""
+        if not self.project_config:
+            return self.router
+        primary = self.project_config.ai_model.primary
+        if not primary:
+            return self.router
+        # Create a shallow copy of router config with overridden primary
+        import copy
+        new_config = copy.deepcopy(self.router.config)
+        new_config["primary_model"] = primary
+        if hasattr(self.router, "config"):
+            # For ResilientReviewRouter, also update "primary"
+            new_config["primary"] = primary
+        # Instantiate same class with new config
+        return self.router.__class__(config=new_config, providers=self.router.providers)
+
+    async def _run_llm_review(
+        self,
+        review_id: int,
+        pr_diff: str,
+        built_context: Dict,
+        pr_size_tokens: int,
+        router,
+    ) -> Dict:
+        """对 PR diff 执行 LLM 审查。超大 PR 自动分块审查后合并结果。"""
+        max_chunk_tokens = 6000
+        if pr_size_tokens <= max_chunk_tokens:
+            prompt = self._build_prompt(pr_diff, built_context)
+            try:
+                return await router.review(prompt, pr_size_tokens)
+            except Exception as exc:
+                logger.exception(f"Review {review_id}: LLM call failed: {exc}")
+                return {"issues": [], "summary": "LLM error", "risk_level": "low", "degraded": True}
+
+        # Large PR: chunk and review each part
+        logger.info(f"Review {review_id}: PR exceeds {max_chunk_tokens} tokens, using chunking")
+        chunker = PRChunker(max_chunk_tokens=max_chunk_tokens)
+        chunks = chunker.chunk(pr_diff)
+        all_issues = []
+        summaries = []
+        reasoner_reviewed = False
+
+        for idx, chunk in enumerate(chunks):
+            prompt = self._build_prompt(chunk["content"], built_context)
+            try:
+                part_result = await router.review(prompt, chunk["tokens"])
+            except Exception as exc:
+                logger.exception(f"Review {review_id}: LLM chunk {idx} failed: {exc}")
+                continue
+            all_issues.extend(part_result.get("issues", []))
+            if part_result.get("summary"):
+                summaries.append(part_result["summary"])
+            if part_result.get("reasoner_reviewed"):
+                reasoner_reviewed = True
+
+        if not all_issues and not summaries:
+            return {"issues": [], "summary": "LLM error", "risk_level": "low", "degraded": True}
+
+        return {
+            "issues": all_issues,
+            "summary": " | ".join(summaries) if summaries else "Review completed",
+            "risk_level": "high" if any(i.get("severity") == "critical" for i in all_issues)
+            else "medium" if any(i.get("severity") == "warning" for i in all_issues)
+            else "low",
+            "degraded": False,
+            "reasoner_reviewed": reasoner_reviewed,
+        }
 
     def _build_prompt(self, pr_diff: str, context: Dict) -> str:
         ctx_lines = []
