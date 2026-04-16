@@ -3,8 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import get_db
 from repositories import FindingRepository
+from feedback.metrics import ReviewMetricsService
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
+
+
+@router.get("/metrics/{repo_id}")
+async def get_metrics(
+    repo_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    service = ReviewMetricsService(db)
+    return await service.get_repo_metrics(repo_id)
 
 
 @router.post("/{finding_id}")
