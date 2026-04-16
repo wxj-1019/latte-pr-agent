@@ -3,6 +3,7 @@ from models.review import Review, PRFile, ProjectConfig
 from models.finding import ReviewFinding, DeveloperFeedback
 from models.bug_knowledge import BugKnowledge
 from models.file_dependency import FileDependency
+from models.prompt_experiment import PromptExperiment, PromptExperimentAssignment
 
 __all__ = [
     "Base",
@@ -15,4 +16,6 @@ __all__ = [
     "DeveloperFeedback",
     "BugKnowledge",
     "FileDependency",
+    "PromptExperiment",
+    "PromptExperimentAssignment",
 ]

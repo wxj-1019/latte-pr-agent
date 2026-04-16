@@ -2,7 +2,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from llm import DeepSeekProvider, AnthropicProvider, ReviewRouter, ResilientReviewRouter
+from llm import DeepSeekProvider, AnthropicProvider, QwenProvider, ReviewRouter, ResilientReviewRouter
 from openai import RateLimitError, APITimeoutError
 
 
@@ -131,7 +131,7 @@ async def test_router_deepseek_default():
         providers={"deepseek": mock_deepseek, "anthropic": MagicMock()},
     )
     result = await router.review("code", pr_size_tokens=1000)
-    mock_deepseek.review.assert_called_once_with("code", "deepseek-chat")
+    mock_deepseek.review.assert_called_once_with("code", "deepseek-chat", None)
 
 
 @pytest.mark.asyncio
@@ -258,3 +258,66 @@ async def test_resilient_router_anthropic_fallback():
     result = await router.review("code", pr_size_tokens=100)
     assert result["issues"][0]["severity"] == "info"
     mock_anthropic.review.assert_called_once()
+
+
+# ==================== Qwen Provider Tests ====================
+
+@pytest.mark.asyncio
+async def test_qwen_review_success(mock_openai_response):
+    provider = QwenProvider(api_key="fake")
+    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, return_value=mock_openai_response):
+        result = await provider.review("Review this code", "qwen-coder-plus-latest")
+
+    assert result["issues"][0]["severity"] == "critical"
+    assert result["risk_level"] == "high"
+
+
+@pytest.mark.asyncio
+async def test_qwen_review_json_repair():
+    provider = QwenProvider(api_key="fake")
+    broken_response = MagicMock()
+    broken_response.choices = [MagicMock()]
+    broken_response.choices[0].message.content = '{"issues": [{"file": "a.py", "line": 1, "severity": "warning", "description": "bad"}]}'
+
+    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, return_value=broken_response):
+        result = await provider.review("Review this code", "qwen-coder-plus-latest")
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["severity"] == "warning"
+
+
+@pytest.mark.asyncio
+async def test_qwen_review_retry_then_fail():
+    provider = QwenProvider(api_key="fake")
+    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, side_effect=Exception("API error")):
+        result = await provider.review("Review this code", "qwen-coder-plus-latest")
+
+    assert "error" in result
+    assert result["error"] == "api_call_failed"
+
+
+@pytest.mark.asyncio
+async def test_router_uses_qwen():
+    mock_qwen = MagicMock()
+    mock_qwen.review = AsyncMock(return_value={"issues": []})
+    router = ReviewRouter(
+        config={"primary_model": "qwen-coder-plus-latest"},
+        providers={"qwen": mock_qwen, "deepseek": MagicMock(), "anthropic": MagicMock()},
+    )
+    result = await router.review("code", pr_size_tokens=1000)
+    mock_qwen.review.assert_called_once_with("code", "qwen-coder-plus-latest", None)
+
+
+@pytest.mark.asyncio
+async def test_resilient_router_qwen_fallback():
+    mock_deepseek = MagicMock()
+    mock_deepseek.review = AsyncMock(side_effect=APITimeoutError("timeout"))
+    mock_qwen = MagicMock()
+    mock_qwen.review = AsyncMock(return_value={"issues": [{"severity": "info"}]})
+    router = ResilientReviewRouter(
+        config={"primary": "deepseek-chat", "fallback_chain": ["qwen-coder-plus-latest"]},
+        providers={"deepseek": mock_deepseek, "qwen": mock_qwen, "anthropic": MagicMock()},
+    )
+    result = await router.review("code", pr_size_tokens=100)
+    assert result["issues"][0]["severity"] == "info"
+    mock_qwen.review.assert_called_once()

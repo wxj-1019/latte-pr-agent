@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    qwen_api_key: str = ""
 
     # App
     app_env: str = "development"

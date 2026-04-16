@@ -44,6 +44,16 @@ class DualModelVerificationConfig(BaseModel):
     max_reasoner_context_tokens: int = 15000
 
 
+class DownstreamService(BaseModel):
+    repo_id: str
+    platform: str = "github"
+
+
+class CrossServiceConfig(BaseModel):
+    enabled: bool = False
+    downstream_repos: List[DownstreamService] = Field(default_factory=list)
+
+
 class ReviewConfig(BaseModel):
     language: str = "python"
     framework: Optional[str] = None
@@ -53,6 +63,7 @@ class ReviewConfig(BaseModel):
     custom_rules: List[CustomRule] = Field(default_factory=list)
     ai_model: AIModelConfig = Field(default_factory=AIModelConfig)
     dual_model_verification: DualModelVerificationConfig = Field(default_factory=DualModelVerificationConfig)
+    cross_service: CrossServiceConfig = Field(default_factory=CrossServiceConfig)
     block_on_critical: bool = True
 
     @field_validator("critical_paths", "ignore_patterns", mode="before")

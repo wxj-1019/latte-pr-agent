@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: latte-pr-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: latte-pr-agent:latest
+          command: ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=8"]
+          envFrom:
+            - configMapRef:
+                name: latte-config
+            - secretRef:
+                name: latte-secrets
+          resources:
+            limits:
+              cpu: "2"
+              memory: "2Gi"

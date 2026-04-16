@@ -18,6 +18,7 @@ class ReviewMetricsService:
         false_positive_count = await self._count_false_positives(repo_id)
         severity_distribution = await self._severity_distribution(repo_id)
         category_distribution = await self._category_distribution(repo_id)
+        prompt_version_metrics = await self._prompt_version_metrics(repo_id)
 
         fp_rate = 0.0
         if total_findings > 0:
@@ -31,6 +32,7 @@ class ReviewMetricsService:
             "false_positive_rate": fp_rate,
             "severity_distribution": severity_distribution,
             "category_distribution": category_distribution,
+            "prompt_version_metrics": prompt_version_metrics,
         }
 
     async def _count_reviews(self, repo_id: str) -> int:
@@ -75,3 +77,29 @@ class ReviewMetricsService:
             .group_by(ReviewFinding.category)
         )
         return {row[0] or "unknown": row[1] for row in result.all()}
+
+    async def _prompt_version_metrics(self, repo_id: str) -> List[Dict]:
+        """按 prompt_version 统计 findings 和 false positive 率。"""
+        result = await self.session.execute(
+            select(
+                Review.prompt_version,
+                func.count(ReviewFinding.id).label("total"),
+                func.count(DeveloperFeedback.id).filter(
+                    DeveloperFeedback.is_false_positive.is_(True)
+                ).label("fp"),
+            )
+            .join(ReviewFinding, ReviewFinding.review_id == Review.id)
+            .outerjoin(DeveloperFeedback, ReviewFinding.id == DeveloperFeedback.finding_id)
+            .where(Review.repo_id == repo_id)
+            .group_by(Review.prompt_version)
+        )
+        metrics = []
+        for row in result.all():
+            version, total, fp = row
+            metrics.append({
+                "prompt_version": version or "unknown",
+                "total_findings": total,
+                "false_positives": fp,
+                "false_positive_rate": round(fp / total, 4) if total else 0.0,
+            })
+        return metrics

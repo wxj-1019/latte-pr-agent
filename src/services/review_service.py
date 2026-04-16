@@ -15,6 +15,7 @@ from providers import GitProviderFactory
 from repositories import ReviewRepository
 from feedback.publisher import ReviewPublisher
 from feedback.quality_gate import QualityGate
+from prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,11 @@ async def run_review(review_id: int) -> None:
                     except Exception as exc:
                         logger.warning(f"Review {review_id}: dependency graph build failed: {exc}")
 
+                # Determine prompt version via A/B experiment registry
+                prompt_registry = PromptRegistry(session)
+                await prompt_registry.load_from_db()
+                prompt_version = await prompt_registry.get_experiment_assignment(review.repo_id)
+
                 # Build resilient LLM router with fallback chain
                 router = ResilientReviewRouter(config={
                     "primary": "deepseek-chat",
@@ -100,6 +106,7 @@ async def run_review(review_id: int) -> None:
                 # Run engine with optional static analysis
                 engine = ReviewEngine(
                     session, router, cache,
+                    prompt_version=prompt_version,
                     enable_static_analysis=True,
                     repo_id=review.repo_id,
                     project_config=project_config,
