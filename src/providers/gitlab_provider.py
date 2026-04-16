@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from typing import Optional
 
 import gitlab
@@ -14,7 +16,7 @@ class GitLabProvider(GitProvider):
         self.project = self.gl.projects.get(project_id)
         self.mr: ProjectMergeRequest = self.project.mergerequests.get(mr_iid)
 
-    async def publish_review_comment(self, file: str, line: int, comment: str) -> None:
+    def _sync_publish_review_comment(self, file: str, line: int, comment: str) -> None:
         self.mr.discussions.create(
             {
                 "body": comment,
@@ -29,18 +31,20 @@ class GitLabProvider(GitProvider):
             }
         )
 
+    async def publish_review_comment(self, file: str, line: int, comment: str) -> None:
+        await asyncio.get_event_loop().run_in_executor(
+            None, partial(self._sync_publish_review_comment, file, line, comment)
+        )
+
     async def publish_inline_suggestion(
         self, file: str, line: int, suggestion: str
     ) -> None:
-        # GitLab Code Suggestion 格式
         body = f"```suggestion:-0+0\n{suggestion}\n```"
         await self.publish_review_comment(file, line, body)
 
-    async def set_status_check(
-        self, status: str, description: str, context: str = "ai-code-review"
+    def _sync_set_status_check(
+        self, status: str, description: str, context: str
     ) -> None:
-        # GitLab Commit Status API
-        # Map failure -> failed for GitLab
         gitlab_state = status if status != "failure" else "failed"
         self.project.commits.get(self.mr.sha).statuses.create(
             {
@@ -51,15 +55,26 @@ class GitLabProvider(GitProvider):
             }
         )
 
-    async def get_diff_content(self) -> str:
-        # 获取 MR changes 的 diff
+    async def set_status_check(
+        self, status: str, description: str, context: str = "ai-code-review"
+    ) -> None:
+        await asyncio.get_event_loop().run_in_executor(
+            None, partial(self._sync_set_status_check, status, description, context)
+        )
+
+    def _sync_get_diff_content(self) -> str:
         changes = self.mr.changes()
         diffs = []
         for change in changes.get("changes", []):
             diffs.append(change.get("diff", ""))
         return "\n".join(diffs)
 
-    async def get_pr_info(self) -> dict:
+    async def get_diff_content(self) -> str:
+        return await asyncio.get_event_loop().run_in_executor(
+            None, self._sync_get_diff_content
+        )
+
+    def _sync_get_pr_info(self) -> dict:
         return {
             "number": self.mr.iid,
             "title": self.mr.title,
@@ -68,3 +83,8 @@ class GitLabProvider(GitProvider):
             "base_branch": self.mr.target_branch,
             "head_branch": self.mr.source_branch,
         }
+
+    async def get_pr_info(self) -> dict:
+        return await asyncio.get_event_loop().run_in_executor(
+            None, self._sync_get_pr_info
+        )

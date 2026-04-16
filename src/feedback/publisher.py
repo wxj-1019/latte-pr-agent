@@ -17,12 +17,13 @@ class ReviewPublisher:
     async def publish(self, review_id: int) -> None:
         findings = await FindingRepository(self.session).get_by_review(review_id)
         for finding in findings:
+            raw = finding.raw_response or {}
             formatted = self.formatter.format(
                 {
                     "severity": finding.severity,
                     "description": finding.description,
-                    "evidence": "",
-                    "reasoning": "",
+                    "evidence": raw.get("evidence", ""),
+                    "reasoning": raw.get("reasoning", ""),
                     "suggestion": finding.suggestion,
                 }
             )

@@ -49,5 +49,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# IDE / AI assistants
+.claude/
+
 # Logs
 *.log

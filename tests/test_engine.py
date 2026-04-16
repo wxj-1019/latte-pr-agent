@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from engine import ReviewEngine, CommentDeduplicator, ReviewCache, PRChunker
-from llm import ReviewRouter
+from llm import ReviewRouter, ResilientReviewRouter
 from models import Review
 
 
@@ -143,3 +143,67 @@ def test_pr_chunker_by_function():
     chunker = PRChunker(max_chunk_tokens=100)
     chunks = chunker.chunk(diff)
     assert len(chunks) > 1
+
+
+# ==================== Static Analysis Integration Tests ====================
+
+@pytest.mark.asyncio
+async def test_review_engine_with_static_analysis(async_db_session: AsyncSession, mock_router, mock_cache):
+    from repositories import ReviewRepository
+    review = await ReviewRepository(async_db_session).create(
+        platform="github", repo_id="o/r", pr_number=10, status="pending"
+    )
+
+    engine = ReviewEngine(async_db_session, mock_router, mock_cache, enable_static_analysis=True)
+
+    with patch("engine.review_engine.SemgrepAnalyzer.analyze", return_value=[
+        {"file": "src/main.py", "line": 5, "category": "security", "severity": "critical", "description": "SQLi", "confidence": 0.9, "source": "semgrep"}
+    ]):
+        result = await engine.run(
+            review.id,
+            "diff --git a/src/main.py b/src/main.py\n@@ -1 +1 @@\n-old\n+new\n",
+            pr_size_tokens=100,
+            repo_path="/fake/repo",
+            changed_files=["src/main.py"],
+        )
+
+    # AI finding + static finding merged (different lines)
+    assert len(result["issues"]) == 2
+    sources = set()
+    for issue in result["issues"]:
+        sources.update(issue.get("sources", [issue.get("source", "ai")]))
+    assert "semgrep" in sources
+
+
+@pytest.mark.asyncio
+async def test_review_engine_with_degraded(async_db_session: AsyncSession, mock_cache):
+    from repositories import ReviewRepository
+    review = await ReviewRepository(async_db_session).create(
+        platform="github", repo_id="o/r", pr_number=11, status="pending"
+    )
+
+    mock_resilient = MagicMock(spec=ResilientReviewRouter)
+    mock_resilient.config = {"primary_model": "deepseek-chat"}
+    mock_resilient.review = AsyncMock(return_value={
+        "issues": [],
+        "summary": "Unavailable",
+        "risk_level": "low",
+        "degraded": True,
+    })
+
+    engine = ReviewEngine(async_db_session, mock_resilient, mock_cache, enable_static_analysis=True)
+
+    with patch("engine.review_engine.SemgrepAnalyzer.analyze", return_value=[
+        {"file": "src/main.py", "line": 1, "category": "security", "severity": "warning", "description": "Static issue", "confidence": 0.8, "source": "semgrep"}
+    ]):
+        result = await engine.run(
+            review.id,
+            "diff content",
+            pr_size_tokens=100,
+            repo_path="/fake/repo",
+            changed_files=["src/main.py"],
+        )
+
+    assert result["degraded"] is True
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["source"] == "semgrep"

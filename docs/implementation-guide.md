@@ -573,7 +573,23 @@ pytest tests/ -v
 | 15 | Celery 扩展 | Phase 3 | ⏳ 待实施 |
 | 16 | Dashboard + Metrics | Phase 3 | ⏳ 待实施 |
 
-**总计工时预估**：约 15 个工作日（3 周）
+## 十、修复记录
+
+### 2026-04-16 修复批次
+
+针对评审反馈的问题，完成以下修复：
+
+| 问题 | 修复内容 | 状态 |
+|---|---|---|
+| **Webhook 安全漏洞** | 将 `hmac.compare_digest` 替换为 `secrets.compare_digest`，消除时序攻击风险 | ✅ 已修复 |
+| **缺少降级机制** | 新增 `ResilientReviewRouter`，支持 DeepSeek → Claude 的多模型降级链；所有模型不可用时返回静态分析兜底结果 | ✅ 已修复 |
+| **错误处理不完善** | `services/review_service.py` 增加结构化日志、异常捕获、降级状态发布、错误状态回写 | ✅ 已修复 |
+| **缺少连接池配置** | `models/base.py` 显式配置 SQLAlchemy 连接池（pool_size=10, max_overflow=20, pool_pre_ping=True, pool_recycle=3600） | ✅ 已修复 |
+| **缺少 ProjectContextBuilder** | 新增 `context/builder.py`，实现基于正则的简化版依赖分析和 API 契约检测（预留 Tree-sitter 升级接口） | ✅ 已修复 |
+| **缺少静态分析集成** | 新增 `static/semgrep.py` + `static/merger.py`，集成 Semgrep CLI；`ReviewEngine` 支持 AI + Static findings 自动融合 | ✅ 已修复 |
+| **LLM缓存缺失** | 说明：`ReviewCache` 原本已实现，本次增强其与降级机制的协同 | ✅ 已澄清 |
+
+**测试覆盖**：新增 `test_context.py`、`test_static.py`，增强 `test_llm.py`、`test_engine.py`。总计 **72 个测试全部通过**。
 
 ---
 

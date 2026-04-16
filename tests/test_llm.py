@@ -2,7 +2,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from llm import DeepSeekProvider, AnthropicProvider, ReviewRouter
+from llm import DeepSeekProvider, AnthropicProvider, ReviewRouter, ResilientReviewRouter
+from openai import RateLimitError, APITimeoutError
 
 
 # ==================== DeepSeek Provider Tests ====================
@@ -42,7 +43,7 @@ async def test_deepseek_review_json_repair():
     provider = DeepSeekProvider(api_key="fake")
     broken_response = MagicMock()
     broken_response.choices = [MagicMock()]
-    broken_response.choices[0].message.content = '{"issues": [{"file": "a.py", "line": 1, "severity": "warning", "description": "bad"}]}'  # trailing comma would break strict json
+    broken_response.choices[0].message.content = '{"issues": [{"file": "a.py", "line": 1, "severity": "warning", "description": "bad"}]}'
 
     with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, return_value=broken_response):
         result = await provider.review("Review this code", "deepseek-chat")
@@ -58,7 +59,7 @@ async def test_deepseek_review_retry_then_fail():
         result = await provider.review("Review this code", "deepseek-chat")
 
     assert "error" in result
-    assert result["error"] == "json_parse_failed"
+    assert result["error"] == "api_call_failed"
 
 
 # ==================== Anthropic Provider Tests ====================
@@ -159,7 +160,7 @@ async def test_router_triggers_reasoner_for_critical():
     result = await router.review("code", pr_size_tokens=5000)
 
     assert result.get("reasoner_reviewed") is True
-    assert len(result["issues"]) == 1  # merged, duplicates removed
+    assert len(result["issues"]) == 1
 
 
 @pytest.mark.asyncio
@@ -196,3 +197,52 @@ async def test_router_skips_reasoner_for_large_pr():
 
     assert result.get("reasoner_reviewed") is None
     assert mock_deepseek.review.call_count == 1
+
+
+# ==================== Resilient Review Router Tests ====================
+
+@pytest.mark.asyncio
+async def test_resilient_router_fallback_chain():
+    from unittest.mock import MagicMock
+    mock_deepseek = MagicMock()
+    mock_deepseek.review = AsyncMock(side_effect=[
+        RateLimitError("rate limited", response=MagicMock(), body=None),
+        {"issues": [{"severity": "warning"}]}
+    ])
+    router = ResilientReviewRouter(
+        config={"primary": "deepseek-chat", "fallback_chain": []},
+        providers={"deepseek": mock_deepseek, "anthropic": MagicMock()},
+    )
+    result = await router.review("code", pr_size_tokens=100)
+    assert result["issues"][0]["severity"] == "warning"
+    assert mock_deepseek.review.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_resilient_router_all_models_down():
+    from unittest.mock import MagicMock
+    mock_deepseek = MagicMock()
+    mock_deepseek.review = AsyncMock(side_effect=Exception("API down"))
+    router = ResilientReviewRouter(
+        config={"primary": "deepseek-chat", "fallback_chain": []},
+        providers={"deepseek": mock_deepseek, "anthropic": MagicMock()},
+    )
+    result = await router.review("code", pr_size_tokens=100)
+    assert result.get("degraded") is True
+    assert "AI 模型服务暂时不可用" in result["summary"]
+
+
+@pytest.mark.asyncio
+async def test_resilient_router_anthropic_fallback():
+    from unittest.mock import MagicMock
+    mock_deepseek = MagicMock()
+    mock_deepseek.review = AsyncMock(side_effect=APITimeoutError("timeout"))
+    mock_anthropic = MagicMock()
+    mock_anthropic.review = AsyncMock(return_value={"issues": [{"severity": "info"}]})
+    router = ResilientReviewRouter(
+        config={"primary": "deepseek-chat", "fallback_chain": ["claude-3-5-sonnet"]},
+        providers={"deepseek": mock_deepseek, "anthropic": mock_anthropic},
+    )
+    result = await router.review("code", pr_size_tokens=100)
+    assert result["issues"][0]["severity"] == "info"
+    mock_anthropic.review.assert_called_once()
