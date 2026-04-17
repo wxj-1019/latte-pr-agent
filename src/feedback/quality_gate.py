@@ -15,7 +15,7 @@ class QualityGate:
         severities = [f.get("severity", "").lower() for f in self.findings]
 
         if "critical" in severities:
-            risk_level = "high"
+            risk_level = "critical"
             if self.config.block_on_critical:
                 return {
                     "risk_level": risk_level,

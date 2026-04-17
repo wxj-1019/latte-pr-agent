@@ -51,10 +51,27 @@ export function ReviewList({ reviews }: ReviewListProps) {
                 <StatusBadge status={review.status} />
                 <div className="min-w-0">
                   <h4 className="font-medium text-latte-text-primary truncate">
-                    #{review.pr_number} {review.pr_title || "Untitled PR"}
+                    {review.platform === "direct" ? (
+                      <>
+                        <span className="text-latte-gold">#ANALYZE</span>{" "}
+                        {review.pr_title?.replace("Direct analysis: ", "") || "Untitled"}
+                      </>
+                    ) : (
+                      <>
+                        #{review.pr_number} {review.pr_title || "Untitled PR"}
+                      </>
+                    )}
                   </h4>
                   <p className="text-sm text-latte-text-tertiary mt-0.5">
-                    {review.repo_id} · {review.ai_model || "unknown model"}
+                    {review.platform === "direct" ? (
+                      <>
+                        Direct analysis {review.ai_model ? `· ${review.ai_model}` : ""}
+                      </>
+                    ) : (
+                      <>
+                        {review.repo_id} · {review.ai_model || "unknown model"}
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
