@@ -5,7 +5,13 @@ metadata:
   namespace: latte-pr-agent
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - latte.yourdomain.com
+      secretName: latte-tls
   rules:
     - host: latte.yourdomain.com
       http:
