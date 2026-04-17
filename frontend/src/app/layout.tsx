@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { EnvCheck } from "@/components/env-check";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Latte PR Agent - Enterprise AI Code Review",
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className="antialiased">
         <EnvCheck />
-        <ErrorBoundary>{children}</ErrorBoundary>
+        <ToastProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </ToastProvider>
       </body>
     </html>
   );
