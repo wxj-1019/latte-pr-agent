@@ -19,7 +19,7 @@ class EmbeddingClient:
         self.model = model
         self.dimensions = dimensions
         self.client = AsyncOpenAI(
-            api_key=api_key or settings.openai_api_key or os.getenv("OPENAI_API_KEY"),
+            api_key=api_key or settings.openai_api_key.get_secret_value() or os.getenv("OPENAI_API_KEY"),
             base_url=base_url,
         )
 

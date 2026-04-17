@@ -35,7 +35,7 @@ class BugKnowledgeBuilder:
         """
         commits = self._get_bug_commits(repo_path, max_commits=max_commits)
         if not commits:
-            logger.info(f"No bug-fix commits found in {repo_path}")
+            logger.info("No bug-fix commits found in %s", repo_path)
             return 0
 
         inserted = 0
@@ -54,7 +54,7 @@ class BugKnowledgeBuilder:
             try:
                 embedding = await self.embedder.embed(content_for_embed)
             except Exception as exc:
-                logger.warning(f"Failed to generate embedding for {commit_hash}: {exc}")
+                logger.warning("Failed to generate embedding for %s: %s", commit_hash, exc, exc_info=True)
                 continue
 
             await BugKnowledgeRepository.insert(
@@ -70,7 +70,7 @@ class BugKnowledgeBuilder:
             inserted += 1
 
         await self.session.commit()
-        logger.info(f"Inserted {inserted} bug knowledge records for {repo_id}")
+        logger.info("Inserted %d bug knowledge records for %s", inserted, repo_id)
         return inserted
 
     def _get_bug_commits(self, repo_path: str, max_commits: int = 100) -> List[tuple]:
@@ -87,7 +87,7 @@ class BugKnowledgeBuilder:
                 check=True,
             )
         except subprocess.CalledProcessError as exc:
-            logger.warning(f"git log failed: {exc}")
+            logger.warning("git log failed: %s", exc, exc_info=True)
             return []
 
         commits = []
@@ -119,7 +119,7 @@ class BugKnowledgeBuilder:
             )
             return output.stdout
         except subprocess.CalledProcessError as exc:
-            logger.warning(f"git show failed for {commit_hash}: {exc}")
+            logger.warning("git show failed for %s: %s", commit_hash, exc, exc_info=True)
             return ""
 
     def _infer_severity(self, message: str) -> Optional[str]:

@@ -55,7 +55,7 @@ class PromptRegistry:
                     text=row.prompt_text,
                     metadata=row.metadata_json or {},
                 )
-        logger.info(f"Loaded {len(rows)} prompt versions from DB")
+        logger.info("Loaded %d prompt versions from DB", len(rows))
 
     def get(self, version: str) -> Optional[PromptVersion]:
         return self._versions.get(version)

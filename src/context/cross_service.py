@@ -61,7 +61,7 @@ class CrossServiceAnalyzer:
         return {"matches": [], "total_count": 0}
 
     async def _search_github(self, repo_id: str, identifiers: List[str]) -> Dict:
-        token = settings.github_token
+        token = settings.github_token.get_secret_value()
         if not token:
             logger.warning("GitHub token not configured, skipping cross-service search")
             return {"matches": [], "total_count": 0}
@@ -88,15 +88,15 @@ class CrossServiceAnalyzer:
                                 "files": [item.get("path") for item in data.get("items", [])[:3]],
                             })
                     else:
-                        logger.warning(f"GitHub search error for {repo_id}: {resp.status_code}")
+                        logger.warning("GitHub search error for %s: %s", repo_id, resp.status_code)
                 except Exception as exc:
-                    logger.warning(f"GitHub search failed for {repo_id}: {exc}")
+                    logger.warning("GitHub search failed for %s: %s", repo_id, exc, exc_info=True)
                 # Rate limit friendly delay
                 await asyncio.sleep(0.5)
         return {"matches": matches, "total_count": total_count}
 
     async def _search_gitlab(self, repo_id: str, identifiers: List[str]) -> Dict:
-        token = settings.gitlab_token
+        token = settings.gitlab_token.get_secret_value()
         if not token:
             logger.warning("GitLab token not configured, skipping cross-service search")
             return {"matches": [], "total_count": 0}
@@ -126,8 +126,8 @@ class CrossServiceAnalyzer:
                                 "files": [item.get("path") for item in data[:3]],
                             })
                     else:
-                        logger.warning(f"GitLab search error for {repo_id}: {resp.status_code}")
+                        logger.warning("GitLab search error for %s: %s", repo_id, resp.status_code)
                 except Exception as exc:
-                    logger.warning(f"GitLab search failed for {repo_id}: {exc}")
+                    logger.warning("GitLab search failed for %s: %s", repo_id, exc, exc_info=True)
                 await asyncio.sleep(0.5)
         return {"matches": matches, "total_count": total_count}
