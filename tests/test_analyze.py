@@ -1,11 +1,11 @@
 """Integration tests for the direct code analyze endpoint."""
 
+import contextlib
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
 
 def _make_provider_mock(mock_result):
-    """Return a mock provider class that doesn't need API keys."""
     class MockProvider:
         async def review(self, prompt, model, system_prompt=None):
             return mock_result
@@ -20,11 +20,13 @@ class _FakeCache:
         pass
 
 
+class _FakeRAGRetriever:
+    async def retrieve(self, *args, **kwargs):
+        return []
+
+
 @pytest.fixture
 def analyze_patches():
-    """Patches LLM providers and Redis cache so analyze tests don't need real deps."""
-    import contextlib
-
     def _apply(mock_result):
         stack = contextlib.ExitStack()
         stack.enter_context(
@@ -38,6 +40,7 @@ def analyze_patches():
         stack.enter_context(patch("reviews.router.ReviewCache", return_value=_FakeCache()))
         stack.enter_context(patch("engine.review_engine.ReviewCache", return_value=_FakeCache()))
         stack.enter_context(patch("engine.cache.ReviewCache", return_value=_FakeCache()))
+        stack.enter_context(patch("engine.review_engine.RAGRetriever", return_value=_FakeRAGRetriever()))
         return stack
     return _apply
 
@@ -175,5 +178,4 @@ class TestReposEndpoint:
 
         response = await async_client_with_db.get("/repos")
         assert response.status_code == 200
-        # direct/default should be excluded
         assert "direct/default" not in response.json()["repos"]

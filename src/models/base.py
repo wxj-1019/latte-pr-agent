@@ -13,7 +13,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 
 
 async_engine = create_async_engine(
-    settings.database_url,
+    settings.database_url.get_secret_value(),
     echo=settings.app_env == "development",
     pool_size=10,
     max_overflow=20,
