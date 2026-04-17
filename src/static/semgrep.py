@@ -1,31 +1,75 @@
+import asyncio
 import json
+import logging
+import os
 import shutil
-import subprocess
+from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 class SemgrepAnalyzer:
-    """轻量级静态分析器，MVP 阶段零外部服务依赖"""
 
-    def analyze(self, repo_path: str, changed_files: List[str]) -> List[dict]:
+    async def analyze(self, repo_path: str, changed_files: List[str]) -> List[dict]:
         if not shutil.which("semgrep"):
+            return []
+
+        repo = Path(repo_path).resolve()
+        safe_files = []
+        for f in changed_files:
+            target = (repo / f).resolve()
+            # Prevent path traversal: target must be inside repo
+            try:
+                target.relative_to(repo)
+            except ValueError:
+                logger.warning("Skipping out-of-repo file: %s", f)
+                continue
+            if not target.exists():
+                logger.warning("Skipping non-existent file: %s", f)
+                continue
+            safe_files.append(str(target))
+
+        if not safe_files:
             return []
 
         cmd = [
             "semgrep", "--config=auto",
             "--json", "--quiet",
-        ] + [f"{repo_path}/{f}" for f in changed_files]
+        ] + safe_files
 
+        proc = None
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        except Exception:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+        except asyncio.TimeoutError:
+            if proc is not None:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except ProcessLookupError:
+                    pass
+            logger.warning("Semgrep timed out after 120s; killed subprocess")
+            return []
+        except Exception as exc:
+            if proc is not None and proc.returncode is None:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except ProcessLookupError:
+                    pass
+            logger.exception("Semgrep execution failed: %s", exc)
             return []
 
-        if result.returncode not in [0, 1]:  # semgrep 发现 issue 时返回 1
+        if proc.returncode not in [0, 1]:
             return []
 
         try:
-            findings = json.loads(result.stdout)
+            findings = json.loads(stdout)
         except json.JSONDecodeError:
             return []
 

@@ -26,7 +26,12 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -80,6 +85,11 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
     command: celery -A tasks worker --loglevel=info --concurrency=4
 
 volumes:

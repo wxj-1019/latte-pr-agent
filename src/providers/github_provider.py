@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Optional
 
 import httpx
@@ -7,6 +8,8 @@ from github.PullRequest import PullRequest
 from github.Repository import Repository
 
 from providers.base import GitProvider
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubProvider(GitProvider):
@@ -19,33 +22,42 @@ class GitHubProvider(GitProvider):
         self.pr: PullRequest = self.repo.get_pull(pr_number)
 
     async def publish_review_comment(self, file: str, line: int, comment: str) -> None:
-        self.pr.create_review_comment(
-            body=comment,
-            commit_id=self.pr.head.sha,
-            path=file,
-            line=line,
-        )
+        try:
+            self.pr.create_review_comment(
+                body=comment,
+                commit_id=self.pr.head.sha,
+                path=file,
+                line=line,
+            )
+        except Exception as exc:
+            logger.warning("Failed to publish GitHub review comment: %s", exc)
 
     async def publish_inline_suggestion(
         self, file: str, line: int, suggestion: str
     ) -> None:
         body = f"```suggestion\n{suggestion}\n```"
-        self.pr.create_review_comment(
-            body=body,
-            commit_id=self.pr.head.sha,
-            path=file,
-            line=line,
-        )
+        try:
+            self.pr.create_review_comment(
+                body=body,
+                commit_id=self.pr.head.sha,
+                path=file,
+                line=line,
+            )
+        except Exception as exc:
+            logger.warning("Failed to publish GitHub inline suggestion: %s", exc)
 
     async def set_status_check(
         self, status: str, description: str, context: str = "ai-code-review"
     ) -> None:
         state = status
-        self.repo.get_commit(self.pr.head.sha).create_status(
-            state=state,
-            description=description,
-            context=context,
-        )
+        try:
+            self.repo.get_commit(self.pr.head.sha).create_status(
+                state=state,
+                description=description,
+                context=context,
+            )
+        except Exception as exc:
+            logger.warning("Failed to set GitHub status check: %s", exc)
 
     async def get_diff_content(self) -> str:
         async with httpx.AsyncClient(timeout=30.0) as http:
@@ -60,6 +72,9 @@ class GitHubProvider(GitProvider):
                     )
                     response.raise_for_status()
                     return response.text
+                except httpx.HTTPStatusError as exc:
+                    logger.warning("GitHub API HTTP error: %s", exc)
+                    raise
                 except (httpx.TimeoutException, httpx.NetworkError):
                     if attempt == 2:
                         raise

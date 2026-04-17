@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from functools import partial
 from typing import Optional
 
@@ -6,6 +7,8 @@ import gitlab
 from gitlab.v4.objects import ProjectMergeRequest
 
 from providers.base import GitProvider
+
+logger = logging.getLogger(__name__)
 
 
 class GitLabProvider(GitProvider):
@@ -32,9 +35,12 @@ class GitLabProvider(GitProvider):
         )
 
     async def publish_review_comment(self, file: str, line: int, comment: str) -> None:
-        await asyncio.get_event_loop().run_in_executor(
-            None, partial(self._sync_publish_review_comment, file, line, comment)
-        )
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, partial(self._sync_publish_review_comment, file, line, comment)
+            )
+        except Exception as exc:
+            logger.warning("Failed to publish GitLab review comment: %s", exc)
 
     async def publish_inline_suggestion(
         self, file: str, line: int, suggestion: str
@@ -58,9 +64,12 @@ class GitLabProvider(GitProvider):
     async def set_status_check(
         self, status: str, description: str, context: str = "ai-code-review"
     ) -> None:
-        await asyncio.get_event_loop().run_in_executor(
-            None, partial(self._sync_set_status_check, status, description, context)
-        )
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, partial(self._sync_set_status_check, status, description, context)
+            )
+        except Exception as exc:
+            logger.warning("Failed to set GitLab status check: %s", exc)
 
     def _sync_get_diff_content(self) -> str:
         changes = self.mr.changes()
@@ -70,9 +79,13 @@ class GitLabProvider(GitProvider):
         return "\n".join(diffs)
 
     async def get_diff_content(self) -> str:
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self._sync_get_diff_content
-        )
+        try:
+            return await asyncio.get_event_loop().run_in_executor(
+                None, self._sync_get_diff_content
+            )
+        except Exception as exc:
+            logger.warning("Failed to fetch GitLab diff content: %s", exc)
+            raise
 
     def _sync_get_pr_info(self) -> dict:
         return {
@@ -85,6 +98,10 @@ class GitLabProvider(GitProvider):
         }
 
     async def get_pr_info(self) -> dict:
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self._sync_get_pr_info
-        )
+        try:
+            return await asyncio.get_event_loop().run_in_executor(
+                None, self._sync_get_pr_info
+            )
+        except Exception as exc:
+            logger.warning("Failed to fetch GitLab MR info: %s", exc)
+            raise
