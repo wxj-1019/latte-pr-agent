@@ -17,7 +17,7 @@ export interface DashboardStats {
     repo_id: string;
     pr_number: number;
     pr_title?: string;
-    status: string;
+    status: "pending" | "running" | "completed" | "failed" | "skipped";
     risk_level?: string;
     created_at: string;
   }>;

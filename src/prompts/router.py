@@ -52,6 +52,15 @@ async def save_version(
     return {"message": "Saved", "version": req.version}
 
 
+# Alias for frontend compatibility
+@router.post("")
+async def save_version_alias(
+    req: SavePromptRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    return await save_version(req, db)
+
+
 @router.post("/optimize")
 async def optimize_prompt(
     req: OptimizeRequest,

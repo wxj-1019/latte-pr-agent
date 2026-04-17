@@ -12,7 +12,8 @@ class ReviewMetricsService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_repo_metrics(self, repo_id: str) -> Dict:
+    async def get_repo_metrics(self, repo_id: str, range: str = "7d") -> Dict:
+        days = self._parse_range(range)
         total_reviews = await self._count_reviews(repo_id)
         total_findings = await self._count_findings(repo_id)
         false_positive_count = await self._count_false_positives(repo_id)
@@ -20,7 +21,7 @@ class ReviewMetricsService:
         category_distribution = await self._category_distribution(repo_id)
         prompt_version_metrics = await self._prompt_version_metrics(repo_id)
         avg_confidence = await self._avg_confidence(repo_id)
-        chart = await self._review_volume_chart(repo_id)
+        chart = await self._review_volume_chart(repo_id, days=days)
 
         fp_rate = 0.0
         if total_findings > 0:
@@ -118,14 +119,21 @@ class ReviewMetricsService:
         val = result.scalar()
         return round(float(val), 4) if val is not None else 0.0
 
-    async def _review_volume_chart(self, repo_id: str) -> List[Dict]:
-        """返回最近7天每天的 reviews 和 findings 数量（用于前端折线图）"""
-        from datetime import datetime, timedelta
+    def _parse_range(self, range: str) -> int:
+        if range == "30d":
+            return 30
+        if range == "90d":
+            return 90
+        return 7
+
+    async def _review_volume_chart(self, repo_id: str, days: int = 7) -> List[Dict]:
+        """返回最近 N 天每天的 reviews 和 findings 数量（用于前端折线图）"""
+        from datetime import timedelta
 
         from utils.timezone import beijing_now, get_beijing_start_of_day
 
         end = beijing_now()
-        start = get_beijing_start_of_day(end - timedelta(days=6))
+        start = get_beijing_start_of_day(end - timedelta(days=days - 1))
 
         reviews_result = await self.session.execute(
             select(
@@ -157,7 +165,7 @@ class ReviewMetricsService:
         }
 
         chart = []
-        for i in range(7):
+        for i in range(days):
             day = (start + timedelta(days=i)).strftime("%Y-%m-%d")
             chart.append({
                 "date": day,

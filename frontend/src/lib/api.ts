@@ -27,7 +27,9 @@ export const api = {
     if (options?.status) params.set("status", options.status);
     if (options?.repo) params.set("repo", options.repo);
     if (options?.page) params.set("page", String(options.page));
-    return fetchJson<Review[]>(`/reviews?${params.toString()}`);
+    return fetchJson<{ data: Review[]; total: number; page: number; page_size: number }>(
+      `/reviews?${params.toString()}`
+    );
   },
 
   getReviewDetail: async (id: number) => {
@@ -38,9 +40,9 @@ export const api = {
     return fetchJson<ReviewFinding[]>(`/reviews/${reviewId}/findings`);
   },
 
-  getMetrics: async (_range: "7d" | "30d" | "90d", repoId: string) => {
+  getMetrics: async (range: "7d" | "30d" | "90d", repoId: string) => {
     return fetchJson<{ metrics: ReviewMetrics; chart: MetricsDataPoint[] }>(
-      `/feedback/metrics/${repoId}`
+      `/feedback/metrics/${repoId}?range=${range}`
     );
   },
 

@@ -12,14 +12,17 @@ interface UseReviewsOptions {
 
 export function useReviews(options?: UseReviewsOptions) {
   const key = ["/api/reviews", options?.status, options?.repo, options?.page];
-  const { data, error, isLoading, mutate } = useSWR<Review[]>(
+  const { data, error, isLoading, mutate } = useSWR<{ data: Review[]; total: number; page: number; page_size: number }>(
     key,
     () => api.getReviews(options),
     { refreshInterval: 30000 }
   );
 
   return {
-    reviews: data ?? [],
+    reviews: data?.data ?? [],
+    total: data?.total ?? 0,
+    page: data?.page ?? 1,
+    pageSize: data?.page_size ?? 20,
     isLoading,
     error,
     mutate,

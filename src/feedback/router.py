@@ -11,10 +11,11 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 @router.get("/metrics/{repo_id}")
 async def get_metrics(
     repo_id: str,
+    range: str = "7d",
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     service = ReviewMetricsService(db)
-    return await service.get_repo_metrics(repo_id)
+    return await service.get_repo_metrics(repo_id, range=range)
 
 
 @router.post("/{finding_id}")

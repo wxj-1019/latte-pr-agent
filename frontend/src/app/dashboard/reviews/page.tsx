@@ -29,11 +29,14 @@ export default function ReviewsPage() {
     (update: ReviewUpdate) => {
       mutate((prev) => {
         if (!prev) return prev;
-        return prev.map((r) =>
-          r.id === update.review_id
-            ? { ...r, status: update.status, completed_at: update.status === "completed" ? new Date().toISOString() : r.completed_at }
-            : r
-        );
+        return {
+          ...prev,
+          data: prev.data.map((r) =>
+            r.id === update.review_id
+              ? { ...r, status: update.status, completed_at: update.status === "completed" ? new Date().toISOString() : r.completed_at }
+              : r
+          ),
+        };
       }, false);
     },
     [mutate]
