@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
-import { mockProjectConfig } from "@/lib/mock-data";
+import { api } from "@/lib/api";
 import { X, Plus } from "lucide-react";
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -28,19 +28,39 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
+const DEFAULT_REPO = "default";
+
 export default function ConfigPage() {
-  const [config, setConfig] = useState(mockProjectConfig.config_json);
+  const [config, setConfig] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newPath, setNewPath] = useState("");
   const [newRule, setNewRule] = useState({ name: "", pattern: "", message: "", severity: "warning" as "warning" | "critical" });
+
+  useEffect(() => {
+    api.getProjectConfig(DEFAULT_REPO)
+      .then((data: any) => {
+        setConfig(data.config_json || {});
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load config");
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const reviewConfig = config.review_config || {};
 
   async function handleSave() {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setSaving(false);
-    alert("Config saved (mock)");
+    try {
+      await api.updateProjectConfig(DEFAULT_REPO, config);
+      alert("Config saved");
+    } catch (err: any) {
+      alert("Failed to save: " + (err.message || "Unknown error"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function addPath() {
@@ -85,6 +105,24 @@ export default function ConfigPage() {
     });
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="h-8 w-48 bg-latte-bg-secondary rounded animate-pulse" />
+        <div className="h-64 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-20 text-latte-text-tertiary">
+        <p className="text-lg font-medium">Failed to load config</p>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <FadeInUp>
@@ -92,7 +130,7 @@ export default function ConfigPage() {
           Project Config
         </h1>
         <p className="text-sm text-latte-text-tertiary mt-1">
-          Customize review behavior for {mockProjectConfig.repo_id}
+          Customize review behavior for {DEFAULT_REPO}
         </p>
       </FadeInUp>
 
@@ -167,7 +205,7 @@ export default function ConfigPage() {
         <GlassCard className="p-6">
           <h3 className="text-lg font-medium text-latte-text-primary mb-4">Critical Paths</h3>
           <div className="space-y-2 mb-4">
-            {(reviewConfig.critical_paths || []).map((path, idx) => (
+            {(reviewConfig.critical_paths || []).map((path: string, idx: number) => (
               <div key={idx} className="flex items-center justify-between px-3 py-2 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary">
                 <span>{path}</span>
                 <button onClick={() => removePath(idx)} className="text-latte-text-muted hover:text-latte-critical transition-colors">
@@ -199,7 +237,7 @@ export default function ConfigPage() {
         <GlassCard className="p-6">
           <h3 className="text-lg font-medium text-latte-text-primary mb-4">Custom Rules</h3>
           <div className="space-y-3 mb-4">
-            {(reviewConfig.custom_rules || []).map((rule, idx) => (
+            {(reviewConfig.custom_rules || []).map((rule: any, idx: number) => (
               <div key={idx} className="p-3 rounded-latte-md bg-latte-bg-tertiary text-sm">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-latte-text-primary">{rule.name}</span>

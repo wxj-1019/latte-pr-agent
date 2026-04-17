@@ -1,6 +1,8 @@
 import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint } from "@/types";
 
-const baseUrl = typeof window !== "undefined" ? "" : process.env.NEXT_PUBLIC_API_URL || "";
+const baseUrl = typeof window !== "undefined"
+  ? (process.env.NEXT_PUBLIC_API_URL || "")
+  : (process.env.NEXT_PUBLIC_API_URL || "");
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${baseUrl}${url}`, options);
@@ -16,29 +18,29 @@ export const api = {
     if (options?.status) params.set("status", options.status);
     if (options?.repo) params.set("repo", options.repo);
     if (options?.page) params.set("page", String(options.page));
-    return fetchJson<Review[]>(`/api/reviews?${params.toString()}`);
+    return fetchJson<Review[]>(`/reviews?${params.toString()}`);
   },
 
   getReviewDetail: async (id: number) => {
-    return fetchJson<Review>(`/api/reviews/${id}`);
+    return fetchJson<Review>(`/reviews/${id}`);
   },
 
   getReviewFindings: async (reviewId: number) => {
-    return fetchJson<ReviewFinding[]>(`/api/reviews/${reviewId}/findings`);
+    return fetchJson<ReviewFinding[]>(`/reviews/${reviewId}/findings`);
   },
 
-  getMetrics: async (range: "7d" | "30d" | "90d") => {
-    return fetchJson<{ metrics: ReviewMetrics; chart: MetricsDataPoint[]; range: string }>(
-      `/api/metrics?range=${range}`
+  getMetrics: async (_range: "7d" | "30d" | "90d", repoId: string) => {
+    return fetchJson<{ metrics: ReviewMetrics; chart: MetricsDataPoint[] }>(
+      `/feedback/metrics/${repoId}`
     );
   },
 
   getPromptVersions: async () => {
-    return fetchJson<PromptVersion[]>("/api/prompts");
+    return fetchJson<PromptVersion[]>("/prompts/versions");
   },
 
   savePromptVersion: async (body: { version: string; text: string; metadata?: object }) => {
-    return fetchJson<PromptVersion>("/api/prompts", {
+    return fetchJson<PromptVersion>("/prompts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -46,7 +48,7 @@ export const api = {
   },
 
   optimizePrompt: async (body: { base_version?: string; new_version?: string; min_samples?: number }) => {
-    return fetchJson<{ optimized: boolean; new_version?: string; stats?: object }>("/api/prompts/optimize", {
+    return fetchJson<{ optimized: boolean; new_version?: string; stats?: object }>("/prompts/optimize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -54,11 +56,11 @@ export const api = {
   },
 
   getProjectConfig: async (repoId: string) => {
-    return fetchJson<object>(`/api/config/${repoId}`);
+    return fetchJson<object>(`/configs/${repoId}`);
   },
 
   updateProjectConfig: async (repoId: string, body: object) => {
-    return fetchJson<object>(`/api/config/${repoId}`, {
+    return fetchJson<object>(`/configs/${repoId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -69,7 +71,7 @@ export const api = {
     const params = new URLSearchParams();
     params.set("is_false_positive", String(isFalsePositive));
     if (comment) params.set("comment", comment);
-    return fetchJson<object>(`/api/findings/${findingId}/feedback?${params.toString()}`, {
+    return fetchJson<object>(`/feedback/${findingId}?${params.toString()}`, {
       method: "POST",
     });
   },

@@ -4,10 +4,10 @@ import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { ReviewMetrics, MetricsDataPoint } from "@/types";
 
-export function useMetrics(range: "7d" | "30d" | "90d") {
+export function useMetrics(range: "7d" | "30d" | "90d", repoId?: string) {
   const { data, error, isLoading } = useSWR<{ metrics: ReviewMetrics; chart: MetricsDataPoint[] }>(
-    `/api/metrics?range=${range}`,
-    () => api.getMetrics(range)
+    repoId ? [`/feedback/metrics/${repoId}`, range] : null,
+    () => api.getMetrics(range, repoId || "default")
   );
 
   return {

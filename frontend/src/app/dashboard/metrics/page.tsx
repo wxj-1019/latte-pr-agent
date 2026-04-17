@@ -36,7 +36,7 @@ const pieColors = [
 
 export default function MetricsPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
-  const { metrics, chart, isLoading } = useMetrics(range);
+  const { metrics, chart, isLoading, error } = useMetrics(range, "default");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -65,7 +65,14 @@ export default function MetricsPage() {
         </div>
       </FadeInUp>
 
-      {isLoading || !metrics ? (
+      {error ? (
+        <FadeInUp delay={0.1}>
+          <div className="flex flex-col items-center justify-center py-12 text-latte-text-tertiary">
+            <p className="text-lg font-medium">Failed to load metrics</p>
+            <p className="text-sm mt-1">{error.message || "Please try again later"}</p>
+          </div>
+        </FadeInUp>
+      ) : isLoading || !metrics ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-32 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
