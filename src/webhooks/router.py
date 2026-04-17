@@ -1,8 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from models import get_db
+from rate_limit import limiter
 from repositories import ReviewRepository
 from webhooks.verifier import WebhookVerifier
 from webhooks.parser import WebhookParser
@@ -10,10 +13,13 @@ from webhooks.rate_limiter import RateLimiter
 from services.review_service import run_review
 from tasks import get_celery_task
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
 
 
 @router.post("/github")
+@limiter.limit("60/minute")
 async def github_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -22,14 +28,17 @@ async def github_webhook(
 ) -> dict:
     payload_bytes = await request.body()
     if not x_hub_signature_256:
+        logger.warning("GitHub webhook rejected: missing signature")
         raise HTTPException(status_code=401, detail="Missing webhook signature")
     if not WebhookVerifier.verify_github(
         payload_bytes, x_hub_signature_256, settings.github_webhook_secret
     ):
+        logger.warning("GitHub webhook rejected: invalid signature")
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     payload = await request.json()
     parsed = WebhookParser.parse_github(payload)
+    logger.info("GitHub webhook received: repo=%s pr=%s action=%s", parsed["repo_id"], parsed["pr_number"], parsed.get("action"))
 
     action = parsed.get("action")
     if action not in ("opened", "synchronize", "reopened"):
@@ -48,6 +57,7 @@ async def github_webhook(
             status="skipped",
             trigger_type=f"pull_request.{action}",
         )
+        await db.commit()
         return {"message": msg, "review_id": review.id}
 
     review = await ReviewRepository(db).create(
@@ -60,7 +70,8 @@ async def github_webhook(
         status="pending",
         trigger_type=f"pull_request.{action}",
     )
-
+    await db.commit()
+    logger.info("Review created: review_id=%s repo=%s pr=%s", review.id, review.repo_id, review.pr_number)
     _dispatch_review(background_tasks, review.id)
     return {"message": "Review queued", "review_id": review.id}
 
@@ -70,29 +81,34 @@ def _dispatch_review(background_tasks: BackgroundTasks, review_id: int) -> None:
     try:
         task = get_celery_task()
         task.delay(review_id)
-    except Exception as exc:
+    except (ImportError, ModuleNotFoundError, RuntimeError, OSError) as exc:
         # Fallback for environments without Celery/Redis available
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Celery dispatch failed ({exc}), falling back to BackgroundTasks"
+        logger.warning(
+            "Celery dispatch failed (%s), falling back to BackgroundTasks", exc
         )
         background_tasks.add_task(run_review, review_id)
 
 
 @router.post("/gitlab")
+@limiter.limit("60/minute")
 async def gitlab_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
     x_gitlab_token: str = Header(default=""),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    if not x_gitlab_token:
+        logger.warning("GitLab webhook rejected: missing token")
+        raise HTTPException(status_code=401, detail="Missing webhook token")
     if not WebhookVerifier.verify_gitlab(
         x_gitlab_token, settings.gitlab_webhook_secret
     ):
+        logger.warning("GitLab webhook rejected: invalid token")
         raise HTTPException(status_code=401, detail="Invalid webhook token")
 
     payload = await request.json()
     parsed = WebhookParser.parse_gitlab(payload)
+    logger.info("GitLab webhook received: repo=%s pr=%s action=%s", parsed["repo_id"], parsed["pr_number"], parsed.get("action"))
 
     action = parsed.get("action")
     if action not in ("open", "update", "reopen"):
@@ -110,6 +126,7 @@ async def gitlab_webhook(
             status="skipped",
             trigger_type=f"merge_request.{action}",
         )
+        await db.commit()
         return {"message": msg, "review_id": review.id}
 
     review = await ReviewRepository(db).create(
@@ -122,6 +139,7 @@ async def gitlab_webhook(
         status="pending",
         trigger_type=f"merge_request.{action}",
     )
-
+    await db.commit()
+    logger.info("Review created: review_id=%s repo=%s pr=%s", review.id, review.repo_id, review.pr_number)
     _dispatch_review(background_tasks, review.id)
     return {"message": "Review queued", "review_id": review.id}

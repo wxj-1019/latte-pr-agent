@@ -55,7 +55,7 @@ async def test_deepseek_review_json_repair():
 @pytest.mark.asyncio
 async def test_deepseek_review_retry_then_fail():
     provider = DeepSeekProvider(api_key="fake")
-    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, side_effect=Exception("API error")):
+    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, side_effect=ConnectionError("API error")):
         result = await provider.review("Review this code", "deepseek-chat")
 
     assert "error" in result
@@ -289,7 +289,7 @@ async def test_qwen_review_json_repair():
 @pytest.mark.asyncio
 async def test_qwen_review_retry_then_fail():
     provider = QwenProvider(api_key="fake")
-    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, side_effect=Exception("API error")):
+    with patch.object(provider.client.chat.completions, "create", new_callable=AsyncMock, side_effect=ConnectionError("API error")):
         result = await provider.review("Review this code", "qwen-coder-plus-latest")
 
     assert "error" in result

@@ -1,18 +1,20 @@
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from static import SemgrepAnalyzer, FindingMerger
 
 
 class TestSemgrepAnalyzer:
-    def test_analyze_when_semgrep_not_installed(self):
+    @pytest.mark.asyncio
+    async def test_analyze_when_semgrep_not_installed(self):
         analyzer = SemgrepAnalyzer()
         with patch("static.semgrep.shutil.which", return_value=None):
-            result = analyzer.analyze("/repo", ["src/main.py"])
+            result = await analyzer.analyze("/repo", ["src/main.py"])
         assert result == []
 
-    def test_analyze_success(self):
+    @pytest.mark.asyncio
+    async def test_analyze_success(self):
         analyzer = SemgrepAnalyzer()
         mock_output = {
             "results": [
@@ -27,10 +29,14 @@ class TestSemgrepAnalyzer:
                 }
             ]
         }
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(json.dumps(mock_output).encode(), b""))
+
         with patch("static.semgrep.shutil.which", return_value="semgrep"):
-            with patch("static.semgrep.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=1, stdout=json.dumps(mock_output))
-                result = analyzer.analyze("/repo", ["src/main.py"])
+            with patch("static.semgrep.asyncio.create_subprocess_exec", return_value=mock_proc):
+                with patch("pathlib.Path.exists", return_value=True):
+                    result = await analyzer.analyze("/repo", ["src/main.py"])
 
         assert len(result) == 1
         assert result[0]["file"] == "src/main.py"
@@ -38,11 +44,12 @@ class TestSemgrepAnalyzer:
         assert result[0]["severity"] == "high"
         assert result[0]["source"] == "semgrep"
 
-    def test_analyze_subprocess_failure(self):
+    @pytest.mark.asyncio
+    async def test_analyze_subprocess_failure(self):
         analyzer = SemgrepAnalyzer()
         with patch("static.semgrep.shutil.which", return_value="semgrep"):
-            with patch("static.semgrep.subprocess.run", side_effect=Exception("boom")):
-                result = analyzer.analyze("/repo", ["src/main.py"])
+            with patch("static.semgrep.asyncio.create_subprocess_exec", side_effect=Exception("boom")):
+                result = await analyzer.analyze("/repo", ["src/main.py"])
         assert result == []
 
 

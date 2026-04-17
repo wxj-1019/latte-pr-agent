@@ -5,10 +5,10 @@ import logging
 import os
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -18,6 +18,7 @@ from config import settings
 from engine import ReviewEngine, ReviewCache
 from llm import ResilientReviewRouter
 from models import get_db, Review, ReviewFinding
+from rate_limit import limiter
 from repositories import ReviewRepository, FindingRepository
 from utils.timezone import format_iso_beijing
 
@@ -133,22 +134,36 @@ async def review_stream(db: AsyncSession = Depends(get_db)):
     async def event_generator():
         known: dict[int, str] = {}
         first_loop = True
+        consecutive_errors = 0
+        MAX_CONSECUTIVE_ERRORS = 5
         while True:
             await asyncio.sleep(3)
-            result = await db.execute(select(Review.id, Review.status))
-            current = {row[0]: row[1] for row in result.all()}
+            try:
+                result = await db.execute(select(Review.id, Review.status))
+                current = {row[0]: row[1] for row in result.all()}
+                consecutive_errors = 0
+            except Exception:
+                consecutive_errors += 1
+                logger.warning("SSE: DB query failed (%d/%d)", consecutive_errors, MAX_CONSECUTIVE_ERRORS, exc_info=True)
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                    logger.error("SSE: too many consecutive DB errors, shutting down stream")
+                    break
+                await asyncio.sleep(10)
+                continue
             updates = []
             for rid, status in current.items():
                 if not first_loop and known.get(rid) != status:
-                    # count findings for richer updates
-                    cnt_result = await db.execute(
-                        select(func.count()).select_from(ReviewFinding).where(ReviewFinding.review_id == rid)
-                    )
-                    findings_count = cnt_result.scalar() or 0
+                    try:
+                        cnt_result = await db.execute(
+                            select(func.count()).select_from(ReviewFinding).where(ReviewFinding.review_id == rid)
+                        )
+                        findings_count = cnt_result.scalar() or 0
+                    except Exception:
+                        findings_count = 0
                     updates.append({
                         "review_id": rid,
                         "status": status,
-                        "timestamp": format_iso_beijing(datetime.utcnow()),
+                        "timestamp": format_iso_beijing(datetime.now(timezone.utc)),
                         "findings_count": findings_count,
                     })
             known = current
@@ -199,17 +214,19 @@ def _build_single_file_diff(filename: str, content: str) -> str:
 
 
 @router.post("/analyze")
-async def analyze_code(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
     review_repo = ReviewRepository(db)
 
     # Sanitize filename to prevent diff injection and path traversal
-    safe_filename = req.filename.replace("\n", "").replace("\r", "").replace("..", "")
-    if not safe_filename:
+    import os
+    safe_filename = os.path.basename(req.filename.replace("\n", "").replace("\r", ""))
+    if not safe_filename or safe_filename in (".", ".."):
         safe_filename = "untitled.txt"
 
     # Generate synthetic identifiers with timestamp to avoid unique-constraint collisions on re-analyze
     ts = str(int(time.time()))
-    content_hash = hashlib.md5(req.content.encode("utf-8")).hexdigest()
+    content_hash = hashlib.sha256(req.content.encode("utf-8")).hexdigest()
     # head_sha is capped at 40 chars in the DB schema
     synthetic_sha = f"{content_hash[:32]}-{ts[-7:]}"
     pr_number = -(abs(hash(f"{req.content}:{ts}")) % (10**9))
@@ -217,21 +234,19 @@ async def analyze_code(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
     lines_count = len(req.content.splitlines())
     diff_stats = {safe_filename: {"additions": lines_count, "deletions": 0, "changes": lines_count}}
 
-    # Create synthetic review
-    review = await review_repo.create(
-        platform="direct",
-        repo_id=req.repo_id,
-        pr_number=pr_number,
-        head_sha=synthetic_sha,
-        pr_title=f"Direct analysis: {safe_filename}",
-        status="pending",
-        diff_stats=diff_stats,
-    )
-    if not review:
-        raise HTTPException(status_code=500, detail="Failed to create review record")
-
-    review_id = review.id
-    await review_repo.update_status(review_id, "running")
+    # Create synthetic review and mark running in a single transaction
+    async with db.begin():
+        review = await review_repo.create(
+            platform="direct",
+            repo_id=req.repo_id,
+            pr_number=pr_number,
+            head_sha=synthetic_sha,
+            pr_title=f"Direct analysis: {safe_filename}",
+            status="pending",
+            diff_stats=diff_stats,
+        )
+        review_id = review.id
+        await review_repo.update_status(review_id, "running")
 
     diff_content = _build_single_file_diff(safe_filename, req.content)
     changed_files = [safe_filename]
@@ -257,7 +272,7 @@ async def analyze_code(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
     try:
         # Build router & engine
         llm_router = ResilientReviewRouter(config={
-            "primary": "deepseek-chat",
+            "primary_model": "deepseek-chat",
             "enable_reasoner_review": getattr(settings, "enable_reasoner_review", False),
             "fallback_chain": ["deepseek-reasoner", "claude-3-5-sonnet"],
         })
@@ -276,13 +291,14 @@ async def analyze_code(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
             project_config=None,
         )
 
-        result = await engine.run(
-            review_id=review_id,
-            pr_diff=diff_content,
-            pr_size_tokens=len(req.content) // 2,
-            repo_path=repo_path,
-            changed_files=changed_files,
-        )
+        async with db.begin():
+            result = await engine.run(
+                review_id=review_id,
+                pr_diff=diff_content,
+                pr_size_tokens=len(req.content) // 2,
+                repo_path=repo_path,
+                changed_files=changed_files,
+            )
 
         # Compute quality gate risk level for response
         from feedback.quality_gate import QualityGate
@@ -299,7 +315,11 @@ async def analyze_code(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
             "findings": [_serialize_finding(f) for f in findings],
         }
     except Exception as exc:
-        await review_repo.update_status(review_id, "failed")
+        try:
+            async with db.begin():
+                await review_repo.update_status(review_id, "failed")
+        except Exception:
+            logger.exception("Failed to update failed status for review_id=%s", review_id)
         logger.exception("Analyze failed for review_id=%s", review_id)
         raise HTTPException(status_code=500, detail="Analysis failed. Please try again later.")
     finally:

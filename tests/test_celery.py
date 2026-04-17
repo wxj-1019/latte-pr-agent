@@ -42,7 +42,7 @@ async def test_github_webhook_uses_celery_when_available(async_client_with_db):
 
 async def test_github_webhook_fallback_to_background_tasks_on_celery_error(async_client_with_db):
     with patch("webhooks.router.get_celery_task") as mock_get_task:
-        mock_get_task.side_effect = Exception("Redis down")
+        mock_get_task.side_effect = ConnectionError("Redis down")
 
         from unittest.mock import patch as mock_patch
         with mock_patch("webhooks.router.run_review"):

@@ -59,6 +59,9 @@ class ReviewEngine:
         changed_files: Optional[List[str]] = None,
     ) -> Dict:
         """执行单次审查流程"""
+        # Preload existing findings to avoid N+1 queries during deduplication
+        await self.deduplicator.preload_existing(review_id)
+
         primary_model = getattr(self.router, "config", {}).get("primary_model", "deepseek-chat")
         if not primary_model:
             primary_model = "deepseek-chat"
@@ -71,7 +74,7 @@ class ReviewEngine:
         # 1. Check cache
         if self.cache:
             cached = await self.cache.get(pr_diff, self.prompt_version, primary_model)
-            if cached:
+            if cached is not None:
                 await self._persist_findings(review_id, cached, primary_model)
                 await self.review_repo.update_status(review_id, "completed")
                 return {**cached, "cached": True}
@@ -101,19 +104,19 @@ class ReviewEngine:
         static_findings: List[dict] = []
         if self.enable_static_analysis and repo_path and changed_files:
             try:
-                static_findings = self.semgrep.analyze(repo_path, changed_files)
-                logger.info(f"Review {review_id}: semgrep found {len(static_findings)} issues")
+                static_findings = await self.semgrep.analyze(repo_path, changed_files)
+                logger.info("Review %s: semgrep found %s issues", review_id, len(static_findings))
             except Exception as exc:
-                logger.warning(f"Review {review_id}: static analysis failed: {exc}")
+                logger.warning("Review %s: static analysis failed: %s", review_id, exc, exc_info=True)
 
         # 5.5 Rule engine analysis
         rule_findings: List[dict] = []
         if self.rule_engine and changed_files:
             try:
                 rule_findings = self.rule_engine.analyze(changed_files, pr_diff)
-                logger.info(f"Review {review_id}: rule engine found {len(rule_findings)} issues")
+                logger.info("Review %s: rule engine found %s issues", review_id, len(rule_findings))
             except Exception as exc:
-                logger.warning(f"Review {review_id}: rule engine failed: {exc}")
+                logger.warning("Review %s: rule engine failed: %s", review_id, exc, exc_info=True)
 
         all_static = static_findings + rule_findings
 
@@ -152,9 +155,6 @@ class ReviewEngine:
         import copy
         new_config = copy.deepcopy(self.router.config)
         new_config["primary_model"] = primary
-        if hasattr(self.router, "config"):
-            # For ResilientReviewRouter, also update "primary"
-            new_config["primary"] = primary
         # Instantiate same class with new config
         return self.router.__class__(config=new_config, providers=self.router.providers)
 
@@ -173,12 +173,12 @@ class ReviewEngine:
             prompt = self._build_prompt(pr_diff, built_context)
             try:
                 return await router.review(prompt, pr_size_tokens, system_prompt)
-            except Exception as exc:
-                logger.exception(f"Review {review_id}: LLM call failed: {exc}")
+            except (OSError, ConnectionError, TimeoutError) as exc:
+                logger.exception("Review %s: LLM call failed: %s", review_id, exc)
                 return {"issues": [], "summary": "LLM error", "risk_level": "low", "degraded": True}
 
         # Large PR: chunk and review each part
-        logger.info(f"Review {review_id}: PR exceeds {max_chunk_tokens} tokens, using chunking")
+        logger.info("Review %s: PR exceeds %s tokens, using chunking", review_id, max_chunk_tokens)
         chunker = PRChunker(max_chunk_tokens=max_chunk_tokens)
         chunks = chunker.chunk(pr_diff)
         all_issues = []
@@ -189,8 +189,8 @@ class ReviewEngine:
             prompt = self._build_prompt(chunk["content"], built_context)
             try:
                 part_result = await router.review(prompt, chunk["tokens"], system_prompt)
-            except Exception as exc:
-                logger.exception(f"Review {review_id}: LLM chunk {idx} failed: {exc}")
+            except (OSError, ConnectionError, TimeoutError) as exc:
+                logger.exception("Review %s: LLM chunk %s failed: %s", review_id, idx, exc)
                 continue
             all_issues.extend(part_result.get("issues", []))
             if part_result.get("summary"):

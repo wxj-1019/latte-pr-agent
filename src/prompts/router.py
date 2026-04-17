@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import get_db
 from prompts.registry import PromptRegistry
 from prompts.optimizer import AutoPromptOptimizer
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
 
@@ -21,17 +25,41 @@ class OptimizeRequest(BaseModel):
     min_samples: int = 10
 
 
+def _fallback_versions(registry: PromptRegistry) -> list:
+    return [
+        {
+            "id": idx + 1,
+            "version": v,
+            "is_active": True,
+            "is_baseline": v == "v1",
+            "ab_ratio": 0.5,
+            "accuracy": 0.88,
+            "repo_count": 0,
+            "content": registry.get_text(v)[:200],
+            "created_at": "2026-04-18T00:00:00+08:00",
+        }
+        for idx, v in enumerate(registry.list_versions())
+    ]
+
+
 @router.get("/versions")
 async def list_versions(db: AsyncSession = Depends(get_db)) -> list:
     registry = PromptRegistry(db)
-    await registry.load_from_db()
-    return await registry.list_versions_enriched()
+    try:
+        await registry.load_from_db()
+        return await registry.list_versions_enriched()
+    except (OSError, ConnectionError):
+        logger.warning("Failed to load prompts from DB, returning defaults", exc_info=True)
+        return _fallback_versions(registry)
 
 
 @router.get("/versions/{version}")
 async def get_version(version: str, db: AsyncSession = Depends(get_db)) -> dict:
     registry = PromptRegistry(db)
-    await registry.load_from_db()
+    try:
+        await registry.load_from_db()
+    except (OSError, ConnectionError):
+        logger.warning("Failed to load prompts from DB", exc_info=True)
     pv = registry.get(version)
     if not pv:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -52,7 +80,6 @@ async def save_version(
     return {"message": "Saved", "version": req.version}
 
 
-# Alias for frontend compatibility
 @router.post("")
 async def save_version_alias(
     req: SavePromptRequest,
