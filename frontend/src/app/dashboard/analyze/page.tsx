@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { codeToHtml } from "shiki";
 import { useAnalyze } from "@/hooks/use-analyze";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +88,7 @@ export default function AnalyzePage() {
     api.getRepos()
       .then((res) => setRepos(res.repos))
       .catch((err) => {
-        console.error("Failed to load repos:", err);
+        logger.error("Failed to load repos:", err);
         setRepos([]);
       });
   }, []);

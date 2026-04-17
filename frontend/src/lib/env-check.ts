@@ -3,6 +3,8 @@
  * Checks that required variables are present in the browser or build environment.
  */
 
+import { logger } from "./logger";
+
 const REQUIRED_BROWSER_ENV: string[] = [];
 
 const OPTIONAL_BROWSER_ENV = ["NEXT_PUBLIC_API_URL"];
@@ -38,11 +40,9 @@ export function validateEnv(): { valid: boolean; errors: string[]; warnings: str
 export function logEnvIssues(): void {
   const { valid, errors, warnings } = validateEnv();
   if (!valid) {
-    // eslint-disable-next-line no-console
-    console.error("[Latte PR Agent] Environment validation failed:", errors);
+    logger.error("[Latte PR Agent] Environment validation failed:", errors);
   }
   if (warnings.length > 0) {
-    // eslint-disable-next-line no-console
-    console.warn("[Latte PR Agent] Environment validation warnings:", warnings);
+    logger.warn("[Latte PR Agent] Environment validation warnings:", warnings);
   }
 }

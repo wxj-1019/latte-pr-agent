@@ -1,17 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
-import { useSSE } from "@/hooks/use-sse";
+import { SSEProvider, useSSE } from "@/hooks/use-sse";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const handleSSE = useCallback(() => {}, []);
-  const { status } = useSSE(handleSSE);
+function DashboardInner({ children }: { children: React.ReactNode }) {
+  const { status } = useSSE();
 
   return (
     <div className="flex min-h-screen bg-latte-bg-primary">
@@ -23,5 +17,17 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <SSEProvider>
+      <DashboardInner>{children}</DashboardInner>
+    </SSEProvider>
   );
 }
