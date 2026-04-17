@@ -1,6 +1,8 @@
 import json
 import logging
 from datetime import datetime
+
+from utils.timezone import beijing_now, format_iso_beijing
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -87,7 +89,7 @@ class PromptRegistry:
         for idx, version in enumerate(self._versions.keys()):
             pv = self._versions[version]
             db_row = db_rows.get(version)
-            created_at = db_row.created_at.isoformat() if db_row else pv.created_at.isoformat()
+            created_at = format_iso_beijing(db_row.created_at) if db_row else format_iso_beijing(pv.created_at)
             enriched.append({
                 "id": idx + 1,
                 "version": version,
@@ -126,7 +128,7 @@ class PromptRegistry:
                 set_={
                     "prompt_text": text,
                     "metadata_json": metadata or {},
-                    "created_at": datetime.utcnow(),
+                    "created_at": beijing_now(),
                 },
             )
         )
@@ -169,7 +171,7 @@ class PromptRegistry:
             repo_id=repo_id,
             experiment_name=experiment_name,
             version=chosen,
-            created_at=datetime.utcnow(),
+            created_at=beijing_now(),
         ).on_conflict_do_nothing()
         await self.session.execute(stmt)
         await self.session.commit()

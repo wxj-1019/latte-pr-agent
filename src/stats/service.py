@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from utils.timezone import get_beijing_start_of_day, format_iso_beijing
 from typing import Dict, List
 
 from sqlalchemy import func, select
@@ -55,7 +57,7 @@ class StatsService:
         return result.scalar() or 0
 
     async def _count_findings_today(self) -> int:
-        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = get_beijing_start_of_day()
         result = await self.session.execute(
             select(func.count()).select_from(ReviewFinding).where(ReviewFinding.created_at >= today)
         )
@@ -76,7 +78,7 @@ class StatsService:
                 "pr_title": r.pr_title,
                 "status": r.status,
                 "risk_level": r.risk_level,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "created_at": format_iso_beijing(r.created_at),
             }
             for r in reviews
         ]
