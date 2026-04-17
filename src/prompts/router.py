@@ -22,10 +22,10 @@ class OptimizeRequest(BaseModel):
 
 
 @router.get("/versions")
-async def list_versions(db: AsyncSession = Depends(get_db)) -> dict:
+async def list_versions(db: AsyncSession = Depends(get_db)) -> list:
     registry = PromptRegistry(db)
     await registry.load_from_db()
-    return {"versions": registry.list_versions()}
+    return await registry.list_versions_enriched()
 
 
 @router.get("/versions/{version}")

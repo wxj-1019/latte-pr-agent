@@ -19,6 +19,8 @@ class ReviewMetricsService:
         severity_distribution = await self._severity_distribution(repo_id)
         category_distribution = await self._category_distribution(repo_id)
         prompt_version_metrics = await self._prompt_version_metrics(repo_id)
+        avg_confidence = await self._avg_confidence(repo_id)
+        chart = await self._review_volume_chart(repo_id)
 
         fp_rate = 0.0
         if total_findings > 0:
@@ -26,10 +28,13 @@ class ReviewMetricsService:
 
         return {
             "repo_id": repo_id,
-            "total_reviews": total_reviews,
-            "total_findings": total_findings,
-            "false_positives": false_positive_count,
-            "false_positive_rate": fp_rate,
+            "metrics": {
+                "total_reviews": total_reviews,
+                "total_findings": total_findings,
+                "false_positive_rate": fp_rate,
+                "avg_confidence": avg_confidence,
+            },
+            "chart": chart,
             "severity_distribution": severity_distribution,
             "category_distribution": category_distribution,
             "prompt_version_metrics": prompt_version_metrics,
@@ -103,3 +108,59 @@ class ReviewMetricsService:
                 "false_positive_rate": round(fp / total, 4) if total else 0.0,
             })
         return metrics
+
+    async def _avg_confidence(self, repo_id: str) -> float:
+        result = await self.session.execute(
+            select(func.avg(ReviewFinding.confidence))
+            .join(Review, ReviewFinding.review_id == Review.id)
+            .where(Review.repo_id == repo_id)
+        )
+        val = result.scalar()
+        return round(float(val), 4) if val is not None else 0.0
+
+    async def _review_volume_chart(self, repo_id: str) -> List[Dict]:
+        """返回最近7天每天的 reviews 和 findings 数量（用于前端折线图）"""
+        from datetime import datetime, timedelta, timezone
+
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=6)
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        reviews_result = await self.session.execute(
+            select(
+                func.date(Review.created_at).label("day"),
+                func.count(Review.id).label("cnt"),
+            )
+            .where(Review.repo_id == repo_id, Review.created_at >= start)
+            .group_by("day")
+            .order_by("day")
+        )
+        reviews_by_day = {
+            (row.day.strftime("%Y-%m-%d") if hasattr(row.day, "strftime") else str(row.day)): row.cnt
+            for row in reviews_result.all()
+        }
+
+        findings_result = await self.session.execute(
+            select(
+                func.date(ReviewFinding.created_at).label("day"),
+                func.count(ReviewFinding.id).label("cnt"),
+            )
+            .join(Review, ReviewFinding.review_id == Review.id)
+            .where(Review.repo_id == repo_id, ReviewFinding.created_at >= start)
+            .group_by("day")
+            .order_by("day")
+        )
+        findings_by_day = {
+            (row.day.strftime("%Y-%m-%d") if hasattr(row.day, "strftime") else str(row.day)): row.cnt
+            for row in findings_result.all()
+        }
+
+        chart = []
+        for i in range(7):
+            day = (start + timedelta(days=i)).strftime("%Y-%m-%d")
+            chart.append({
+                "date": day,
+                "reviews": reviews_by_day.get(day, 0),
+                "findings": findings_by_day.get(day, 0),
+            })
+        return chart
