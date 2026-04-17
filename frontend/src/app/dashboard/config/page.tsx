@@ -30,8 +30,30 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 const DEFAULT_REPO = "default";
 
+interface CustomRule {
+  name: string;
+  pattern: string;
+  message: string;
+  severity: "warning" | "critical";
+}
+
+interface ReviewConfigShape {
+  context_analysis?: {
+    enabled?: boolean;
+    historical_bug_check?: boolean;
+    api_contract_detection?: boolean;
+    dependency_depth?: number;
+  };
+  critical_paths?: string[];
+  custom_rules?: CustomRule[];
+  ai_model?: {
+    primary?: string;
+    fallback?: string;
+  };
+}
+
 export default function ConfigPage() {
-  const [config, setConfig] = useState<Record<string, any>>({});
+  const [config, setConfig] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,8 +62,9 @@ export default function ConfigPage() {
 
   useEffect(() => {
     api.getProjectConfig(DEFAULT_REPO)
-      .then((data: any) => {
-        setConfig(data.config_json || {});
+      .then((data: unknown) => {
+        const d = data as Record<string, unknown>;
+        setConfig((d.config_json as Record<string, unknown>) || {});
       })
       .catch((err) => {
         setError(err.message || "Failed to load config");
@@ -49,15 +72,15 @@ export default function ConfigPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const reviewConfig = config.review_config || {};
+  const reviewConfig = (config.review_config as ReviewConfigShape) || {};
 
   async function handleSave() {
     setSaving(true);
     try {
       await api.updateProjectConfig(DEFAULT_REPO, config);
       alert("Config saved");
-    } catch (err: any) {
-      alert("Failed to save: " + (err.message || "Unknown error"));
+    } catch (err) {
+      alert("Failed to save: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setSaving(false);
     }
@@ -237,7 +260,7 @@ export default function ConfigPage() {
         <GlassCard className="p-6">
           <h3 className="text-lg font-medium text-latte-text-primary mb-4">Custom Rules</h3>
           <div className="space-y-3 mb-4">
-            {(reviewConfig.custom_rules || []).map((rule: any, idx: number) => (
+            {(reviewConfig.custom_rules || []).map((rule: CustomRule, idx: number) => (
               <div key={idx} className="p-3 rounded-latte-md bg-latte-bg-tertiary text-sm">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-latte-text-primary">{rule.name}</span>

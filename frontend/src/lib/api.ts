@@ -30,10 +30,11 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getReviews: async (options?: { status?: string; repo?: string; page?: number }) => {
+  getReviews: async (options?: { status?: string; repo?: string; risk?: string; page?: number }) => {
     const params = new URLSearchParams();
     if (options?.status) params.set("status", options.status);
     if (options?.repo) params.set("repo", options.repo);
+    if (options?.risk) params.set("risk", options.risk);
     if (options?.page) params.set("page", String(options.page));
     return fetchJson<{ data: Review[]; total: number; page: number; page_size: number }>(
       `/reviews?${params.toString()}`

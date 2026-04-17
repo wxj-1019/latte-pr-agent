@@ -7,11 +7,12 @@ import type { Review, ReviewFinding } from "@/types";
 interface UseReviewsOptions {
   status?: string;
   repo?: string;
+  risk?: string;
   page?: number;
 }
 
 export function useReviews(options?: UseReviewsOptions) {
-  const key = ["/api/reviews", options?.status, options?.repo, options?.page];
+  const key = ["/api/reviews", options?.status, options?.repo, options?.risk, options?.page];
   const { data, error, isLoading, mutate } = useSWR<{ data: Review[]; total: number; page: number; page_size: number }>(
     key,
     () => api.getReviews(options),

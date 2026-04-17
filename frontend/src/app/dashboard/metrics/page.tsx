@@ -20,23 +20,25 @@ import {
 
 const rangeOptions: Array<"7d" | "30d" | "90d"> = ["7d", "30d", "90d"];
 
-const pieData = [
+const pieColors = [
+  "var(--latte-gold)",
+  "var(--latte-rose)",
+  "var(--latte-success)",
+  "var(--latte-info)",
+  "var(--latte-warning)",
+  "var(--latte-critical)",
+];
+
+const defaultPieData = [
   { name: "Security", value: 35 },
   { name: "Performance", value: 25 },
   { name: "Style", value: 20 },
   { name: "Logic", value: 20 },
 ];
 
-const pieColors = [
-  "var(--latte-gold)",
-  "var(--latte-rose)",
-  "var(--latte-success)",
-  "var(--latte-info)",
-];
-
 export default function MetricsPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
-  const { metrics, chart, isLoading, error } = useMetrics(range, "default");
+  const { metrics, chart, categoryDistribution, isLoading, error } = useMetrics(range, "default");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -168,7 +170,9 @@ export default function MetricsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={pieData}
+                  data={categoryDistribution && Object.keys(categoryDistribution).length > 0
+                    ? Object.entries(categoryDistribution).map(([name, value]) => ({ name, value }))
+                    : defaultPieData}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
@@ -177,7 +181,10 @@ export default function MetricsPage() {
                   label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
-                  {pieData.map((_entry, index) => (
+                  {(categoryDistribution && Object.keys(categoryDistribution).length > 0
+                    ? Object.entries(categoryDistribution).map(([name, value]) => ({ name, value }))
+                    : defaultPieData
+                  ).map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                   ))}
                 </Pie>

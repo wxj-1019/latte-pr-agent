@@ -103,6 +103,7 @@ export interface PromptVersion {
   accuracy?: number;
   repo_count: number;
   content?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
