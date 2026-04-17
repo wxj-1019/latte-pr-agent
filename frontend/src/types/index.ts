@@ -16,6 +16,7 @@ export interface Review {
   prompt_version?: string;
   ai_model?: string;
   diff_stats?: Record<string, number>;
+  pr_files?: PRFile[];
   created_at: string;
   completed_at?: string;
 }

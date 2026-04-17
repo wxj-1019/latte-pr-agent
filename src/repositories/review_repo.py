@@ -49,6 +49,10 @@ class ReviewRepository:
         result = await self.session.execute(select(Review).where(Review.id == review_id))
         return result.scalar_one_or_none()
 
+    async def list_all(self) -> list[Review]:
+        result = await self.session.execute(select(Review).order_by(Review.created_at.desc()))
+        return list(result.scalars().all())
+
     async def get_by_platform_repo_pr_sha(
         self, platform: str, repo_id: str, pr_number: int, head_sha: str
     ) -> Optional[Review]:

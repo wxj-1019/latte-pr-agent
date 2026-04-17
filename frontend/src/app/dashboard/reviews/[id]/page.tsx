@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useReviewDetail, useReviewFindings } from "@/hooks/use-reviews";
 import { FileTree } from "./components/file-tree";
@@ -10,25 +10,30 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { FadeInUp } from "@/components/motion/fade-in-up";
-import { mockFiles } from "@/lib/mock-data";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function ReviewDetailPage() {
   const params = useParams();
   const reviewId = Number(params.id);
-  const { review, isLoading: reviewLoading } = useReviewDetail(reviewId);
+  const { review, isLoading: reviewLoading, error: reviewError } = useReviewDetail(reviewId);
   const { findings, isLoading: findingsLoading } = useReviewFindings(reviewId);
-  const [selectedFile, setSelectedFile] = useState<string>(mockFiles.find((f) => f.review_id === reviewId)?.file_path || "");
+  const [selectedFile, setSelectedFile] = useState<string>("");
   const [selectedLine, setSelectedLine] = useState<{ line: number; file: string } | undefined>();
 
-  const files = mockFiles.filter((f) => f.review_id === reviewId);
+  const files = review?.pr_files || [];
+
+  useEffect(() => {
+    if (files.length > 0 && !selectedFile) {
+      setSelectedFile(files[0].file_path);
+    }
+  }, [files, selectedFile]);
 
   const handleLineClick = (lineNum: number, filePath: string) => {
     setSelectedLine({ line: lineNum, file: filePath });
   };
 
-  if (reviewLoading || findingsLoading || !review) {
+  if (reviewLoading || findingsLoading) {
     return (
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="h-8 w-48 bg-latte-bg-secondary rounded animate-pulse" />
@@ -37,6 +42,21 @@ export default function ReviewDetailPage() {
           <div className="lg:col-span-7 h-96 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
           <div className="lg:col-span-3 h-96 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
         </div>
+      </div>
+    );
+  }
+
+  if (reviewError || !review) {
+    return (
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-latte-text-tertiary">
+        <p className="text-lg font-medium">Failed to load review</p>
+        <p className="text-sm mt-1">{reviewError?.message || "Review not found"}</p>
+        <Link
+          href="/dashboard/reviews"
+          className="mt-4 text-latte-gold hover:underline text-sm"
+        >
+          Back to reviews
+        </Link>
       </div>
     );
   }
