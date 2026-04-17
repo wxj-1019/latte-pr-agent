@@ -16,13 +16,28 @@ spec:
       containers:
         - name: celery-worker
           image: latte-pr-agent:latest
+          imagePullPolicy: Always
           command: ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=8"]
           envFrom:
             - configMapRef:
                 name: latte-config
             - secretRef:
                 name: latte-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
+            - name: SYNC_DATABASE_URL
+              value: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
           resources:
             limits:
               cpu: "2"
               memory: "2Gi"
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "from celery import current_app; current_app.connection().ensure_connection(max_retries=2)"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10

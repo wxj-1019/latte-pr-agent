@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS reviews (
     trigger_type    VARCHAR(30),
     review_mode     VARCHAR(20) DEFAULT 'incremental',
     diff_stats      JSONB,
-    created_at      TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'),
-    completed_at    TIMESTAMP,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    completed_at    TIMESTAMPTZ,
     UNIQUE(platform, repo_id, pr_number, head_sha)
 );
 
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS project_configs (
     platform        VARCHAR(20) NOT NULL,
     repo_id         VARCHAR(100) NOT NULL,
     config_json     JSONB NOT NULL,
-    updated_at      TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(org_id, platform, repo_id)
 );
 

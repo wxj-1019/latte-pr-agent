@@ -16,6 +16,7 @@ spec:
       containers:
         - name: webhook-server
           image: latte-pr-agent:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
@@ -24,6 +25,11 @@ spec:
                 name: latte-config
             - secretRef:
                 name: latte-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
+            - name: SYNC_DATABASE_URL
+              value: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
           resources:
             limits:
               cpu: "2"

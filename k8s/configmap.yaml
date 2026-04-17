@@ -8,7 +8,5 @@ data:
   LOG_LEVEL: "INFO"
   MAX_CONCURRENT_REVIEWS: "50"
   ENABLE_REASONER_REVIEW: "false"
-  DATABASE_URL: "postgresql+asyncpg://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
-  SYNC_DATABASE_URL: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/code_review"
   REDIS_URL: "redis://redis:6379/0"
   GITLAB_URL: "https://gitlab.com"
