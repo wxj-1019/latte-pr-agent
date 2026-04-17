@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "security:audit": "node scripts/security-audit.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
