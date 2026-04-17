@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ConfidenceRing } from "@/components/ui/confidence-ring";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 import type { ReviewFinding } from "@/types";
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 
@@ -21,14 +22,10 @@ export function FindingPanel({ findings, selectedLine }: FindingPanelProps) {
   async function handleFeedback(findingId: number) {
     setSubmittingId(findingId);
     try {
-      const res = await fetch(`/api/findings/${findingId}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_false_positive: true, comment: "" }),
-      });
-      if (res.ok) {
-        alert("Marked as false positive");
-      }
+      await api.submitFeedback(findingId, true, "");
+      alert("Marked as false positive");
+    } catch (err: any) {
+      alert("Failed to submit feedback: " + (err.message || "Unknown error"));
     } finally {
       setSubmittingId(null);
     }
