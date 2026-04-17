@@ -22,6 +22,7 @@ class ReviewRepository:
         head_sha: Optional[str] = None,
         status: str = "pending",
         trigger_type: Optional[str] = None,
+        diff_stats: Optional[dict] = None,
     ) -> Optional[Review]:
         review = Review(
             platform=platform,
@@ -33,6 +34,7 @@ class ReviewRepository:
             head_sha=head_sha,
             status=status,
             trigger_type=trigger_type,
+            diff_stats=diff_stats,
         )
         self.session.add(review)
         try:

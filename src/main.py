@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from webhooks.router import router as webhook_router
@@ -10,6 +12,7 @@ from prompts.router import router as prompts_router
 from reviews.router import router as reviews_router
 from configs.router import router as configs_router
 from stats.router import router as stats_router
+from models import get_db, Review
 
 
 @asynccontextmanager
@@ -45,3 +48,12 @@ app.include_router(stats_router)
 @app.get("/health", tags=["health"])
 async def health_check() -> dict:
     return {"status": "ok", "env": settings.app_env}
+
+
+@app.get("/repos", tags=["repos"])
+async def list_repos(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Review.repo_id).where(Review.platform != "direct").distinct()
+    )
+    repos = [row[0] for row in result.all() if row[0]]
+    return {"repos": repos}

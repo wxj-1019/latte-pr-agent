@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { GitPullRequest, BarChart3, Settings, FileText } from "lucide-react";
+import { GitPullRequest, BarChart3, Settings, FileText, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard/reviews", icon: GitPullRequest, label: "Reviews" },
+  { href: "/dashboard/analyze", icon: Sparkles, label: "Analyze" },
   { href: "/dashboard/metrics", icon: BarChart3, label: "Metrics" },
   { href: "/dashboard/config", icon: Settings, label: "Config" },
   { href: "/dashboard/prompts", icon: FileText, label: "Prompts" },

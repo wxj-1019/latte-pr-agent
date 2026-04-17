@@ -1,7 +1,7 @@
 export interface Review {
   id: number;
   org_id: string;
-  platform: "github" | "gitlab";
+  platform: "github" | "gitlab" | "direct";
   repo_id: string;
   pr_number: number;
   pr_title?: string;

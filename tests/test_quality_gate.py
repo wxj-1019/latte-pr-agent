@@ -10,7 +10,7 @@ def test_quality_gate_blocks_on_critical():
     ]
     gate = QualityGate(findings, ReviewConfig(block_on_critical=True))
     result = gate.assess()
-    assert result["risk_level"] == "high"
+    assert result["risk_level"] == "critical"
     assert result["status"] == "failure"
     assert "blocked" in result["description"].lower()
 
@@ -21,7 +21,7 @@ def test_quality_gate_allows_critical_when_config_override():
     ]
     gate = QualityGate(findings, ReviewConfig(block_on_critical=False))
     result = gate.assess()
-    assert result["risk_level"] == "high"
+    assert result["risk_level"] == "critical"
     assert result["status"] == "success"
     assert "not blocked" in result["description"].lower()
 
