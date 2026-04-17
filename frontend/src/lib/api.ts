@@ -1,11 +1,19 @@
 import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint } from "@/types";
+import { csrfHeaders } from "./csrf";
 
 const baseUrl = typeof window !== "undefined"
   ? (process.env.NEXT_PUBLIC_API_URL || "")
   : (process.env.NEXT_PUBLIC_API_URL || "");
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${baseUrl}${url}`, options);
+  const isMutating = !!options?.method && options.method !== "GET" && options.method !== "HEAD";
+  const res = await fetch(`${baseUrl}${url}`, {
+    ...options,
+    headers: {
+      ...(options?.headers || {}),
+      ...(isMutating ? csrfHeaders() : {}),
+    },
+  });
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { escapeHtml } from "@/lib/security";
 import { ConfidenceRing } from "@/components/ui/confidence-ring";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,7 @@ export function FindingPanel({ findings, selectedLine }: FindingPanelProps) {
                     </span>
                   </div>
                   <p className="text-sm text-latte-text-secondary mt-2 truncate">
-                    {finding.description}
+                    {escapeHtml(finding.description)}
                   </p>
                 </div>
                 <div className="shrink-0 pt-0.5">
@@ -102,12 +103,12 @@ export function FindingPanel({ findings, selectedLine }: FindingPanelProps) {
                   >
                     <div className="px-4 pb-4 space-y-4">
                       <div className="text-sm text-latte-text-primary leading-relaxed">
-                        {finding.description}
+                        {escapeHtml(finding.description)}
                       </div>
                       {finding.suggestion && (
                         <div className="rounded-latte-md bg-latte-bg-tertiary p-3 text-sm text-latte-text-secondary">
                           <span className="font-medium text-latte-gold">Suggestion:</span>{" "}
-                          {finding.suggestion}
+                          {escapeHtml(finding.suggestion)}
                         </div>
                       )}
                       <div className="flex items-center justify-between">

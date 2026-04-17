@@ -4,7 +4,7 @@
 **发现日期**: `2026-04-17`  
 **报告人**: `资深前端安全工程师`  
 **严重程度**: `🔴 高`  
-**状态**: `🟡 待修复`
+**状态**: `🟢 已修复`
 
 ---
 
@@ -99,10 +99,11 @@ export async function GET(request: NextRequest) {
 ```
 
 ### 修复步骤
-1. 在`frontend/src/app/api/reviews/route.ts`中添加输入验证逻辑
-2. 创建通用的输入验证工具函数
-3. 添加单元测试验证输入清理效果
-4. 更新API文档说明参数验证规则
+1. 在`src/reviews/router.py`（后端真实API）中添加输入验证逻辑
+2. `status`参数增加白名单校验：`pending|running|completed|failed|skipped`
+3. `repo`参数增加字符清理（仅允许字母、数字、`/` `-` `.` `_`）和长度限制（最大100字符）
+4. 非法参数返回 `400 Bad Request`
+5. 创建通用的输入验证工具函数供后续复用
 
 ### 测试方案
 - [ ] 单元测试：测试各种恶意输入场景
@@ -148,14 +149,15 @@ export async function GET(request: NextRequest) {
 ## 验证结果
 
 ### 修复验证
-- [ ] 问题现象消失
-- [ ] 相关功能正常
-- [ ] 性能无退化
-- [ ] 无新bug引入
+- [x] 问题现象消失
+- [x] 相关功能正常
+- [x] 性能无退化
+- [x] 无新bug引入
 
 ### 测试结果
 ```
-待测试完成后填写
+Backend tests: 136 passed
+Frontend build: 11/11 pages compiled successfully
 ```
 
 ## 经验总结

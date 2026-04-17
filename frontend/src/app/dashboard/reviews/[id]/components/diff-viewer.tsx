@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { escapeHtml } from "@/lib/security";
 import type { PRFile, ReviewFinding } from "@/types";
 
 interface DiffViewerProps {
@@ -124,7 +125,7 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
                       line.type === "context" && "text-latte-text-secondary"
                     )}
                   >
-                    {line.content || " "}
+                    {escapeHtml(line.content) || " "}
                   </td>
                 </tr>
               );
