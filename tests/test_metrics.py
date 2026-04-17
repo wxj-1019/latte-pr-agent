@@ -12,7 +12,7 @@ async def test_review_metrics_service(async_db_session: AsyncSession) -> None:
     review2 = Review(platform="github", repo_id="owner/repo", pr_number=2)
     review3 = Review(platform="github", repo_id="other/repo", pr_number=3)
     async_db_session.add_all([review1, review2, review3])
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(review1)
     await async_db_session.refresh(review2)
     await async_db_session.refresh(review3)
@@ -23,14 +23,14 @@ async def test_review_metrics_service(async_db_session: AsyncSession) -> None:
         ReviewFinding(review_id=review2.id, file_path="c.py", severity="warning", description="Perf"),
     ]
     async_db_session.add_all(findings)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(findings[0])
     await async_db_session.refresh(findings[1])
 
     # One false positive feedback
     feedback = DeveloperFeedback(finding_id=findings[0].id, is_false_positive=True, comment="Not a bug")
     async_db_session.add(feedback)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     service = ReviewMetricsService(async_db_session)
     result = await service.get_repo_metrics("owner/repo")

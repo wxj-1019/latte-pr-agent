@@ -9,13 +9,21 @@ from models import ReviewFinding
 
 
 @pytest.mark.asyncio
-async def test_feedback_submission(async_client_with_db, async_db_session: AsyncSession):
-    review = await ReviewRepository(async_db_session).create(
+async def test_feedback_submission(async_client_with_db):
+    from models import get_db
+    from main import app
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
+    db_gen = app.dependency_overrides[get_db]()
+    session = await db_gen.__anext__()
+
+    review = await ReviewRepository(session).create(
         platform="github", repo_id="o/r", pr_number=1
     )
-    finding = await FindingRepository(async_db_session).create(
+    finding = await FindingRepository(session).create(
         review_id=review.id, file_path="src/a.py", description="bug"
     )
+    await session.commit()
 
     response = await async_client_with_db.post(
         f"/feedback/{finding.id}?is_false_positive=true&comment=Not a bug",

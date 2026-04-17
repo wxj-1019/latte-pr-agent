@@ -39,6 +39,7 @@ async def submit_feedback(
         is_false_positive=is_false_positive,
         comment=comment,
     )
+    await db.commit()
     return {
         "id": feedback.id,
         "finding_id": feedback.finding_id,

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from main import app
 from models import Base, get_db
 
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
 
 @pytest.fixture
 def client() -> TestClient:
@@ -14,12 +16,13 @@ def client() -> TestClient:
 
 @pytest.fixture
 async def async_db_session():
-    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/code_review", echo=False)
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with session_maker() as session:
-        yield session
+        async with session.begin():
+            yield session
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
@@ -27,9 +30,8 @@ async def async_db_session():
 
 @pytest.fixture
 async def async_client_with_db():
-    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/code_review", echo=False)
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     async def override_get_db():
