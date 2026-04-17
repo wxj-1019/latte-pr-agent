@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useReviews } from "@/hooks/use-reviews";
 import { useSSE } from "@/hooks/use-sse";
 import { ReviewList } from "@/components/dashboard/review-list";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import type { ReviewUpdate } from "@/types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const statusOptions = ["all", "pending", "running", "completed", "failed", "skipped"];
 const riskOptions = ["all", "low", "medium", "high", "critical"];
@@ -15,18 +17,32 @@ export default function ReviewsPage() {
   const [status, setStatus] = useState<string>("all");
   const [risk, setRisk] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const { reviews: rawReviews, isLoading, mutate } = useReviews({
+  const [page, setPage] = useState(1);
+
+  const {
+    reviews,
+    total,
+    page: currentPage,
+    pageSize,
+    isLoading,
+    mutate,
+  } = useReviews({
     status: status === "all" ? undefined : status,
     repo: search || undefined,
+    risk: risk === "all" ? undefined : risk,
+    page,
   });
 
-  const reviews = rawReviews.filter((r) => {
-    if (risk === "all") return true;
-    return r.risk_level === risk;
-  });
+  const { subscribe } = useSSE();
 
-  const handleSSE = useCallback(
-    (update: ReviewUpdate) => {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    setPage(1);
+  }, [status, risk, search]);
+
+  useEffect(() => {
+    const unsubscribe = subscribe((update: ReviewUpdate) => {
       mutate((prev) => {
         if (!prev) return prev;
         return {
@@ -38,11 +54,9 @@ export default function ReviewsPage() {
           ),
         };
       }, false);
-    },
-    [mutate]
-  );
-
-  useSSE(handleSSE);
+    });
+    return unsubscribe;
+  }, [subscribe, mutate]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -111,6 +125,35 @@ export default function ReviewsPage() {
       ) : (
         <FadeInUp delay={0.1}>
           <ReviewList reviews={reviews} />
+        </FadeInUp>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <FadeInUp delay={0.15}>
+          <div className="flex items-center justify-center gap-3 mt-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft size={16} />
+              Prev
+            </Button>
+            <span className="text-sm text-latte-text-secondary">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+              <ChevronRight size={16} />
+            </Button>
+          </div>
         </FadeInUp>
       )}
     </div>

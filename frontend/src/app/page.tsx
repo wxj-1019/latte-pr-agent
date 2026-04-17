@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/landing/hero-section";
 import { BentoGrid } from "@/components/landing/bento-grid";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
+import { ArchitectureFlow } from "@/components/landing/architecture-flow";
 import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import {
@@ -44,31 +45,7 @@ export default function HomePage() {
           </p>
         </FadeInUp>
 
-        <FadeInUp delay={0.1}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="latte-glass p-8 text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-latte-bg-tertiary border border-latte-text-primary/5 flex items-center justify-center text-latte-gold mb-4">
-                <GitBranch size={24} strokeWidth={1.5} />
-              </div>
-              <h3 className="text-lg font-medium text-latte-text-primary mb-2">Webhook Ingest</h3>
-              <p className="text-sm text-latte-text-secondary">GitHub / GitLab events validated and queued</p>
-            </div>
-            <div className="latte-glass p-8 text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-latte-bg-tertiary border border-latte-text-primary/5 flex items-center justify-center text-latte-rose mb-4">
-                <Cpu size={24} strokeWidth={1.5} />
-              </div>
-              <h3 className="text-lg font-medium text-latte-text-primary mb-2">Celery Workers</h3>
-              <p className="text-sm text-latte-text-secondary">Multi-model review, AST analysis, static checks</p>
-            </div>
-            <div className="latte-glass p-8 text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-latte-bg-tertiary border border-latte-text-primary/5 flex items-center justify-center text-latte-success mb-4">
-                <Database size={24} strokeWidth={1.5} />
-              </div>
-              <h3 className="text-lg font-medium text-latte-text-primary mb-2">Persistent Store</h3>
-              <p className="text-sm text-latte-text-secondary">PostgreSQL + pgvector for embeddings</p>
-            </div>
-          </div>
-        </FadeInUp>
+        <ArchitectureFlow />
       </section>
 
       <BentoGrid />

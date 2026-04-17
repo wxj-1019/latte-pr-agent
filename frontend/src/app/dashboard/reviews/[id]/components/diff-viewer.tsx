@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { codeToHtml } from "shiki";
 import { cn } from "@/lib/utils";
 import { escapeHtml } from "@/lib/security";
 import type { PRFile, ReviewFinding } from "@/types";
@@ -11,14 +13,15 @@ interface DiffViewerProps {
   selectedLine?: { line: number; file: string };
 }
 
-function parseDiff(diffContent: string) {
-  const lines: Array<{
-    oldNum?: number;
-    newNum?: number;
-    content: string;
-    type: "context" | "add" | "remove" | "header";
-  }> = [];
+interface DiffLine {
+  oldNum?: number;
+  newNum?: number;
+  content: string;
+  type: "context" | "add" | "remove" | "header";
+}
 
+function parseDiff(diffContent: string): DiffLine[] {
+  const lines: DiffLine[] = [];
   let oldLine = 0;
   let newLine = 0;
 
@@ -47,8 +50,66 @@ function parseDiff(diffContent: string) {
   return lines;
 }
 
+function inferLanguage(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    py: "python",
+    js: "javascript",
+    ts: "typescript",
+    tsx: "tsx",
+    jsx: "jsx",
+    java: "java",
+    go: "go",
+    rs: "rust",
+    cpp: "cpp",
+    cc: "cpp",
+    hpp: "cpp",
+    c: "c",
+    h: "c",
+    rb: "ruby",
+    php: "php",
+    json: "json",
+    yml: "yaml",
+    yaml: "yaml",
+    md: "markdown",
+    sh: "bash",
+    dockerfile: "dockerfile",
+    sql: "sql",
+    html: "html",
+    css: "css",
+    scss: "scss",
+  };
+  return map[ext || ""] || "text";
+}
+
+async function highlightDiff(lines: DiffLine[], lang: string): Promise<(string | null)[]> {
+  const result: (string | null)[] = new Array(lines.length).fill(null);
+  const codeLines = lines.filter((l) => l.type !== "header");
+  if (codeLines.length === 0) return result;
+
+  const codeBlock = codeLines.map((l) => l.content).join("\n");
+  const html = await codeToHtml(codeBlock, {
+    lang,
+    theme: "github-dark",
+  });
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const lineSpans = doc.querySelectorAll(".line");
+
+  let hlIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].type !== "header" && hlIdx < lineSpans.length) {
+      result[i] = lineSpans[hlIdx].innerHTML;
+      hlIdx++;
+    }
+  }
+
+  return result;
+}
+
 export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffViewerProps) {
-  const lines = parseDiff(file.diff_content || "");
+  const lines = useMemo(() => parseDiff(file.diff_content || ""), [file.diff_content]);
   const fileFindings = findings.filter((f) => f.file_path === file.file_path);
   const findingMap = new Map<number, ReviewFinding>();
   fileFindings.forEach((f) => {
@@ -56,6 +117,29 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
       findingMap.set(f.line_number, f);
     }
   });
+
+  const [highlightedLines, setHighlightedLines] = useState<(string | null)[]>([]);
+  const [highlightReady, setHighlightReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const lang = inferLanguage(file.file_path);
+
+    highlightDiff(lines, lang)
+      .then((result) => {
+        if (mounted) {
+          setHighlightedLines(result);
+          setHighlightReady(true);
+        }
+      })
+      .catch(() => {
+        if (mounted) setHighlightReady(true);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [lines, file.file_path]);
 
   return (
     <div className="rounded-latte-xl bg-latte-bg-deep border border-latte-text-primary/5 overflow-hidden">
@@ -84,6 +168,8 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
               const finding = findingMap.get(lineNum);
               const hasFinding = !!finding;
               const isSelected = selectedLine?.file === file.file_path && selectedLine?.line === lineNum;
+
+              const highlightedHtml = highlightReady ? highlightedLines[idx] : null;
 
               return (
                 <tr
@@ -125,7 +211,15 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
                       line.type === "context" && "text-latte-text-secondary"
                     )}
                   >
-                    {escapeHtml(line.content) || " "}
+                    {highlightedHtml !== null ? (
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: highlightedHtml || " ",
+                        }}
+                      />
+                    ) : (
+                      <span>{escapeHtml(line.content) || " "}</span>
+                    )}
                   </td>
                 </tr>
               );
