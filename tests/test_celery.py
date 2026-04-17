@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-def test_github_webhook_uses_celery_when_available(client_with_db: TestClient):
+async def test_github_webhook_uses_celery_when_available(async_client_with_db):
     with patch("webhooks.router.get_celery_task") as mock_get_task:
         mock_task = MagicMock()
         mock_task.delay = MagicMock()
@@ -27,7 +27,7 @@ def test_github_webhook_uses_celery_when_available(client_with_db: TestClient):
         body = json.dumps(payload, separators=(",", ":")).encode()
         sig = "sha256=" + hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
 
-        response = client_with_db.post(
+        response = await async_client_with_db.post(
             "/webhook/github",
             content=body,
             headers={
@@ -40,7 +40,7 @@ def test_github_webhook_uses_celery_when_available(client_with_db: TestClient):
         mock_task.delay.assert_called_once()
 
 
-def test_github_webhook_fallback_to_background_tasks_on_celery_error(client_with_db: TestClient):
+async def test_github_webhook_fallback_to_background_tasks_on_celery_error(async_client_with_db):
     with patch("webhooks.router.get_celery_task") as mock_get_task:
         mock_get_task.side_effect = Exception("Redis down")
 
@@ -63,7 +63,7 @@ def test_github_webhook_fallback_to_background_tasks_on_celery_error(client_with
             body = json.dumps(payload, separators=(",", ":")).encode()
             sig = "sha256=" + hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
 
-            response = client_with_db.post(
+            response = await async_client_with_db.post(
                 "/webhook/github",
                 content=body,
                 headers={

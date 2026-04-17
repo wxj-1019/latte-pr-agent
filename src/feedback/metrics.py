@@ -122,7 +122,7 @@ class ReviewMetricsService:
         """返回最近7天每天的 reviews 和 findings 数量（用于前端折线图）"""
         from datetime import datetime, timedelta, timezone
 
-        end = datetime.now(timezone.utc)
+        end = datetime.utcnow()
         start = end - timedelta(days=6)
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
 

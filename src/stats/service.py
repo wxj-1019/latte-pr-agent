@@ -55,7 +55,7 @@ class StatsService:
         return result.scalar() or 0
 
     async def _count_findings_today(self) -> int:
-        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self.session.execute(
             select(func.count()).select_from(ReviewFinding).where(ReviewFinding.created_at >= today)
         )

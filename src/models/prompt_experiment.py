@@ -13,7 +13,7 @@ class PromptExperiment(Base):
     version: Mapped[str] = mapped_column(String(50), primary_key=True)
     prompt_text: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[Optional[dict]] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
 class PromptExperimentAssignment(Base):
@@ -24,4 +24,4 @@ class PromptExperimentAssignment(Base):
     repo_id: Mapped[str] = mapped_column(String(100))
     experiment_name: Mapped[str] = mapped_column(String(50), default="default")
     version: Mapped[str] = mapped_column(String(50))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
