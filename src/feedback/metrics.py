@@ -120,11 +120,12 @@ class ReviewMetricsService:
 
     async def _review_volume_chart(self, repo_id: str) -> List[Dict]:
         """返回最近7天每天的 reviews 和 findings 数量（用于前端折线图）"""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        end = datetime.utcnow()
-        start = end - timedelta(days=6)
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        from utils.timezone import beijing_now, get_beijing_start_of_day
+
+        end = beijing_now()
+        start = get_beijing_start_of_day(end - timedelta(days=6))
 
         reviews_result = await self.session.execute(
             select(

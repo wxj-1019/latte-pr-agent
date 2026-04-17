@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from utils.timezone import beijing_now
 
 
 class PromptExperiment(Base):
@@ -13,7 +14,7 @@ class PromptExperiment(Base):
     version: Mapped[str] = mapped_column(String(50), primary_key=True)
     prompt_text: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[Optional[dict]] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
 
 
 class PromptExperimentAssignment(Base):
@@ -24,4 +25,4 @@ class PromptExperimentAssignment(Base):
     repo_id: Mapped[str] = mapped_column(String(100))
     experiment_name: Mapped[str] = mapped_column(String(50), default="default")
     version: Mapped[str] = mapped_column(String(50))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
