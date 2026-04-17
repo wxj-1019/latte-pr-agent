@@ -1,5 +1,6 @@
 import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint } from "@/types";
 import { csrfHeaders } from "./csrf";
+import type { DashboardStats } from "@/hooks/use-stats";
 
 const baseUrl = typeof window !== "undefined"
   ? (process.env.NEXT_PUBLIC_API_URL || "")
@@ -61,6 +62,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+  },
+
+  getStats: async () => {
+    return fetchJson<DashboardStats>("/stats");
   },
 
   getProjectConfig: async (repoId: string) => {

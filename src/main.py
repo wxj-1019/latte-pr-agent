@@ -9,6 +9,7 @@ from feedback.router import router as feedback_router
 from prompts.router import router as prompts_router
 from reviews.router import router as reviews_router
 from configs.router import router as configs_router
+from stats.router import router as stats_router
 
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ app.include_router(feedback_router)
 app.include_router(prompts_router)
 app.include_router(reviews_router)
 app.include_router(configs_router)
+app.include_router(stats_router)
 
 
 @app.get("/health", tags=["health"])
