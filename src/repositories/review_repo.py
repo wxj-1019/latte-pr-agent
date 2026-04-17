@@ -49,9 +49,44 @@ class ReviewRepository:
         result = await self.session.execute(select(Review).where(Review.id == review_id))
         return result.scalar_one_or_none()
 
-    async def list_all(self) -> list[Review]:
-        result = await self.session.execute(select(Review).order_by(Review.created_at.desc()))
+    async def list_all(
+        self,
+        status: Optional[str] = None,
+        repo_filter: Optional[str] = None,
+        risk: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> list[Review]:
+        stmt = select(Review).order_by(Review.created_at.desc())
+        if status:
+            stmt = stmt.where(Review.status == status)
+        if repo_filter:
+            stmt = stmt.where(Review.repo_id.contains(repo_filter))
+        if risk:
+            stmt = stmt.where(Review.risk_level == risk)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_all(
+        self,
+        status: Optional[str] = None,
+        repo_filter: Optional[str] = None,
+        risk: Optional[str] = None,
+    ) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(Review)
+        if status:
+            stmt = stmt.where(Review.status == status)
+        if repo_filter:
+            stmt = stmt.where(Review.repo_id.contains(repo_filter))
+        if risk:
+            stmt = stmt.where(Review.risk_level == risk)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
 
     async def get_by_platform_repo_pr_sha(
         self, platform: str, repo_id: str, pr_number: int, head_sha: str
