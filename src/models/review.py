@@ -27,7 +27,7 @@ class Review(Base):
     review_mode: Mapped[str] = mapped_column(String(20), default="incremental")
     prompt_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     diff_stats: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     findings: Mapped[List["ReviewFinding"]] = relationship(
@@ -61,4 +61,4 @@ class ProjectConfig(Base):
     platform: Mapped[str] = mapped_column(String(20))
     repo_id: Mapped[str] = mapped_column(String(100))
     config_json: Mapped[dict] = mapped_column(JSON)
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

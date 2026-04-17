@@ -29,8 +29,8 @@ def test_verify_github_missing_signature():
 
 
 @pytest.mark.asyncio
-async def test_github_webhook_missing_signature(client_with_db: TestClient):
-    response = client_with_db.post(
+async def test_github_webhook_missing_signature(async_client_with_db):
+    response = await async_client_with_db.post(
         "/webhook/github",
         content=b'{}',
         headers={"Content-Type": "application/json"},
@@ -119,11 +119,11 @@ def _github_signature(body: bytes, secret: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_github_webhook_invalid_signature(client_with_db: TestClient):
+async def test_github_webhook_invalid_signature(async_client_with_db):
     from config import settings
     settings.github_webhook_secret = "test-secret"
     body = json.dumps({"action": "opened"}).encode()
-    response = client_with_db.post(
+    response = await async_client_with_db.post(
         "/webhook/github",
         content=body,
         headers={
@@ -135,13 +135,13 @@ async def test_github_webhook_invalid_signature(client_with_db: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_github_webhook_ignored_event(client_with_db: TestClient):
+async def test_github_webhook_ignored_event(async_client_with_db):
     from config import settings
     settings.github_webhook_secret = "test-secret"
     payload = {"action": "closed", "repository": {"full_name": "o/r"}, "pull_request": {"number": 1}}
     body = json.dumps(payload, separators=(",", ":")).encode()
     sig = _github_signature(body, settings.github_webhook_secret)
-    response = client_with_db.post(
+    response = await async_client_with_db.post(
         "/webhook/github",
         content=body,
         headers={
@@ -154,7 +154,7 @@ async def test_github_webhook_ignored_event(client_with_db: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_github_webhook_oversize_pr(client_with_db: TestClient):
+async def test_github_webhook_oversize_pr(async_client_with_db):
     from config import settings
     settings.github_webhook_secret = "test-secret"
     payload = {
@@ -164,7 +164,7 @@ async def test_github_webhook_oversize_pr(client_with_db: TestClient):
     }
     body = json.dumps(payload, separators=(",", ":")).encode()
     sig = _github_signature(body, settings.github_webhook_secret)
-    response = client_with_db.post(
+    response = await async_client_with_db.post(
         "/webhook/github",
         content=body,
         headers={
@@ -179,7 +179,7 @@ async def test_github_webhook_oversize_pr(client_with_db: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_github_webhook_success(client_with_db: TestClient):
+async def test_github_webhook_success(async_client_with_db):
     from config import settings
     from unittest.mock import patch
     settings.github_webhook_secret = "test-secret"
@@ -197,7 +197,7 @@ async def test_github_webhook_success(client_with_db: TestClient):
     body = json.dumps(payload, separators=(",", ":")).encode()
     sig = _github_signature(body, settings.github_webhook_secret)
     with patch("webhooks.router.run_review"):
-        response = client_with_db.post(
+        response = await async_client_with_db.post(
             "/webhook/github",
             content=body,
             headers={
@@ -212,10 +212,10 @@ async def test_github_webhook_success(client_with_db: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_gitlab_webhook_invalid_token(client_with_db: TestClient):
+async def test_gitlab_webhook_invalid_token(async_client_with_db):
     from config import settings
     settings.gitlab_webhook_secret = "test-secret"
-    response = client_with_db.post(
+    response = await async_client_with_db.post(
         "/webhook/gitlab",
         json={},
         headers={"X-Gitlab-Token": "bad"},
@@ -224,7 +224,7 @@ async def test_gitlab_webhook_invalid_token(client_with_db: TestClient):
 
 
 @pytest.mark.asyncio
-async def test_gitlab_webhook_success(client_with_db: TestClient):
+async def test_gitlab_webhook_success(async_client_with_db):
     from config import settings
     from unittest.mock import patch
     settings.gitlab_webhook_secret = "test-secret"
@@ -240,7 +240,7 @@ async def test_gitlab_webhook_success(client_with_db: TestClient):
         "project": {"id": 99},
     }
     with patch("webhooks.router.run_review"):
-        response = client_with_db.post(
+        response = await async_client_with_db.post(
             "/webhook/gitlab",
             json=payload,
             headers={"X-Gitlab-Token": settings.gitlab_webhook_secret},

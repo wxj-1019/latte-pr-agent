@@ -21,7 +21,7 @@ class PromptVersion:
         self.version = version
         self.text = text
         self.metadata = metadata or {}
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = datetime.utcnow()
 
 
 class PromptRegistry:
@@ -117,14 +117,14 @@ class PromptRegistry:
                 version=version,
                 prompt_text=text,
                 metadata_json=metadata or {},
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.utcnow(),
             )
             .on_conflict_do_update(
                 index_elements=["version"],
                 set_={
                     "prompt_text": text,
                     "metadata_json": metadata or {},
-                    "created_at": datetime.now(timezone.utc),
+                    "created_at": datetime.utcnow(),
                 },
             )
         )
@@ -167,7 +167,7 @@ class PromptRegistry:
             repo_id=repo_id,
             experiment_name=experiment_name,
             version=chosen,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.utcnow(),
         ).on_conflict_do_nothing()
         await self.session.execute(stmt)
         await self.session.commit()
