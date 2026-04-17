@@ -126,3 +126,31 @@ export interface ReviewUpdate {
   timestamp: string;
   findings_count?: number;
 }
+
+export interface DashboardStats {
+  total_reviews: number;
+  pending_reviews: number;
+  running_reviews: number;
+  completed_reviews: number;
+  failed_reviews: number;
+  skipped_reviews: number;
+  high_risk_count: number;
+  total_findings_today: number;
+  recent_reviews: Array<{
+    id: number;
+    repo_id: string;
+    pr_number: number;
+    pr_title?: string;
+    status: "pending" | "running" | "completed" | "failed" | "skipped";
+    risk_level?: string;
+    created_at: string;
+  }>;
+}
+
+export interface AnalyzeResult {
+  review_id: number;
+  status: string;
+  summary: string;
+  risk_level: "low" | "medium" | "high" | "critical";
+  findings: ReviewFinding[];
+}

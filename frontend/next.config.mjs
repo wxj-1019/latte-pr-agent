@@ -11,9 +11,9 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
 
-  // Disable ESLint during build
+  // Enable ESLint during build (default)
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
 
   // Output standalone build for Docker
