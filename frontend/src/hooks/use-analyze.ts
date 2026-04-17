@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { api, type AnalyzeResult } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { AnalyzeResult } from "@/types";
 
 interface UseAnalyzeReturn {
   analyze: (params: { filename: string; content: string; language: string; repo_id: string }) => Promise<AnalyzeResult>;

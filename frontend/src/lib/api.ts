@@ -1,18 +1,7 @@
-import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint } from "@/types";
+import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult } from "@/types";
 import { csrfHeaders } from "./csrf";
-import type { DashboardStats } from "@/hooks/use-stats";
 
-export interface AnalyzeResult {
-  review_id: number;
-  status: string;
-  summary: string;
-  risk_level: "low" | "medium" | "high" | "critical";
-  findings: ReviewFinding[];
-}
-
-const baseUrl = typeof window !== "undefined"
-  ? (process.env.NEXT_PUBLIC_API_URL || "")
-  : (process.env.NEXT_PUBLIC_API_URL || "");
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const isMutating = !!options?.method && options.method !== "GET" && options.method !== "HEAD";
