@@ -77,7 +77,7 @@ class DependencyGraphBuilder:
                 for down, up in deps
             ]
             self.session.add_all(records)
-            await self.session.commit()
+            await self.session.flush()
 
 
 def _resolve_import(module: str, lang: str, repo_root: Path, current_dir: Path) -> List[str]:

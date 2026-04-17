@@ -97,8 +97,15 @@ async def test_comment_deduplicator(async_db_session: AsyncSession):
     )
 
     dedup = CommentDeduplicator(async_db_session)
+    # Without preload, fallback path still works
     assert await dedup.should_comment(review.id, "src/main.py", 10) is False
     assert await dedup.should_comment(review.id, "src/main.py", 11) is True
+
+    # With preload, uses in-memory set (batch-loaded)
+    dedup2 = CommentDeduplicator(async_db_session)
+    await dedup2.preload_existing(review.id)
+    assert await dedup2.should_comment(review.id, "src/main.py", 10) is False
+    assert await dedup2.should_comment(review.id, "src/main.py", 11) is True
 
 
 @pytest.mark.asyncio
@@ -173,7 +180,6 @@ async def test_review_engine_uses_project_config_model(async_db_session: AsyncSe
     # Verify effective router was created with claude config
     effective_router = engine._get_effective_router()
     assert effective_router.config["primary_model"] == "claude-3-5-sonnet"
-    assert effective_router.config["primary"] == "claude-3-5-sonnet"
 
 
 @pytest.mark.asyncio

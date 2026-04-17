@@ -69,25 +69,47 @@ class ReviewRouter:
         )
 
     def _merge_results(self, primary: Dict, reasoner: Dict) -> Dict:
-        """Merge reasoner review into primary result."""
+        """Merge reasoner review into primary result.
+
+        For overlapping issues, reasoner's description/severity takes precedence
+        so its detailed reasoning is preserved. Reasoner-only issues are appended
+        with a flag for downstream tracking.
+        """
         merged_issues = []
         primary_issues = primary.get("issues", [])
         reasoner_issues = reasoner.get("issues", [])
 
-        # Simple merge: keep all primary issues, add reasoner issues that don't duplicate
-        merged_issues.extend(primary_issues)
+        # Build lookup for reasoner issues by (file, line, category)
+        reasoner_map: Dict[tuple, Dict] = {}
         for ri in reasoner_issues:
-            dup = any(
-                pi.get("file") == ri.get("file") and pi.get("line") == ri.get("line")
-                and pi.get("category") == ri.get("category")
-                for pi in primary_issues
-            )
-            if not dup:
-                merged_issues.append(ri)
+            key = (ri.get("file"), ri.get("line"), ri.get("category"))
+            reasoner_map[key] = ri
 
-        primary["issues"] = merged_issues
-        primary["reasoner_reviewed"] = True
-        return primary
+        for pi in primary_issues:
+            key = (pi.get("file"), pi.get("line"), pi.get("category"))
+            ri = reasoner_map.pop(key, None)
+            if ri:
+                # Smart merge: prefer reasoner's refined assessment
+                merged = dict(pi)
+                if ri.get("description"):
+                    merged["description"] = ri["description"]
+                if ri.get("severity"):
+                    merged["severity"] = ri["severity"]
+                merged["reasoner_reviewed"] = True
+                merged_issues.append(merged)
+            else:
+                merged_issues.append(pi)
+
+        # Append reasoner-only issues
+        for ri in reasoner_map.values():
+            ri_copy = dict(ri)
+            ri_copy["reasoner_only"] = True
+            merged_issues.append(ri_copy)
+
+        result = dict(primary)
+        result["issues"] = merged_issues
+        result["reasoner_reviewed"] = True
+        return result
 
 
 class ResilientReviewRouter(ReviewRouter):
@@ -97,7 +119,7 @@ class ResilientReviewRouter(ReviewRouter):
         return await self.review_with_fallback(prompt, pr_size_tokens, system_prompt)
 
     async def review_with_fallback(self, prompt: str, pr_size_tokens: int, system_prompt: str | None = None) -> Dict:
-        models = [self.config.get("primary", "deepseek-chat")]
+        models = [self.config.get("primary_model") or self.config.get("primary", "deepseek-chat")]
         models += self.config.get("fallback_chain", [])
 
         last_error = None
@@ -105,7 +127,7 @@ class ResilientReviewRouter(ReviewRouter):
             provider = self._get_provider(model)
             for attempt in range(2):
                 try:
-                    logger.info(f"Trying model {model}, attempt {attempt + 1}")
+                    logger.info("Trying model %s, attempt %s", model, attempt + 1)
                     return await provider.review(prompt, model, system_prompt)
                 except RateLimitError:
                     await asyncio.sleep(2 ** attempt)
@@ -113,13 +135,13 @@ class ResilientReviewRouter(ReviewRouter):
                     if attempt == 1:
                         break  # 切换下一个模型
                 except Exception as e:
-                    logger.warning(f"Model {model} failed: {e}")
+                    logger.warning("Model %s failed: %s", model, e, exc_info=True)
                     last_error = e
                     if attempt == 1:
                         break
 
         # 所有模型均不可用：返回降级结果
-        logger.error(f"All models down. Last error: {last_error}")
+        logger.error("All models down. Last error: %s", last_error)
         return {
             "summary": "AI 模型服务暂时不可用，本次仅展示静态分析结果",
             "risk_level": "low",

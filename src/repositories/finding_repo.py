@@ -36,7 +36,7 @@ class FindingRepository:
             raw_response=raw_response,
         )
         self.session.add(finding)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(finding)
         return finding
 
@@ -55,6 +55,6 @@ class FindingRepository:
             comment=comment,
         )
         self.session.add(feedback)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(feedback)
         return feedback

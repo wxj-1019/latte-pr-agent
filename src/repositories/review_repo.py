@@ -1,7 +1,6 @@
 from typing import Optional
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Review, PRFile
@@ -23,7 +22,7 @@ class ReviewRepository:
         status: str = "pending",
         trigger_type: Optional[str] = None,
         diff_stats: Optional[dict] = None,
-    ) -> Optional[Review]:
+    ) -> Review:
         review = Review(
             platform=platform,
             repo_id=repo_id,
@@ -37,15 +36,9 @@ class ReviewRepository:
             diff_stats=diff_stats,
         )
         self.session.add(review)
-        try:
-            await self.session.commit()
-            await self.session.refresh(review)
-            return review
-        except IntegrityError:
-            await self.session.rollback()
-            if head_sha:
-                return await self.get_by_platform_repo_pr_sha(platform, repo_id, pr_number, head_sha)
-            return None
+        await self.session.flush()
+        await self.session.refresh(review)
+        return review
 
     async def get_by_id(self, review_id: int) -> Optional[Review]:
         result = await self.session.execute(select(Review).where(Review.id == review_id))
@@ -112,8 +105,6 @@ class ReviewRepository:
         review.status = status
         if risk_level is not None:
             review.risk_level = risk_level
-        await self.session.commit()
-        await self.session.refresh(review)
         return review
 
     async def add_pr_files(self, review_id: int, files: list[dict]) -> None:
@@ -129,4 +120,4 @@ class ReviewRepository:
             for f in files
         ]
         self.session.add_all(pr_files)
-        await self.session.commit()
+        await self.session.flush()

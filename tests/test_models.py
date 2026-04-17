@@ -15,7 +15,7 @@ async def test_review_creation(async_db_session: AsyncSession) -> None:
         status="pending",
     )
     async_db_session.add(review)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(review)
 
     assert review.id is not None
@@ -27,7 +27,7 @@ async def test_review_creation(async_db_session: AsyncSession) -> None:
 async def test_review_with_findings(async_db_session: AsyncSession) -> None:
     review = Review(platform="github", repo_id="owner/repo", pr_number=2)
     async_db_session.add(review)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(review)
 
     finding = ReviewFinding(
@@ -40,7 +40,7 @@ async def test_review_with_findings(async_db_session: AsyncSession) -> None:
         confidence=0.95,
     )
     async_db_session.add(finding)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     result = await async_db_session.execute(
         select(Review).where(Review.id == review.id)
@@ -55,7 +55,7 @@ async def test_review_with_findings(async_db_session: AsyncSession) -> None:
 async def test_review_with_pr_files(async_db_session: AsyncSession) -> None:
     review = Review(platform="gitlab", repo_id="group/project", pr_number=5)
     async_db_session.add(review)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(review)
 
     pr_file = PRFile(
@@ -66,7 +66,7 @@ async def test_review_with_pr_files(async_db_session: AsyncSession) -> None:
         deletions=2,
     )
     async_db_session.add(pr_file)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     result = await async_db_session.execute(
         select(Review).where(Review.id == review.id)
@@ -81,7 +81,7 @@ async def test_review_with_pr_files(async_db_session: AsyncSession) -> None:
 async def test_developer_feedback(async_db_session: AsyncSession) -> None:
     review = Review(platform="github", repo_id="owner/repo", pr_number=3)
     async_db_session.add(review)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(review)
 
     finding = ReviewFinding(
@@ -90,7 +90,7 @@ async def test_developer_feedback(async_db_session: AsyncSession) -> None:
         description="Hardcoded secret",
     )
     async_db_session.add(finding)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(finding)
 
     feedback = DeveloperFeedback(
@@ -99,7 +99,7 @@ async def test_developer_feedback(async_db_session: AsyncSession) -> None:
         comment="This is a test secret",
     )
     async_db_session.add(feedback)
-    await async_db_session.commit()
+    await async_db_session.flush()
     await async_db_session.refresh(finding, ["feedback"])
 
     assert finding.feedback is not None
@@ -121,8 +121,8 @@ async def test_project_config_unique_constraint(async_db_session: AsyncSession) 
         config_json={"language": "go"},
     )
     async_db_session.add(config1)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     async_db_session.add(config2)
     with pytest.raises(Exception):
-        await async_db_session.commit()
+        await async_db_session.flush()

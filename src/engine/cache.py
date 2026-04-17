@@ -1,5 +1,6 @@
 import hashlib
 import json
+import threading
 from typing import Dict, Optional
 
 import redis.asyncio as redis
@@ -7,12 +8,15 @@ import redis.asyncio as redis
 from config import settings
 
 _redis_pool: Optional[redis.ConnectionPool] = None
+_redis_lock = threading.Lock()
 
 
 def get_redis_client() -> redis.Redis:
     global _redis_pool
     if _redis_pool is None:
-        _redis_pool = redis.ConnectionPool.from_url(settings.redis_url)
+        with _redis_lock:
+            if _redis_pool is None:
+                _redis_pool = redis.ConnectionPool.from_url(settings.redis_url.get_secret_value())
     return redis.Redis(connection_pool=_redis_pool)
 
 

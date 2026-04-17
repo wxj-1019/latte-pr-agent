@@ -122,16 +122,15 @@ class AutoPromptOptimizer:
             f"Please generate an improved system prompt that reduces false positives for these categories."
         )
         try:
-            response = await self.provider.client.chat.completions.create(
-                model="deepseek-chat",
+            text = await self.provider.generate_text(
                 messages=[
                     {"role": "system", "content": OPTIMIZER_SYSTEM_PROMPT},
                     {"role": "user", "content": user_msg},
                 ],
+                model="deepseek-chat",
                 temperature=0.3,
                 max_tokens=2000,
-            )
-            text = response.choices[0].message.content or base_prompt
+            ) or base_prompt
             # Strip markdown code blocks if present
             text = text.strip()
             if text.startswith("```"):
@@ -143,5 +142,5 @@ class AutoPromptOptimizer:
                 text = "\n".join(lines).strip()
             return text
         except Exception as exc:
-            logger.exception(f"Failed to generate optimized prompt: {exc}")
+            logger.exception("Failed to generate optimized prompt: %s", exc)
             return base_prompt

@@ -35,7 +35,7 @@ async def test_code_graph_get_callers(async_db_session: AsyncSession):
         FileDependency(org_id="default", repo_id="repo1", downstream_file="b.py", upstream_file="a.py"),
     ]
     async_db_session.add_all(deps)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     callers = await CodeGraphRepository.get_callers(async_db_session, "repo1", "a.py", depth=3)
     files = {c["file"] for c in callers}
@@ -50,7 +50,7 @@ async def test_code_graph_get_dependencies(async_db_session: AsyncSession):
         FileDependency(org_id="default", repo_id="repo1", downstream_file="c.py", upstream_file="b.py"),
     ]
     async_db_session.add_all(deps)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     # b.py depends on a.py; c.py depends on b.py
     downstream = await CodeGraphRepository.get_dependencies(async_db_session, "repo1", "b.py", depth=3)
@@ -70,7 +70,7 @@ async def test_code_graph_get_affected_files(async_db_session: AsyncSession):
         FileDependency(org_id="default", repo_id="repo1", downstream_file="c.py", upstream_file="b.py"),
     ]
     async_db_session.add_all(deps)
-    await async_db_session.commit()
+    await async_db_session.flush()
 
     result = await CodeGraphRepository.get_affected_files(
         async_db_session, "repo1", ["a.py"], depth=3

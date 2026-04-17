@@ -83,14 +83,14 @@ class ProjectConfigLoader:
     def load(cls, repo_path: str) -> ReviewConfig:
         filepath = os.path.join(repo_path, cls.DEFAULT_FILENAME)
         if not os.path.isfile(filepath):
-            logger.info(f"No {cls.DEFAULT_FILENAME} found in {repo_path}, using defaults")
+            logger.info("No %s found in %s, using defaults", cls.DEFAULT_FILENAME, repo_path)
             return ReviewConfig()
 
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         except Exception as exc:
-            logger.warning(f"Failed to parse {filepath}: {exc}, using defaults")
+            logger.warning("Failed to parse %s: %s, using defaults", filepath, exc, exc_info=True)
             return ReviewConfig()
 
         review_data = data.get("review_config", {}) if isinstance(data, dict) else {}
@@ -135,7 +135,7 @@ class ProjectConfigService:
             )
         )
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()
 
         result = await self.session.execute(
             select(ProjectConfig).where(
