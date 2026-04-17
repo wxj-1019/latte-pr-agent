@@ -33,21 +33,19 @@ async def test_review_metrics_service(async_db_session: AsyncSession) -> None:
     await async_db_session.commit()
 
     service = ReviewMetricsService(async_db_session)
-    metrics = await service.get_repo_metrics("owner/repo")
+    result = await service.get_repo_metrics("owner/repo")
 
-    assert metrics["total_reviews"] == 2
-    assert metrics["total_findings"] == 3
-    assert metrics["false_positives"] == 1
-    assert metrics["false_positive_rate"] == pytest.approx(1 / 3, 0.01)
-    assert metrics["severity_distribution"]["critical"] == 1
-    assert metrics["severity_distribution"]["warning"] == 2
+    assert result["metrics"]["total_reviews"] == 2
+    assert result["metrics"]["total_findings"] == 3
+    assert result["metrics"]["false_positive_rate"] == pytest.approx(1 / 3, 0.01)
+    assert result["severity_distribution"]["critical"] == 1
+    assert result["severity_distribution"]["warning"] == 2
 
 
 @pytest.mark.asyncio
 async def test_review_metrics_empty_repo(async_db_session: AsyncSession) -> None:
     service = ReviewMetricsService(async_db_session)
-    metrics = await service.get_repo_metrics("nonexistent/repo")
-    assert metrics["total_reviews"] == 0
-    assert metrics["total_findings"] == 0
-    assert metrics["false_positives"] == 0
-    assert metrics["false_positive_rate"] == 0.0
+    result = await service.get_repo_metrics("nonexistent/repo")
+    assert result["metrics"]["total_reviews"] == 0
+    assert result["metrics"]["total_findings"] == 0
+    assert result["metrics"]["false_positive_rate"] == 0.0
