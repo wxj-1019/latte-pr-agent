@@ -13,7 +13,7 @@ def client() -> TestClient:
 
 @pytest.fixture
 async def async_db_session():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/code_review", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
