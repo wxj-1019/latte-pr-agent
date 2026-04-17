@@ -22,7 +22,7 @@ export default function PromptsPage() {
               Manage prompt versions and A/B experiments
             </p>
           </div>
-          <Button variant="secondary">
+          <Button variant="secondary" disabled title="功能开发中">
             <Check size={16} />
             New Version
           </Button>
@@ -73,10 +73,10 @@ export default function PromptsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" disabled title="功能开发中">
                       Edit
                     </Button>
-                    <Button variant="secondary" size="sm">
+                    <Button variant="secondary" size="sm" disabled title="功能开发中">
                       Test
                     </Button>
                   </div>

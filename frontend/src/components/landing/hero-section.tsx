@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SteamParticles } from "./steam-particles";
 
 export function HeroSection() {
+  const router = useRouter();
   const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -87,8 +89,10 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="flex items-center justify-center gap-4"
         >
-          <Button size="lg">Get Started</Button>
-          <Button variant="secondary" size="lg">
+          <Button size="lg" onClick={() => router.push("/dashboard/reviews")}>
+            Get Started
+          </Button>
+          <Button variant="secondary" size="lg" onClick={() => router.push("/dashboard")}>
             View Dashboard
           </Button>
         </motion.div>
