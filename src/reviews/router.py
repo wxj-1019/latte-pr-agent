@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import get_db
 from repositories import ReviewRepository, FindingRepository
+from utils.timezone import format_iso_beijing
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -27,8 +28,8 @@ def _serialize_review(review):
         "review_mode": review.review_mode,
         "prompt_version": review.prompt_version,
         "diff_stats": review.diff_stats,
-        "created_at": review.created_at.isoformat() if review.created_at else None,
-        "completed_at": review.completed_at.isoformat() if review.completed_at else None,
+        "created_at": format_iso_beijing(review.created_at),
+        "completed_at": format_iso_beijing(review.completed_at),
         "pr_files": [_serialize_pr_file(f) for f in (review.pr_files or [])],
     }
 
@@ -59,7 +60,7 @@ def _serialize_finding(finding):
         "affected_files": finding.affected_files,
         "ai_model": finding.ai_model,
         "raw_response": finding.raw_response,
-        "created_at": finding.created_at.isoformat() if finding.created_at else None,
+        "created_at": format_iso_beijing(finding.created_at),
     }
 
 
