@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey, String, Text, Integer, Numeric, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+from utils.timezone import beijing_now
 
 
 class ReviewFinding(Base):
@@ -22,7 +23,7 @@ class ReviewFinding(Base):
     affected_files: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     ai_model: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     raw_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
 
     review: Mapped["Review"] = relationship(back_populates="findings")
     feedback: Mapped[Optional["DeveloperFeedback"]] = relationship(
@@ -37,6 +38,6 @@ class DeveloperFeedback(Base):
     finding_id: Mapped[int] = mapped_column(ForeignKey("review_findings.id"))
     is_false_positive: Mapped[bool] = mapped_column(default=False)
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
 
     finding: Mapped["ReviewFinding"] = relationship(back_populates="feedback")

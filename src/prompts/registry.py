@@ -1,12 +1,14 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from utils.timezone import beijing_now
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ class PromptVersion:
         self.version = version
         self.text = text
         self.metadata = metadata or {}
-        self.created_at = datetime.utcnow()
+        self.created_at = beijing_now()
 
 
 class PromptRegistry:
@@ -117,7 +119,7 @@ class PromptRegistry:
                 version=version,
                 prompt_text=text,
                 metadata_json=metadata or {},
-                created_at=datetime.utcnow(),
+                created_at=beijing_now(),
             )
             .on_conflict_do_update(
                 index_elements=["version"],
