@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 celery_app = Celery(
     "latte_pr_agent",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
+    broker=settings.redis_url.get_secret_value(),
+    backend=settings.redis_url.get_secret_value(),
 )
 
 celery_app.conf.update(
@@ -31,8 +31,8 @@ def run_review_task(self, review_id: int) -> None:
     import asyncio
     try:
         asyncio.run(run_review(review_id))
-    except Exception as exc:
-        logger.exception(f"Celery task failed for review {review_id}: {exc}")
+    except (OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Celery task failed for review %s: %s", review_id, exc)
         raise self.retry(exc=exc, countdown=10)
 
 
