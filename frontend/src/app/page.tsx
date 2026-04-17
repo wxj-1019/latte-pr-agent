@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/landing/hero-section";
 import { BentoGrid } from "@/components/landing/bento-grid";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
@@ -24,6 +25,7 @@ const specs = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   return (
     <main className="bg-latte-bg-primary">
       <HeroSection />
@@ -120,9 +122,11 @@ export default function HomePage() {
             让 Latte PR Agent 成为你团队的代码审查专家。
           </p>
           <div className="flex items-center justify-center gap-4">
-            <Button size="lg">Get Started</Button>
-            <Button variant="secondary" size="lg">
-              Read the Docs
+            <Button size="lg" onClick={() => router.push("/dashboard/reviews")}>
+              Get Started
+            </Button>
+            <Button variant="secondary" size="lg" onClick={() => router.push("/dashboard")}>
+              仪表盘
             </Button>
           </div>
         </FadeInUp>
