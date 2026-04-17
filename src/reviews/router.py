@@ -63,6 +63,10 @@ def _serialize_finding(finding):
     }
 
 
+VALID_STATUSES = {"pending", "running", "completed", "failed", "skipped"}
+MAX_REPO_FILTER_LEN = 100
+
+
 @router.get("")
 async def list_reviews(
     status: Optional[str] = None,
@@ -72,10 +76,19 @@ async def list_reviews(
     review_repo = ReviewRepository(db)
     reviews = await review_repo.list_all()
     data = [_serialize_review(r) for r in reviews]
+
     if status:
+        if status not in VALID_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {', '.join(VALID_STATUSES)}")
         data = [r for r in data if r["status"] == status]
+
     if repo:
-        data = [r for r in data if repo in r["repo_id"]]
+        safe_repo = "".join(c for c in repo if c.isalnum() or c in "/-._")
+        if len(safe_repo) > MAX_REPO_FILTER_LEN:
+            raise HTTPException(status_code=400, detail=f"repo filter too long (max {MAX_REPO_FILTER_LEN})")
+        if safe_repo:
+            data = [r for r in data if safe_repo in r["repo_id"]]
+
     return data
 
 
