@@ -58,7 +58,7 @@ export default function HomePage() {
             className="font-display font-semibold tracking-tight text-latte-text-primary text-center mb-14"
             style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 1.1 }}
           >
-            Tech Specs
+            技术规格
           </h2>
         </FadeInUp>
         <div className="space-y-4">

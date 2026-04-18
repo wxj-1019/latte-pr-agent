@@ -93,7 +93,7 @@ export function ReviewList({ reviews }: ReviewListProps) {
                     }
                     dot
                   >
-                    {review.risk_level}
+                    {review.risk_level === "critical" ? "严重" : review.risk_level === "high" ? "高" : review.risk_level === "medium" ? "中" : review.risk_level}
                   </Badge>
                 )}
                 <span className="text-xs text-latte-text-muted whitespace-nowrap">
