@@ -20,13 +20,13 @@ export function validateEnv(): { valid: boolean; errors: string[]; warnings: str
 
   for (const key of REQUIRED_BROWSER_ENV) {
     if (!process.env[key]) {
-      errors.push(`Missing required environment variable: ${key}`);
+      errors.push(`缺少必需的环境变量: ${key}`);
     }
   }
 
   for (const key of OPTIONAL_BROWSER_ENV) {
     if (!process.env[key]) {
-      warnings.push(`Missing optional environment variable: ${key}`);
+      warnings.push(`缺少可选的环境变量: ${key}`);
     }
   }
 

@@ -68,9 +68,9 @@ export function HeroSection() {
           className="font-display font-bold tracking-tight text-latte-text-primary"
           style={{ fontSize: "clamp(48px, 8vw, 96px)", lineHeight: 1.05 }}
         >
-          Enterprise AI Code Review,
+          企业级 AI 代码审查,
           <br />
-          <span className="text-latte-gold">Reimagined.</span>
+          <span className="text-latte-gold">重新想象。</span>
         </motion.h1>
 
         <motion.p
@@ -90,10 +90,10 @@ export function HeroSection() {
           className="flex items-center justify-center gap-4"
         >
           <Button size="lg" onClick={() => router.push("/dashboard/reviews")}>
-            Get Started
+            开始使用
           </Button>
           <Button variant="secondary" size="lg" onClick={() => router.push("/dashboard")}>
-            View Dashboard
+            查看仪表盘
           </Button>
         </motion.div>
       </div>

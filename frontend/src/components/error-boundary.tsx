@@ -38,9 +38,9 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center bg-latte-bg-primary text-latte-text-primary p-6">
           <div className="max-w-md w-full text-center space-y-4">
-            <h2 className="text-xl font-semibold">Something went wrong</h2>
+            <h2 className="text-xl font-semibold">出了点问题</h2>
             <p className="text-sm text-latte-text-secondary">
-              An unexpected error occurred. Please refresh the page or try again later.
+              发生了意外错误，请刷新页面或稍后重试。
             </p>
             {process.env.NODE_ENV === "development" && this.state.error && (
               <pre className="text-left text-xs bg-latte-bg-secondary p-4 rounded-latte-md overflow-auto text-latte-text-tertiary">
@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               className="inline-flex items-center justify-center px-4 py-2 rounded-latte-md bg-latte-gold text-latte-bg-primary font-medium text-sm hover:bg-latte-gold/90 transition-colors"
             >
-              Refresh Page
+              刷新页面
             </button>
           </div>
         </div>

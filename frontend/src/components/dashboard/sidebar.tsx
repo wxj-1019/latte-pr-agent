@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import { GitPullRequest, BarChart3, Settings, FileText, Sparkles } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard/reviews", icon: GitPullRequest, label: "Reviews" },
-  { href: "/dashboard/analyze", icon: Sparkles, label: "Analyze" },
-  { href: "/dashboard/metrics", icon: BarChart3, label: "Metrics" },
-  { href: "/dashboard/config", icon: Settings, label: "Config" },
+  { href: "/dashboard/reviews", icon: GitPullRequest, label: "审查" },
+  { href: "/dashboard/analyze", icon: Sparkles, label: "分析" },
+  { href: "/dashboard/metrics", icon: BarChart3, label: "指标" },
+  { href: "/dashboard/config", icon: Settings, label: "配置" },
   { href: "/dashboard/prompts", icon: FileText, label: "Prompts" },
 ];
 

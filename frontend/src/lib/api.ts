@@ -13,7 +13,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+    throw new Error(`API 错误: ${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<T>;
 }
@@ -99,5 +99,18 @@ export const api = {
 
   getRepos: async () => {
     return fetchJson<{ repos: string[] }>("/repos");
+  },
+
+  verifyProjectConfig: async (repoId: string, platform: string = "github") => {
+    return fetchJson<{
+      passed: boolean;
+      has_warning: boolean;
+      checks: { name: string; status: string; message: string }[];
+      summary: string;
+    }>("/configs/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_id: repoId, platform }),
+    });
   },
 };

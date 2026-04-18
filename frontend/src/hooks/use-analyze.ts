@@ -24,7 +24,7 @@ export function useAnalyze(): UseAnalyzeReturn {
       setData(result);
       return result;
     } catch (err) {
-      const e = err instanceof Error ? err : new Error("Analyze failed");
+      const e = err instanceof Error ? err : new Error("分析失败");
       setError(e);
       throw e;
     } finally {

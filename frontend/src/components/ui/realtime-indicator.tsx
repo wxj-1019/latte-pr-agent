@@ -9,9 +9,9 @@ interface RealtimeIndicatorProps {
 
 export function RealtimeIndicator({ status, className }: RealtimeIndicatorProps) {
   const config = {
-    connecting: { label: "Connecting", dotClass: "bg-amber-500 animate-pulse-slow" },
-    connected: { label: "Live", dotClass: "bg-latte-success" },
-    disconnected: { label: "Offline", dotClass: "bg-latte-critical" },
+    connecting: { label: "连接中", dotClass: "bg-amber-500 animate-pulse-slow" },
+    connected: { label: "实时", dotClass: "bg-latte-success" },
+    disconnected: { label: "离线", dotClass: "bg-latte-critical" },
   }[status];
 
   return (

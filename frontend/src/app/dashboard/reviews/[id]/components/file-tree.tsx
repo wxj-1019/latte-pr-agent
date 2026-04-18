@@ -138,7 +138,7 @@ export function FileTree({ files, findings, selectedFile, onSelectFile }: FileTr
 
   return (
     <div className="h-full overflow-auto pr-2">
-      <h3 className="text-sm font-semibold text-latte-text-primary mb-3 px-2">Files</h3>
+      <h3 className="text-sm font-semibold text-latte-text-primary mb-3 px-2">文件</h3>
       <div className="space-y-0.5">
         {Object.entries(tree).map(([name, node]) => (
           <TreeNode

@@ -5,8 +5,8 @@ import { EnvCheck } from "@/components/env-check";
 import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "Latte PR Agent - Enterprise AI Code Review",
-  description: "Enterprise AI Code Review System with multi-model intelligence, context-aware analysis, and quality gates.",
+  title: "Latte PR Agent - 企业级 AI 代码审查",
+  description: "企业级 AI 代码审查系统，具备多模型智能、上下文感知分析和质量门禁。",
 };
 
 export default function RootLayout({

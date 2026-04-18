@@ -17,7 +17,7 @@ export function DashboardPreview() {
           className="font-display font-semibold tracking-tight text-latte-text-primary"
           style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 1.1 }}
         >
-          Every Review, Visualized
+          每次审查，一目了然
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -45,20 +45,20 @@ export function DashboardPreview() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex gap-6">
                 <div>
-                  <p className="text-xs text-latte-text-muted">Reviews</p>
+                  <p className="text-xs text-latte-text-muted">审查</p>
                   <p className="text-2xl font-display font-semibold text-latte-text-primary">1,284</p>
                 </div>
                 <div>
-                  <p className="text-xs text-latte-text-muted">Findings</p>
+                  <p className="text-xs text-latte-text-muted">发现</p>
                   <p className="text-2xl font-display font-semibold text-latte-text-primary">3,402</p>
                 </div>
                 <div>
-                  <p className="text-xs text-latte-text-muted">Accuracy</p>
+                  <p className="text-xs text-latte-text-muted">准确率</p>
                   <p className="text-2xl font-display font-semibold text-latte-gold">94.2%</p>
                 </div>
               </div>
               <div className="px-3 py-1.5 rounded-latte-md bg-latte-bg-tertiary text-xs text-latte-text-secondary">
-                Last 7 days
+                最近 7 天
               </div>
             </div>
 
@@ -70,7 +70,7 @@ export function DashboardPreview() {
                   <span className="text-sm text-latte-text-primary">#127 fix: memory leak</span>
                 </div>
                 <Badge variant="critical" dot>
-                  critical
+                  严重
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-4 rounded-latte-xl bg-latte-bg-secondary border-l-4 border-amber-500">
@@ -78,14 +78,14 @@ export function DashboardPreview() {
                   <StatusBadge status="pending" />
                   <span className="text-sm text-latte-text-primary">#128 feat: add user auth</span>
                 </div>
-                <span className="text-xs text-latte-text-muted">2m ago</span>
+                <span className="text-xs text-latte-text-muted">2 分钟前</span>
               </div>
               <div className="flex items-center justify-between p-4 rounded-latte-xl bg-latte-bg-secondary border-l-4 border-blue-500">
                 <div className="flex items-center gap-3">
                   <StatusBadge status="running" />
                   <span className="text-sm text-latte-text-primary">#45 refactor: migrate to app router</span>
                 </div>
-                <span className="text-xs text-latte-text-muted">running</span>
+                <span className="text-xs text-latte-text-muted">运行中</span>
               </div>
             </div>
           </div>
