@@ -56,10 +56,10 @@ docs/bug/
 
 | 严重程度 | 待修复 | 修复中 | 已修复 | 总计 |
 |----------|--------|--------|--------|------|
-| 🔴 高 | 0 | 0 | 8 | 8 |
-| 🟡 中 | 0 | 0 | 13 | 13 |
-| 🟢 低 | 0 | 0 | 0 | 0 |
-| **总计** | **1** | **0** | **21** | **22** |
+| 🔴 高 | 0 | 0 | 10 | 10 |
+| 🟡 中 | 0 | 0 | 16 | 16 |
+| 🟢 低 | 0 | 0 | 1 | 1 |
+| **总计** | **0** | **0** | **27** | **27** |
 
 ## 已修复的Bug
 
@@ -84,8 +84,19 @@ docs/bug/
 16. **双模型验证配置缺失** - `fixed/phase2-critical-bugs-2026-04-16.md#16`
 17. **API检测器语言支持不完整** - `fixed/phase2-critical-bugs-2026-04-16.md#17`
 
-### 🟡 中优先级（待修复）
-18. **API-INT-001: 前端后端接口不匹配** - `api-integration-bugs-2026-04-17.md`
+### 🔴 高优先级（已修复 — 自主修复复查）
+18. **Redis 缓存使用 threading.Lock 阻塞事件循环** - `fixed/partial-fix-review-2026-04-18.md#问题1`
+19. **review_service.py 顶层裸 except Exception 掩盖编程错误** - `fixed/partial-fix-review-2026-04-18.md#问题2`
+
+### 🟡 中优先级（已修复 — 自主修复复查）
+20. **GitLab Provider 异常未细化** - `fixed/partial-fix-review-2026-04-18.md#问题3`
+21. **开发环境 Docker Compose 暴露 DB/Redis 端口** - `fixed/partial-fix-review-2026-04-18.md#问题4`
+
+### 🟢 低优先级（已修复 — 自主修复复查）
+22. **ResilientReviewRouter 兼容旧配置键 "primary"** - `fixed/partial-fix-review-2026-04-18.md#问题5`
+
+### 🟡 中优先级（已修复 — 接口对齐）
+23. **API-INT-001: 前端后端接口不匹配** - `fixed/api-integration-bugs-2026-04-17.md`
 
 ## 已修复的前端安全Bug
 
@@ -97,8 +108,10 @@ docs/bug/
 ### 🟡 中优先级
 21. **FSEC-004: XSS漏洞风险** - `fixed/frontend-security-bug-04.md`
 
-### 📋 汇总报告
+### 📋 汇总报告（已修复）
 - **前端安全Bug汇总** - `fixed/frontend-security-bugs-summary.md`
+- **日志基础设施与安全缺陷汇总** - `fixed/logging-infrastructure-security-bugs-2026-04-18.md`
+- **自主修复项复查报告（5项未完全修复→已修复）** - `fixed/partial-fix-review-2026-04-18.md`
 
 ## 修复进度跟踪
 
@@ -109,7 +122,9 @@ docs/bug/
 - [x] 添加React错误边界
 - [x] 添加环境变量安全检查
 - [x] 添加安全依赖扫描
-- [ ] 修复前端后端接口不匹配问题
+- [x] 修复日志基础设施缺陷（LOG-INFRA-001~010）
+- [x] 修复自主修复复查残留问题（5项）
+- [x] 修复前端后端接口不匹配问题
 - [ ] 建立bug预防机制
 
 ### 修复完成情况
@@ -117,9 +132,12 @@ docs/bug/
 - **后端修复数量**: 17个bug全部修复
 - **前端修复时间**: 2026-04-17
 - **前端修复数量**: 4个安全bug + 3个安全改进全部完成
+- **接口对齐修复时间**: 2026-04-18
 - **安全漏洞**: 全部修复
 - **逻辑缺陷**: 全部修复
 - **性能问题**: 全部修复
+- **日志基础设施**: 全部修复
+- **接口兼容性**: 全部修复
 
 ### 负责人
 - **安全相关bug**: 待分配
@@ -172,20 +190,19 @@ docs/bug/
 **更新人**: Claude Code  
 **下次统计更新**: 2026-04-24
 
-## 新增Bug详情
+## 已关闭Bug详情
 
-### API-INT-001: 前端后端接口不匹配
+### API-INT-001: 前端后端接口不匹配（已修复）
 - **发现日期**: 2026-04-17
+- **修复日期**: 2026-04-18
 - **严重程度**: 🟡 中
-- **状态**: 🟡 待修复
+- **状态**: 🟢 已修复
 - **影响**: 指标页面、提示词页面功能异常
 - **根本原因**: 前后端接口格式不一致，缺少统一接口契约
-- **修复建议**: 修改后端接口格式或前端适配层
-- **文档**: `api-integration-bugs-2026-04-17.md`
-
-#### 具体问题
-1. `/feedback/metrics/{repo_id}` 接口格式不匹配
-2. `/prompts/versions` 接口返回格式不匹配  
-3. `/prompts` POST接口路径不匹配
-4. 时间序列数据接口缺失
-5. 平均置信度字段缺失
+- **修复内容**:
+  1. ✅ `/feedback/metrics/{repo_id}` — `ReviewMetricsService.get_repo_metrics()` 返回 `{ metrics, chart, severity_distribution, ... }` 格式，与前端 `ReviewMetrics` + `MetricsDataPoint[]` 对齐
+  2. ✅ `/prompts/versions` — 后端直接返回数组 `PromptVersion[]`，与前端类型一致
+  3. ✅ `/prompts` POST — 后端新增 `@router.post("")` 别名路由 `save_version_alias`，与前端调用路径匹配
+  4. ✅ 时间序列数据 — `ReviewMetricsService._review_volume_chart()` 已实现，返回最近 N 天 reviews/findings 数量
+  5. ✅ 平均置信度 — `ReviewMetricsService._avg_confidence()` 已实现，基于 `ReviewFinding.confidence` 平均值计算
+- **文档**: `fixed/api-integration-bugs-2026-04-17.md`

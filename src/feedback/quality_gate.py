@@ -38,5 +38,5 @@ class QualityGate:
         return {
             "risk_level": "low",
             "status": "success",
-            "description": "Review completed. No blocking issues found.",
+            "description": "审查完成，未发现阻塞性问题",
         }

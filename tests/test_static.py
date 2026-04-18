@@ -87,4 +87,4 @@ class TestFindingMerger:
         )
         assert result["degraded"] is True
         assert result["risk_level"] == "high"
-        assert "degraded" in result["summary"].lower()
+        assert "不可用" in result["summary"]

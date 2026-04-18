@@ -152,15 +152,15 @@ def test_pr_chunker_by_function():
     assert len(chunks) > 1
 
 
-def test_review_cache_uses_connection_pool():
+@pytest.mark.asyncio
+async def test_review_cache_uses_connection_pool():
     from engine.cache import get_redis_client, _redis_pool
     mock_pool = MagicMock()
     with patch("engine.cache.redis.ConnectionPool.from_url", return_value=mock_pool):
-        # Reset module-level pool for test isolation
         import engine.cache as cache_module
         original_pool = cache_module._redis_pool
         cache_module._redis_pool = None
-        client = get_redis_client()
+        client = await get_redis_client()
         assert client.connection_pool is mock_pool
         cache_module._redis_pool = original_pool
 

@@ -4,6 +4,7 @@ from functools import partial
 from typing import Optional
 
 import gitlab
+import gitlab.exceptions as gl_exc
 from gitlab.v4.objects import ProjectMergeRequest
 
 from providers.base import GitProvider
@@ -39,8 +40,14 @@ class GitLabProvider(GitProvider):
             await asyncio.get_event_loop().run_in_executor(
                 None, partial(self._sync_publish_review_comment, file, line, comment)
             )
+        except gl_exc.GitlabAuthenticationError as exc:
+            logger.error("GitLab auth failed when publishing comment: %s", exc)
+        except gl_exc.GitlabConnectionError as exc:
+            logger.warning("GitLab connection failed when publishing comment: %s", exc)
+        except gl_exc.GitlabError as exc:
+            logger.error("GitLab API error %s when publishing comment: %s", getattr(exc, "response_code", "?"), exc)
         except Exception as exc:
-            logger.warning("Failed to publish GitLab review comment: %s", exc)
+            logger.exception("Unexpected error publishing GitLab comment: %s", exc)
 
     async def publish_inline_suggestion(
         self, file: str, line: int, suggestion: str
@@ -68,8 +75,14 @@ class GitLabProvider(GitProvider):
             await asyncio.get_event_loop().run_in_executor(
                 None, partial(self._sync_set_status_check, status, description, context)
             )
+        except gl_exc.GitlabAuthenticationError as exc:
+            logger.error("GitLab auth failed when setting status check: %s", exc)
+        except gl_exc.GitlabConnectionError as exc:
+            logger.warning("GitLab connection failed when setting status check: %s", exc)
+        except gl_exc.GitlabError as exc:
+            logger.error("GitLab API error %s when setting status check: %s", getattr(exc, "response_code", "?"), exc)
         except Exception as exc:
-            logger.warning("Failed to set GitLab status check: %s", exc)
+            logger.exception("Unexpected error setting GitLab status check: %s", exc)
 
     def _sync_get_diff_content(self) -> str:
         changes = self.mr.changes()
@@ -83,8 +96,17 @@ class GitLabProvider(GitProvider):
             return await asyncio.get_event_loop().run_in_executor(
                 None, self._sync_get_diff_content
             )
+        except gl_exc.GitlabAuthenticationError as exc:
+            logger.error("GitLab auth failed when fetching diff: %s", exc)
+            raise
+        except gl_exc.GitlabConnectionError as exc:
+            logger.warning("GitLab connection failed when fetching diff: %s", exc)
+            raise
+        except gl_exc.GitlabError as exc:
+            logger.error("GitLab API error %s when fetching diff: %s", getattr(exc, "response_code", "?"), exc)
+            raise
         except Exception as exc:
-            logger.warning("Failed to fetch GitLab diff content: %s", exc)
+            logger.exception("Unexpected error fetching GitLab diff: %s", exc)
             raise
 
     def _sync_get_pr_info(self) -> dict:
@@ -102,6 +124,15 @@ class GitLabProvider(GitProvider):
             return await asyncio.get_event_loop().run_in_executor(
                 None, self._sync_get_pr_info
             )
+        except gl_exc.GitlabAuthenticationError as exc:
+            logger.error("GitLab auth failed when fetching MR info: %s", exc)
+            raise
+        except gl_exc.GitlabConnectionError as exc:
+            logger.warning("GitLab connection failed when fetching MR info: %s", exc)
+            raise
+        except gl_exc.GitlabError as exc:
+            logger.error("GitLab API error %s when fetching MR info: %s", getattr(exc, "response_code", "?"), exc)
+            raise
         except Exception as exc:
-            logger.warning("Failed to fetch GitLab MR info: %s", exc)
+            logger.exception("Unexpected error fetching GitLab MR info: %s", exc)
             raise

@@ -277,7 +277,7 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
             "fallback_chain": ["deepseek-reasoner", "claude-3-5-sonnet"],
         })
         try:
-            cache = ReviewCache()
+            cache = await ReviewCache.create()
         except Exception:
             logger.warning("Redis unavailable, running analysis without cache")
             cache = None
