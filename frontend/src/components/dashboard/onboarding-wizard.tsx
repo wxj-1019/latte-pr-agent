@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,29 @@ import {
 
 interface OnboardingWizardProps {
   onComplete: () => void;
+}
+
+const LOCAL_STORAGE_KEY = "latte_onboarding_state";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+function parseRepoId(url: string): string {
+  if (!url) return "";
+  const clean = url.trim().replace(/\.git$/, "").replace(/\/$/, "");
+
+  const sshMatch = clean.match(/^git@[^:]+:([^/]+\/[^/]+)$/);
+  if (sshMatch) return sshMatch[1];
+
+  try {
+    const urlObj = new URL(clean);
+    const path = urlObj.pathname.replace(/^\//, "");
+    if (/^[^/]+\/[^/]+$/.test(path)) return path;
+  } catch {
+    // not a valid URL
+  }
+
+  if (/^[^/]+\/[^/]+$/.test(clean)) return clean;
+
+  return "";
 }
 
 const STEPS = [
@@ -88,10 +111,30 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   } | null>(null);
   const { showToast } = useToast();
 
-  const repoId = repoUrl
-    .replace(/https?:\/\/(github|gitlab)\.com\//, "")
-    .replace(/\.git$/, "")
-    .replace(/\/$/, "");
+  const repoId = parseRepoId(repoUrl);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (typeof state.step === "number") setStep(state.step);
+        if (state.platform) setPlatform(state.platform);
+        if (state.repoUrl) setRepoUrl(state.repoUrl);
+        if (state.language) setLanguage(state.language);
+        if (state.aiModel) setAiModel(state.aiModel);
+      } catch {
+        // ignore invalid saved state
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify({ step, platform, repoUrl, language, aiModel })
+    );
+  }, [step, platform, repoUrl, language, aiModel]);
 
   async function handleSaveConfig() {
     if (!repoId || repoId === repoUrl) {
@@ -157,12 +200,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    showToast("已复制到剪贴板");
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("已复制到剪贴板");
+    } catch {
+      showToast("复制失败，请手动复制", "error");
+    }
   }
 
-  const webhookUrl = `http://localhost:8000/webhook/${platform}`;
+  const webhookUrl = `${API_BASE}/webhook/${platform}`;
 
   return (
     <div className="max-w-3xl mx-auto">
