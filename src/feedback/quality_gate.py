@@ -20,19 +20,19 @@ class QualityGate:
                 return {
                     "risk_level": risk_level,
                     "status": "failure",
-                    "description": "Critical issues found. Merge blocked by policy.",
+                    "description": "发现严重问题，已根据策略阻塞合并",
                 }
             return {
                 "risk_level": risk_level,
                 "status": "success",
-                "description": "Critical issues found, but merge not blocked (config override).",
+                "description": "发现严重问题，但配置已覆盖，未阻塞合并",
             }
 
         if "warning" in severities:
             return {
                 "risk_level": "medium",
                 "status": "success",
-                "description": "Warning issues found. Review recommended before merge.",
+                "description": "发现警告级别问题，建议在合并前复查",
             }
 
         return {

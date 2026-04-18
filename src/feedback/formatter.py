@@ -19,21 +19,21 @@ class FeedbackFormatter:
 
         if evidence:
             lines.extend([
-                "**Evidence:**",
+                "**证据:**",
                 f"```\n{evidence}\n```",
                 "",
             ])
 
         if reasoning:
             lines.extend([
-                "**Reasoning:**",
+                "**推理:**",
                 reasoning,
                 "",
             ])
 
         if suggestion:
             lines.extend([
-                "**Suggestion:**",
+                "**建议:**",
                 suggestion,
             ])
 
