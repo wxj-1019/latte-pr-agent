@@ -30,11 +30,11 @@ interface OnboardingWizardProps {
 }
 
 const STEPS = [
-  { icon: GitBranch, title: "Register", desc: "Add your repository" },
-  { icon: Settings, title: "Configure", desc: "Customize review settings" },
-  { icon: ShieldCheck, title: "Verify", desc: "Test configuration" },
-  { icon: Webhook, title: "Webhook", desc: "Connect repository" },
-  { icon: Sparkles, title: "Done!", desc: "Start reviewing" },
+  { icon: GitBranch, title: "注册仓库", desc: "添加你的仓库" },
+  { icon: Settings, title: "配置审查", desc: "自定义审查设置" },
+  { icon: ShieldCheck, title: "验证配置", desc: "测试配置" },
+  { icon: Webhook, title: "设置 Webhook", desc: "连接仓库" },
+  { icon: Sparkles, title: "全部完成！", desc: "开始审查" },
 ];
 
 interface CheckItem {
@@ -44,12 +44,12 @@ interface CheckItem {
 }
 
 const CHECK_LABELS: Record<string, string> = {
-  github_token: "GitHub Connection",
-  gitlab_token: "GitLab Connection",
-  webhook_secret: "Webhook Secret",
-  llm_api_key: "AI Model Keys",
-  database: "Database",
-  redis: "Redis Cache",
+  github_token: "GitHub 连接",
+  gitlab_token: "GitLab 连接",
+  webhook_secret: "Webhook 密钥",
+  llm_api_key: "AI 模型密钥",
+  database: "数据库",
+  redis: "Redis 缓存",
 };
 
 function CheckIcon({ status }: { status: string }) {
@@ -95,7 +95,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   async function handleSaveConfig() {
     if (!repoId || repoId === repoUrl) {
-      showToast("Please enter a valid repository URL", "error");
+      showToast("请输入有效的仓库 URL", "error");
       return;
     }
     setSaving(true);
@@ -121,11 +121,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           },
         },
       });
-      showToast("Configuration saved!");
+      showToast("配置已保存！");
       setStep(2);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      showToast("Save failed: " + message, "error");
+      const message = err instanceof Error ? err.message : "未知错误";
+      showToast("保存失败：" + message, "error");
     } finally {
       setSaving(false);
     }
@@ -145,13 +145,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         })),
       });
       if (result.passed) {
-        showToast(result.has_warning ? "Passed with warnings" : "All checks passed!");
+        showToast(result.has_warning ? "通过，但存在警告" : "所有检查通过！");
       } else {
-        showToast("Some checks failed. Please fix the issues below.", "error");
+        showToast("部分检查失败。请修复以下问题。", "error");
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      showToast("Verification failed: " + message, "error");
+      const message = err instanceof Error ? err.message : "未知错误";
+      showToast("验证失败：" + message, "error");
     } finally {
       setVerifying(false);
     }
@@ -159,7 +159,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    showToast("Copied to clipboard");
+    showToast("已复制到剪贴板");
   }
 
   const webhookUrl = `http://localhost:8000/webhook/${platform}`;
@@ -176,10 +176,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <Rocket className="w-8 h-8 text-latte-gold" />
           </motion.div>
           <h2 className="text-2xl font-display font-semibold text-latte-text-primary">
-            Welcome to Latte PR Agent
+            欢迎使用 Latte PR Agent
           </h2>
           <p className="text-sm text-latte-text-tertiary mt-2 max-w-md mx-auto">
-            Set up your first project in a few steps to start automated AI code review
+            只需几步即可设置你的第一个项目，开始自动化 AI 代码审查
           </p>
         </div>
       </FadeInUp>
@@ -220,16 +220,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {step === 0 && (
             <GlassCard className="p-8" variant="elevated">
               <h3 className="text-lg font-medium text-latte-text-primary mb-1">
-                Register your repository
+                注册你的仓库
               </h3>
               <p className="text-sm text-latte-text-tertiary mb-6">
-                Enter your project repository URL to get started
+                输入你的项目仓库 URL 以开始
               </p>
 
               <div className="space-y-5">
                 <div>
                   <label className="text-xs font-medium text-latte-text-secondary mb-2 block">
-                    Platform
+                    平台
                   </label>
                   <div className="flex gap-3">
                     {(["github", "gitlab"] as const).map((p) => (
@@ -250,7 +250,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <div>
                   <label className="text-xs font-medium text-latte-text-secondary mb-2 block">
-                    Repository URL
+                    仓库 URL
                   </label>
                   <input
                     type="text"
@@ -261,14 +261,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   />
                   {repoId && repoId !== repoUrl && (
                     <p className="text-xs text-latte-gold mt-1.5">
-                      Detected: <span className="font-medium">{repoId}</span>
+                      检测到：<span className="font-medium">{repoId}</span>
                     </p>
                   )}
                 </div>
 
                 <div>
                   <label className="text-xs font-medium text-latte-text-secondary mb-2 block">
-                    Primary Language
+                    主要语言
                   </label>
                   <select
                     value={language}
@@ -291,7 +291,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   onClick={() => setStep(1)}
                   disabled={!repoId || repoId === repoUrl}
                 >
-                  Continue
+                  继续
                   <ChevronRight size={16} />
                 </Button>
               </div>
@@ -301,24 +301,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {step === 1 && (
             <GlassCard className="p-8" variant="elevated">
               <h3 className="text-lg font-medium text-latte-text-primary mb-1">
-                Configure review settings
+                配置审查设置
               </h3>
               <p className="text-sm text-latte-text-tertiary mb-6">
-                Customize how Latte reviews your code
+                自定义 Latte 如何审查你的代码
               </p>
 
               <div className="space-y-5">
                 <div>
                   <label className="text-xs font-medium text-latte-text-secondary mb-2 block">
-                    AI Review Model
+                    AI 审查模型
                   </label>
                   <select
                     value={aiModel}
                     onChange={(e) => setAiModel(e.target.value)}
                     className="w-full h-11 px-4 rounded-latte-lg bg-latte-bg-tertiary border border-transparent focus:border-latte-gold/50 text-sm text-latte-text-primary outline-none transition-all appearance-none cursor-pointer"
                   >
-                    <option value="deepseek-chat">DeepSeek Chat (Recommended)</option>
-                    <option value="deepseek-reasoner">DeepSeek Reasoner (Deeper Analysis)</option>
+                    <option value="deepseek-chat">DeepSeek Chat（推荐）</option>
+                    <option value="deepseek-reasoner">DeepSeek Reasoner（深度分析）</option>
                     <option value="claude-3-sonnet">Claude 3 Sonnet</option>
                     <option value="qwen-coder-plus">Qwen Coder Plus</option>
                   </select>
@@ -326,10 +326,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Context Analysis", desc: "AST + Dependency Graph" },
-                    { label: "Static Analysis", desc: "Semgrep Security Scan" },
-                    { label: "Dual Model Review", desc: "Critical findings verified" },
-                    { label: "Bug RAG", desc: "Historical bug patterns" },
+                    { label: "上下文分析", desc: "AST + 依赖图" },
+                    { label: "静态分析", desc: "Semgrep 安全扫描" },
+                    { label: "双模型审查", desc: "关键发现复核" },
+                    { label: "Bug RAG", desc: "历史 Bug 模式" },
                   ].map((feature) => (
                     <div
                       key={feature.label}
@@ -352,10 +352,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <div className="flex justify-between mt-8">
                 <Button variant="ghost" onClick={() => setStep(0)}>
                   <ChevronLeft size={16} />
-                  Back
+                  返回
                 </Button>
                 <Button variant="primary" onClick={handleSaveConfig} disabled={saving}>
-                  {saving ? "Saving..." : "Save & Continue"}
+                  {saving ? "保存中..." : "保存并继续"}
                   <ChevronRight size={16} />
                 </Button>
               </div>
@@ -365,10 +365,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {step === 2 && (
             <GlassCard className="p-8" variant="elevated">
               <h3 className="text-lg font-medium text-latte-text-primary mb-1">
-                Verify configuration
+                验证配置
               </h3>
               <p className="text-sm text-latte-text-tertiary mb-6">
-                Run a health check to ensure everything is properly configured
+                运行健康检查，确保所有配置正确
               </p>
 
               <div className="space-y-4">
@@ -380,17 +380,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   {verifying ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Running checks...
+                      正在运行检查...
                     </>
                   ) : verifyResult ? (
                     <>
                       <RefreshCw size={16} />
-                      Re-run verification
+                      重新验证
                     </>
                   ) : (
                     <>
                       <ShieldCheck size={16} />
-                      Start verification
+                      开始验证
                     </>
                   )}
                 </button>
@@ -422,7 +422,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       </div>
                       {!verifyResult.passed && (
                         <p className="text-xs text-latte-text-tertiary ml-6">
-                          Fix the failed checks below, then go back to update your configuration
+                          修复以下失败的检查，然后返回更新你的配置
                         </p>
                       )}
                     </div>
@@ -452,14 +452,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <div className="flex justify-between mt-8">
                 <Button variant="ghost" onClick={() => setStep(1)}>
                   <ChevronLeft size={16} />
-                  Back to edit config
+                  返回编辑配置
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => setStep(3)}
                   disabled={!verifyResult || !verifyResult.passed}
                 >
-                  Continue to webhook setup
+                  继续设置 Webhook
                   <ChevronRight size={16} />
                 </Button>
               </div>
@@ -469,15 +469,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {step === 3 && (
             <GlassCard className="p-8" variant="elevated">
               <h3 className="text-lg font-medium text-latte-text-primary mb-1">
-                Setup Webhook
+                设置 Webhook
               </h3>
               <p className="text-sm text-latte-text-tertiary mb-6">
-                Add a webhook to your {platform === "github" ? "GitHub" : "GitLab"} repository
+                添加 Webhook 到你的 {platform === "github" ? "GitHub" : "GitLab"} 仓库
               </p>
 
               <div className="space-y-4">
                 <div className="p-4 rounded-latte-lg bg-latte-bg-tertiary/50 border border-latte-text-primary/5">
-                  <p className="text-xs text-latte-text-muted mb-2">Step 1: Copy the Webhook URL</p>
+                  <p className="text-xs text-latte-text-muted mb-2">步骤 1：复制 Webhook URL</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-sm text-latte-gold bg-latte-bg-primary/50 px-3 py-2 rounded-latte-md truncate">
                       {webhookUrl}
@@ -485,7 +485,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <button
                       onClick={() => copyToClipboard(webhookUrl)}
                       className="shrink-0 p-2 rounded-latte-md hover:bg-latte-bg-tertiary text-latte-text-tertiary hover:text-latte-text-primary transition-colors"
-                      title="Copy"
+                      title="复制"
                     >
                       <Copy size={16} />
                     </button>
@@ -494,37 +494,37 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <div className="p-4 rounded-latte-lg bg-latte-bg-tertiary/50 border border-latte-text-primary/5">
                   <p className="text-xs text-latte-text-muted mb-2">
-                    Step 2: Configure in your repository
+                    步骤 2：在你的仓库中配置
                   </p>
                   {platform === "github" ? (
                     <ol className="text-sm text-latte-text-secondary space-y-1.5 list-decimal list-inside">
                       <li>
-                        Open repo → <strong>Settings</strong> → <strong>Webhooks</strong> →{" "}
+                        打开仓库 → <strong>Settings</strong> → <strong>Webhooks</strong> →{" "}
                         <strong>Add webhook</strong>
                       </li>
                       <li>
-                        Paste URL into <strong>Payload URL</strong>
+                        将 URL 粘贴到 <strong>Payload URL</strong>
                       </li>
                       <li>
-                        Set <strong>Content type</strong> to <code>application/json</code>
+                        将 <strong>Content type</strong> 设置为 <code>application/json</code>
                       </li>
                       <li>
-                        Set <strong>Secret</strong> to your webhook secret
+                        将 <strong>Secret</strong> 设置为你的 webhook secret
                       </li>
                       <li>
-                        Select <strong>Pull requests</strong> events
+                        选择 <strong>Pull requests</strong> 事件
                       </li>
                     </ol>
                   ) : (
                     <ol className="text-sm text-latte-text-secondary space-y-1.5 list-decimal list-inside">
                       <li>
-                        Open project → <strong>Settings</strong> → <strong>Webhooks</strong>
+                        打开项目 → <strong>Settings</strong> → <strong>Webhooks</strong>
                       </li>
-                      <li>Paste URL into the URL field</li>
+                      <li>将 URL 粘贴到 URL 字段</li>
                       <li>
-                        Set <strong>Trigger</strong> to <code>Merge request events</code>
+                        将 <strong>Trigger</strong> 设置为 <code>Merge request events</code>
                       </li>
-                      <li>Enter your webhook secret token</li>
+                      <li>输入你的 webhook secret token</li>
                     </ol>
                   )}
                 </div>
@@ -537,7 +537,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm text-latte-gold hover:underline"
                     >
-                      Open {platform === "github" ? "GitHub" : "GitLab"} Webhook Settings
+                      打开 {platform === "github" ? "GitHub" : "GitLab"} Webhook 设置
                       <ExternalLink size={14} />
                     </a>
                   </div>
@@ -547,10 +547,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <div className="flex justify-between mt-8">
                 <Button variant="ghost" onClick={() => setStep(2)}>
                   <ChevronLeft size={16} />
-                  Back
+                  返回
                 </Button>
                 <Button variant="primary" onClick={() => setStep(4)}>
-                  I&apos;ve configured the webhook
+                  我已配置 Webhook
                   <ChevronRight size={16} />
                 </Button>
               </div>
@@ -569,18 +569,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </motion.div>
 
               <h3 className="text-xl font-display font-semibold text-latte-text-primary mb-2">
-                You&apos;re all set!
+                一切就绪！
               </h3>
               <p className="text-sm text-latte-text-tertiary max-w-md mx-auto mb-8">
-                Latte PR Agent is now watching your repository. Every pull request will be
-                automatically reviewed for security issues, code quality, and best practices.
+                Latte PR Agent 正在监控你的仓库。每个拉取请求都将被
+                自动审查，检测安全问题、代码质量和最佳实践。
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto mb-8">
                 {[
-                  { label: "AI Analysis", desc: "Multi-model review" },
-                  { label: "Static Scan", desc: "Semgrep security" },
-                  { label: "Smart Rules", desc: "Custom patterns" },
+                  { label: "AI 分析", desc: "多模型审查" },
+                  { label: "静态扫描", desc: "Semgrep 安全" },
+                  { label: "智能规则", desc: "自定义规则" },
                 ].map((item) => (
                   <div key={item.label} className="p-3 rounded-latte-lg bg-latte-bg-tertiary/50">
                     <p className="text-sm font-medium text-latte-text-primary">{item.label}</p>
@@ -591,14 +591,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button variant="primary" onClick={onComplete}>
-                  Go to Dashboard
+                  前往仪表盘
                   <ChevronRight size={16} />
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={() => (window.location.href = "/dashboard/analyze")}
                 >
-                  Try Code Analysis
+                  试用代码分析
                   <Sparkles size={14} />
                 </Button>
               </div>
