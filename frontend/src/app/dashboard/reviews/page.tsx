@@ -44,6 +44,7 @@ export default function ReviewsPage() {
     page: currentPage,
     pageSize,
     isLoading,
+    error,
     mutate,
   } = useReviews({
     status: status === "all" ? undefined : status,
@@ -58,7 +59,8 @@ export default function ReviewsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, risk]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, risk, debouncedSearch]);
 
   useEffect(() => {
     const unsubscribe = subscribe((update: ReviewUpdate) => {

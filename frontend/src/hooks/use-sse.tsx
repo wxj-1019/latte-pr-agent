@@ -23,8 +23,10 @@ export function SSEProvider({ children }: { children: ReactNode }) {
   const esRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    if (!isMountedRef.current) return;
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
     const url = `${baseUrl}/reviews/stream`;
 
@@ -44,6 +46,7 @@ export function SSEProvider({ children }: { children: ReactNode }) {
     esRef.current = es;
 
     es.onopen = () => {
+      if (!isMountedRef.current) return;
       retryCountRef.current = 0;
       setStatus("connected");
     };
@@ -60,21 +63,24 @@ export function SSEProvider({ children }: { children: ReactNode }) {
     es.onerror = () => {
       es.close();
       esRef.current = null;
+      if (!isMountedRef.current) return;
       setStatus("disconnected");
 
       if (retryCountRef.current < MAX_RETRIES) {
         const delay = Math.min(BASE_DELAY_MS * 2 ** retryCountRef.current, 30000);
         retryCountRef.current++;
         reconnectTimerRef.current = setTimeout(() => {
-          connect();
+          if (isMountedRef.current) connect();
         }, delay);
       }
     };
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     connect();
     return () => {
+      isMountedRef.current = false;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (esRef.current) {
         esRef.current.close();

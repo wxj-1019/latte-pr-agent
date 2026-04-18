@@ -31,7 +31,7 @@ export function Sidebar() {
             href={item.href}
             className={cn(
               "latte-sidebar-item",
-              pathname.startsWith(item.href) && "active"
+              (item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href)) && "active"
             )}
             title={item.label}
           >

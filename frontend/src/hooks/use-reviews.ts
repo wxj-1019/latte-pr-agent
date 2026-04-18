@@ -31,7 +31,7 @@ export function useReviews(options?: UseReviewsOptions) {
 }
 
 export function useReviewDetail(id: number) {
-  const { data, error, isLoading } = useSWR<Review>(
+  const { data, error, isLoading, mutate } = useSWR<Review>(
     id ? `/api/reviews/${id}` : null,
     () => api.getReviewDetail(id)
   );
@@ -40,6 +40,7 @@ export function useReviewDetail(id: number) {
     review: data,
     isLoading,
     error,
+    mutate,
   };
 }
 
