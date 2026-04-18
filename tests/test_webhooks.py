@@ -36,7 +36,7 @@ async def test_github_webhook_missing_signature(async_client_with_db):
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 401
-    assert "Missing" in response.json()["detail"]
+    assert "缺少" in response.json()["detail"]
 
 
 def test_verify_gitlab_valid():
@@ -150,7 +150,7 @@ async def test_github_webhook_ignored_event(async_client_with_db):
         },
     )
     assert response.status_code == 200
-    assert response.json()["message"] == "Event ignored"
+    assert response.json()["message"] == "事件已忽略"
 
 
 @pytest.mark.asyncio
@@ -207,7 +207,7 @@ async def test_github_webhook_success(async_client_with_db):
         )
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Review queued"
+    assert data["message"] == "审查已加入队列"
     assert isinstance(data["review_id"], int)
 
 
@@ -247,5 +247,5 @@ async def test_gitlab_webhook_success(async_client_with_db):
         )
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Review queued"
+    assert data["message"] == "审查已加入队列"
     assert isinstance(data["review_id"], int)

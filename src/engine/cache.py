@@ -1,6 +1,6 @@
+import asyncio
 import hashlib
 import json
-import threading
 from typing import Dict, Optional
 
 import redis.asyncio as redis
@@ -8,13 +8,13 @@ import redis.asyncio as redis
 from config import settings
 
 _redis_pool: Optional[redis.ConnectionPool] = None
-_redis_lock = threading.Lock()
+_redis_lock = asyncio.Lock()
 
 
-def get_redis_client() -> redis.Redis:
+async def get_redis_client() -> redis.Redis:
     global _redis_pool
     if _redis_pool is None:
-        with _redis_lock:
+        async with _redis_lock:
             if _redis_pool is None:
                 _redis_pool = redis.ConnectionPool.from_url(settings.redis_url.get_secret_value())
     return redis.Redis(connection_pool=_redis_pool)
@@ -23,9 +23,14 @@ def get_redis_client() -> redis.Redis:
 class ReviewCache:
     """基于 diff hash 的审查结果缓存"""
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
-        self.redis = redis_client or get_redis_client()
+    def __init__(self, redis_client: redis.Redis):
+        self.redis = redis_client
         self.ttl_seconds = 3600  # 1 hour
+
+    @classmethod
+    async def create(cls, redis_client: Optional[redis.Redis] = None) -> "ReviewCache":
+        client = redis_client or await get_redis_client()
+        return cls(redis_client=client)
 
     def _make_key(self, diff_content: str, prompt_version: str, model: str) -> str:
         content = f"{diff_content}|{prompt_version}|{model}"

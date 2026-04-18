@@ -59,7 +59,7 @@ async def test_deepseek_review_retry_then_fail():
         result = await provider.review("Review this code", "deepseek-chat")
 
     assert "error" in result
-    assert result["error"] == "api_call_failed"
+    assert result["error"] == "api 调用失败"
 
 
 # ==================== Anthropic Provider Tests ====================
@@ -293,7 +293,7 @@ async def test_qwen_review_retry_then_fail():
         result = await provider.review("Review this code", "qwen-coder-plus-latest")
 
     assert "error" in result
-    assert result["error"] == "api_call_failed"
+    assert result["error"] == "api 调用失败"
 
 
 @pytest.mark.asyncio

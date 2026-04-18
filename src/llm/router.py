@@ -60,12 +60,12 @@ class ReviewRouter:
             if i.get("severity") in ["critical", "warning"]
         )
         return (
-            f"The following code was initially reviewed and potential issues were found:\n\n"
+            f"以下代码已经过初步审查，发现了一些潜在问题：\n\n"
             f"{issues_text}\n\n"
-            f"Please carefully re-evaluate these issues against the original code diff. "
-            f"Confirm, refute, or refine each issue with detailed reasoning. "
-            f"Return your response in the same JSON format.\n\n"
-            f"Original prompt:\n{original_prompt}"
+            f"请针对原始代码差异仔细重新评估这些问题。"
+            f"逐一确认、反驳或完善每个问题，并给出详细的推理说明。"
+            f"请以相同的 JSON 格式返回你的响应。\n\n"
+            f"原始提示：\n{original_prompt}"
         )
 
     def _merge_results(self, primary: Dict, reasoner: Dict) -> Dict:
@@ -119,7 +119,7 @@ class ResilientReviewRouter(ReviewRouter):
         return await self.review_with_fallback(prompt, pr_size_tokens, system_prompt)
 
     async def review_with_fallback(self, prompt: str, pr_size_tokens: int, system_prompt: str | None = None) -> Dict:
-        models = [self.config.get("primary_model") or self.config.get("primary", "deepseek-chat")]
+        models = [self.config.get("primary_model", "deepseek-chat")]
         models += self.config.get("fallback_chain", [])
 
         last_error = None

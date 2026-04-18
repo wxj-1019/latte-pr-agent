@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from typing import Optional
@@ -101,7 +102,7 @@ async def run_review(review_id: int) -> None:
                 })
 
                 # Build cache
-                cache = ReviewCache()
+                cache = await ReviewCache.create()
 
                 # Run engine with optional static analysis
                 engine = ReviewEngine(
@@ -136,14 +137,27 @@ async def run_review(review_id: int) -> None:
 
                 await review_repo.update_status(review_id, "completed", risk_level=final_risk_level if not result.get("degraded") else None)
             logger.info("Review %s: completed successfully", review_id)
-        except Exception as exc:
-            logger.exception("Review %s: failed with error: %s", review_id, exc)
+        except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as exc:
+            logger.warning("Review %s: network/external service error: %s", review_id, exc)
             try:
                 async with session.begin():
                     await review_repo.update_status(review_id, "failed")
             except Exception:
                 logger.exception("Review %s: failed to update failed status", review_id)
-            # Try to notify PR with failure status if provider was created
+            if provider:
+                try:
+                    publisher = ReviewPublisher(session, provider)
+                    await publisher.set_status("failure", "AI 审查因外部服务不可用失败")
+                except Exception:
+                    logger.exception("Review %s: failed to publish error status", review_id)
+            return
+        except Exception as exc:
+            logger.exception("Review %s: unexpected error (possible bug): %s", review_id, exc)
+            try:
+                async with session.begin():
+                    await review_repo.update_status(review_id, "failed")
+            except Exception:
+                logger.exception("Review %s: failed to update failed status", review_id)
             if provider:
                 try:
                     publisher = ReviewPublisher(session, provider)

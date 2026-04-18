@@ -226,16 +226,16 @@ class ReviewEngine:
             ctx_lines.append("Similar Historical Bugs:\n" + str(context["similar_bugs"]))
 
         ctx_str = "\n\n".join(ctx_lines)
-        return f"""Please review the following Pull Request diff.
+        return f"""请审查以下 Pull Request 的代码变更。
 
-Project Context:
+项目上下文：
 {ctx_str}
 
---- DIFF START ---
+--- DIFF 开始 ---
 {pr_diff}
---- DIFF END ---
+--- DIFF 结束 ---
 
-Respond with a JSON object containing the review findings."""
+请以 JSON 对象格式返回审查发现。"""
 
     async def _persist_findings(
         self, review_id: int, result: Dict, model: str

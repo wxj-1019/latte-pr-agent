@@ -12,7 +12,7 @@ def test_quality_gate_blocks_on_critical():
     result = gate.assess()
     assert result["risk_level"] == "critical"
     assert result["status"] == "failure"
-    assert "blocked" in result["description"].lower()
+    assert "阻塞" in result["description"]
 
 
 def test_quality_gate_allows_critical_when_config_override():
@@ -23,7 +23,7 @@ def test_quality_gate_allows_critical_when_config_override():
     result = gate.assess()
     assert result["risk_level"] == "critical"
     assert result["status"] == "success"
-    assert "not blocked" in result["description"].lower()
+    assert "未阻塞" in result["description"]
 
 
 def test_quality_gate_warns_on_warning():
@@ -34,7 +34,7 @@ def test_quality_gate_warns_on_warning():
     result = gate.assess()
     assert result["risk_level"] == "medium"
     assert result["status"] == "success"
-    assert "Warning" in result["description"]
+    assert "警告" in result["description"]
 
 
 def test_quality_gate_passes_on_low():
@@ -45,7 +45,7 @@ def test_quality_gate_passes_on_low():
     result = gate.assess()
     assert result["risk_level"] == "low"
     assert result["status"] == "success"
-    assert "No blocking" in result["description"]
+    assert "未发现阻塞性" in result["description"]
 
 
 def test_quality_gate_empty_findings():
