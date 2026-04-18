@@ -29,12 +29,12 @@ async def github_webhook(
     payload_bytes = await request.body()
     if not x_hub_signature_256:
         logger.warning("GitHub webhook rejected: missing signature")
-        raise HTTPException(status_code=401, detail="Missing webhook signature")
+        raise HTTPException(status_code=401, detail="缺少 Webhook 签名")
     if not WebhookVerifier.verify_github(
         payload_bytes, x_hub_signature_256, settings.github_webhook_secret
     ):
         logger.warning("GitHub webhook rejected: invalid signature")
-        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+        raise HTTPException(status_code=401, detail="Webhook 签名无效")
 
     payload = await request.json()
     parsed = WebhookParser.parse_github(payload)
@@ -42,7 +42,7 @@ async def github_webhook(
 
     action = parsed.get("action")
     if action not in ("opened", "synchronize", "reopened"):
-        return {"message": "Event ignored", "action": action}
+        return {"message": "事件已忽略", "action": action}
 
     allowed, msg = RateLimiter.check_pr_size(parsed.get("changed_files", 0))
     if not allowed:
@@ -73,7 +73,7 @@ async def github_webhook(
     await db.commit()
     logger.info("Review created: review_id=%s repo=%s pr=%s", review.id, review.repo_id, review.pr_number)
     _dispatch_review(background_tasks, review.id)
-    return {"message": "Review queued", "review_id": review.id}
+    return {"message": "审查已加入队列", "review_id": review.id}
 
 
 def _dispatch_review(background_tasks: BackgroundTasks, review_id: int) -> None:
@@ -99,12 +99,12 @@ async def gitlab_webhook(
 ) -> dict:
     if not x_gitlab_token:
         logger.warning("GitLab webhook rejected: missing token")
-        raise HTTPException(status_code=401, detail="Missing webhook token")
+        raise HTTPException(status_code=401, detail="缺少 Webhook Token")
     if not WebhookVerifier.verify_gitlab(
         x_gitlab_token, settings.gitlab_webhook_secret
     ):
         logger.warning("GitLab webhook rejected: invalid token")
-        raise HTTPException(status_code=401, detail="Invalid webhook token")
+        raise HTTPException(status_code=401, detail="Webhook Token 无效")
 
     payload = await request.json()
     parsed = WebhookParser.parse_gitlab(payload)
@@ -112,7 +112,7 @@ async def gitlab_webhook(
 
     action = parsed.get("action")
     if action not in ("open", "update", "reopen"):
-        return {"message": "Event ignored", "action": action}
+        return {"message": "事件已忽略", "action": action}
 
     allowed, msg = RateLimiter.check_pr_size(parsed.get("changed_files", 0))
     if not allowed:
@@ -142,4 +142,4 @@ async def gitlab_webhook(
     await db.commit()
     logger.info("Review created: review_id=%s repo=%s pr=%s", review.id, review.repo_id, review.pr_number)
     _dispatch_review(background_tasks, review.id)
-    return {"message": "Review queued", "review_id": review.id}
+    return {"message": "审查已加入队列", "review_id": review.id}

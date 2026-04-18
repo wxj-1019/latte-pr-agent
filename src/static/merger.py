@@ -51,7 +51,7 @@ class FindingMerger:
         return {
             "issues": merged,
             "degraded": degraded,
-            "summary": "Review completed" if not degraded else "AI degraded, static analysis only",
+            "summary": "审查完成" if not degraded else "AI 模型不可用，仅展示静态分析结果",
             "risk_level": self._assess_risk_level(merged),
         }
 

@@ -32,7 +32,7 @@ async def submit_feedback(
     result = await db.execute(select(ReviewFinding).where(ReviewFinding.id == finding_id))
     finding = result.scalar_one_or_none()
     if not finding:
-        raise HTTPException(status_code=404, detail="Finding not found")
+        raise HTTPException(status_code=404, detail="审查发现项不存在")
 
     feedback = await finding_repo.add_feedback(
         finding_id=finding_id,

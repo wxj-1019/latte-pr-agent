@@ -52,8 +52,8 @@ _redoc_url = "/redoc" if settings.app_env != "production" else None
 _openapi_url = "/openapi.json" if settings.app_env != "production" else None
 
 app = FastAPI(
-    title="Latte PR Agent",
-    description="Enterprise AI Code Review System",
+    title="Latte PR Agent - AI 代码审查系统",
+    description="企业级 AI 代码审查系统",
     version="0.1.0",
     lifespan=lifespan,
     docs_url=_docs_url,

@@ -103,7 +103,7 @@ class ReviewMetricsService:
         for row in result.all():
             version, total, fp = row
             metrics.append({
-                "prompt_version": version or "unknown",
+                "prompt_version": version or "未知",
                 "total_findings": total,
                 "false_positives": fp,
                 "false_positive_rate": round(fp / total, 4) if total else 0.0,

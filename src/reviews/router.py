@@ -97,15 +97,15 @@ async def list_reviews(
     db: AsyncSession = Depends(get_db),
 ):
     if status and status not in VALID_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {', '.join(VALID_STATUSES)}")
+        raise HTTPException(status_code=400, detail=f"状态参数无效，可选值: {', '.join(VALID_STATUSES)}")
     if risk and risk not in VALID_RISKS:
-        raise HTTPException(status_code=400, detail=f"Invalid risk. Allowed: {', '.join(VALID_RISKS)}")
+        raise HTTPException(status_code=400, detail=f"风险等级参数无效，可选值: {', '.join(VALID_RISKS)}")
 
     safe_repo = None
     if repo:
         safe_repo = "".join(c for c in repo if c.isalnum() or c in "/-._")
         if len(safe_repo) > MAX_REPO_FILTER_LEN:
-            raise HTTPException(status_code=400, detail=f"repo filter too long (max {MAX_REPO_FILTER_LEN})")
+            raise HTTPException(status_code=400, detail=f"仓库过滤字符串过长（最大 {MAX_REPO_FILTER_LEN} 字符）")
         if not safe_repo:
             safe_repo = None
 
@@ -179,7 +179,7 @@ async def get_review(review_id: int, db: AsyncSession = Depends(get_db)):
     review_repo = ReviewRepository(db)
     review = await review_repo.get_by_id(review_id)
     if not review:
-        raise HTTPException(status_code=404, detail="Review not found")
+        raise HTTPException(status_code=404, detail="审查记录不存在")
     return _serialize_review(review)
 
 
@@ -241,7 +241,7 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
             repo_id=req.repo_id,
             pr_number=pr_number,
             head_sha=synthetic_sha,
-            pr_title=f"Direct analysis: {safe_filename}",
+            pr_title=f"直接分析: {safe_filename}",
             status="pending",
             diff_stats=diff_stats,
         )
@@ -321,7 +321,7 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
         except Exception:
             logger.exception("Failed to update failed status for review_id=%s", review_id)
         logger.exception("Analyze failed for review_id=%s", review_id)
-        raise HTTPException(status_code=500, detail="Analysis failed. Please try again later.")
+        raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
     finally:
         if tmpdir is not None:
             tmpdir.cleanup()

@@ -130,7 +130,7 @@ async def run_review(review_id: int) -> None:
                     await publisher.publish(review_id)
 
                     if result.get("degraded"):
-                        await publisher.set_status("success", "Review degraded: static analysis only")
+                        await publisher.set_status("success", "审查已降级：仅展示静态分析结果")
                     else:
                         await publisher.set_status(gate_result["status"], gate_result["description"])
 
@@ -147,7 +147,7 @@ async def run_review(review_id: int) -> None:
             if provider:
                 try:
                     publisher = ReviewPublisher(session, provider)
-                    await publisher.set_status("failure", "AI review failed due to internal error")
+                    await publisher.set_status("failure", "AI 审查因内部错误失败")
                 except Exception:
                     logger.exception("Review %s: failed to publish error status", review_id)
             raise

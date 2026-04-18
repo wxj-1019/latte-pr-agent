@@ -44,7 +44,7 @@ class AutoPromptOptimizer:
         if not stats["high_fp_categories"]:
             return {
                 "optimized": False,
-                "reason": "No high false-positive categories found",
+                "reason": "未发现高误报率类别",
                 "stats": stats,
             }
 

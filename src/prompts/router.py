@@ -62,7 +62,7 @@ async def get_version(version: str, db: AsyncSession = Depends(get_db)) -> dict:
         logger.warning("Failed to load prompts from DB", exc_info=True)
     pv = registry.get(version)
     if not pv:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise HTTPException(status_code=404, detail="Prompt 版本不存在")
     return {
         "version": pv.version,
         "text": pv.text,
@@ -77,7 +77,7 @@ async def save_version(
 ) -> dict:
     registry = PromptRegistry(db)
     await registry.save_version(req.version, req.text, req.metadata)
-    return {"message": "Saved", "version": req.version}
+    return {"message": "已保存", "version": req.version}
 
 
 @router.post("")

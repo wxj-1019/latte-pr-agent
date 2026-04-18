@@ -60,10 +60,10 @@ class OpenAICompatibleProvider(LLMProvider):
                 return json_repair.loads(raw)
             except json.JSONDecodeError:
                 if attempt == 2:
-                    return {"error": "json_parse_failed", "raw": raw, "issues": []}
+                    return {"error": "json 解析失败", "raw": raw, "issues": []}
                 await asyncio.sleep(2 ** attempt)
             except (OSError, ConnectionError, TimeoutError):
                 if attempt == 2:
-                    return {"error": "api_call_failed", "raw": raw, "issues": []}
+                    return {"error": "api 调用失败", "raw": raw, "issues": []}
                 await asyncio.sleep(2 ** attempt)
-        return {"error": "max_retries_exceeded", "raw": raw, "issues": []}
+        return {"error": "超过最大重试次数", "raw": raw, "issues": []}
