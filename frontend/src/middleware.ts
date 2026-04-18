@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
       (!referer || referer.includes(host));
 
     if (!isSameOrigin) {
-      return new NextResponse("CSRF validation failed", { status: 403 });
+      return new NextResponse("CSRF 验证失败", { status: 403 });
     }
   }
 

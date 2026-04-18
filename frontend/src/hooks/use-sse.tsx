@@ -66,7 +66,7 @@ export function SSEProvider({ children }: { children: ReactNode }) {
 export function useSSE() {
   const ctx = useContext(SSEContext);
   if (!ctx) {
-    throw new Error("useSSE must be used within an SSEProvider");
+    throw new Error("useSSE 必须在 SSEProvider 内使用");
   }
   return ctx;
 }

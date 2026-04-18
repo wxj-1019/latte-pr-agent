@@ -21,10 +21,10 @@ function formatTimeAgo(isoString: string) {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
+  if (diffMins < 1) return "刚刚";
+  if (diffMins < 60) return `${diffMins} 分钟前`;
+  if (diffHours < 24) return `${diffHours} 小时前`;
+  return `${diffDays} 天前`;
 }
 
 export function ReviewList({ reviews }: ReviewListProps) {
@@ -54,22 +54,22 @@ export function ReviewList({ reviews }: ReviewListProps) {
                     {review.platform === "direct" ? (
                       <>
                         <span className="text-latte-gold">#ANALYZE</span>{" "}
-                        {review.pr_title?.replace("Direct analysis: ", "") || "Untitled"}
+                        {review.pr_title?.replace("Direct analysis: ", "") || "未命名"}
                       </>
                     ) : (
                       <>
-                        #{review.pr_number} {review.pr_title || "Untitled PR"}
+                        #{review.pr_number} {review.pr_title || "未命名 PR"}
                       </>
                     )}
                   </h4>
                   <p className="text-sm text-latte-text-tertiary mt-0.5">
                     {review.platform === "direct" ? (
                       <>
-                        Direct analysis {review.ai_model ? `· ${review.ai_model}` : ""}
+                        直接分析 {review.ai_model ? `· ${review.ai_model}` : ""}
                       </>
                     ) : (
                       <>
-                        {review.repo_id} · {review.ai_model || "unknown model"}
+                        {review.repo_id} · {review.ai_model || "未知模型"}
                       </>
                     )}
                   </p>
@@ -79,7 +79,7 @@ export function ReviewList({ reviews }: ReviewListProps) {
                 {review.status === "failed" && (
                   <div className="flex items-center gap-1.5 text-latte-critical">
                     <AlertCircle size={14} />
-                    <span className="text-xs font-medium">Error</span>
+                    <span className="text-xs font-medium">错误</span>
                   </div>
                 )}
                 {review.status === "completed" && review.risk_level && review.risk_level !== "low" && (

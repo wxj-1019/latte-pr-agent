@@ -13,6 +13,23 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 const statusOptions = ["all", "pending", "running", "completed", "failed", "skipped"];
 const riskOptions = ["all", "low", "medium", "high", "critical"];
 
+const statusLabels: Record<string, string> = {
+  all: "全部",
+  pending: "待处理",
+  running: "进行中",
+  completed: "已完成",
+  failed: "失败",
+  skipped: "已跳过",
+};
+
+const riskLabels: Record<string, string> = {
+  all: "全部",
+  low: "低",
+  medium: "中",
+  high: "高",
+  critical: "严重",
+};
+
 export default function ReviewsPage() {
   const [status, setStatus] = useState<string>("all");
   const [risk, setRisk] = useState<string>("all");
@@ -63,7 +80,7 @@ export default function ReviewsPage() {
       <FadeInUp>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
-            Reviews
+            审查
           </h1>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex flex-wrap gap-1.5">
@@ -77,7 +94,7 @@ export default function ReviewsPage() {
                       : "text-latte-text-tertiary hover:text-latte-text-primary hover:bg-latte-bg-tertiary"
                   }`}
                 >
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                  {statusLabels[s] || s}
                 </button>
               ))}
             </div>
@@ -92,12 +109,12 @@ export default function ReviewsPage() {
                       : "text-latte-text-tertiary hover:text-latte-text-primary hover:bg-latte-bg-tertiary"
                   }`}
                 >
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                  {riskLabels[r] || r}
                 </button>
               ))}
             </div>
             <Input
-              placeholder="Filter by repo..."
+              placeholder="按仓库筛选..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-48 h-9 text-sm"
@@ -118,8 +135,8 @@ export default function ReviewsPage() {
       ) : reviews.length === 0 ? (
         <FadeInUp delay={0.1}>
           <div className="flex flex-col items-center justify-center py-20 text-latte-text-tertiary">
-            <p className="text-lg font-medium">No reviews found</p>
-            <p className="text-sm mt-1">Try adjusting your filters</p>
+            <p className="text-lg font-medium">未找到审查记录</p>
+            <p className="text-sm mt-1">尝试调整筛选条件</p>
           </div>
         </FadeInUp>
       ) : (
@@ -139,10 +156,10 @@ export default function ReviewsPage() {
               disabled={currentPage <= 1}
             >
               <ChevronLeft size={16} />
-              Prev
+              上一页
             </Button>
             <span className="text-sm text-latte-text-secondary">
-              Page {currentPage} of {totalPages}
+              第 {currentPage} 页，共 {totalPages} 页
             </span>
             <Button
               variant="ghost"
@@ -150,7 +167,7 @@ export default function ReviewsPage() {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
             >
-              Next
+              下一页
               <ChevronRight size={16} />
             </Button>
           </div>

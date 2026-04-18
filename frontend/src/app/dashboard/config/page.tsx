@@ -67,7 +67,7 @@ export default function ConfigPage() {
         setConfig((d.config_json as Record<string, unknown>) || {});
       })
       .catch((err) => {
-        setError(err.message || "Failed to load config");
+        setError(err.message || "加载配置失败");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -78,9 +78,9 @@ export default function ConfigPage() {
     setSaving(true);
     try {
       await api.updateProjectConfig(DEFAULT_REPO, config);
-      alert("Config saved");
+      alert("配置已保存");
     } catch (err) {
-      alert("Failed to save: " + (err instanceof Error ? err.message : "Unknown error"));
+      alert("保存失败：" + (err instanceof Error ? err.message : "未知错误"));
     } finally {
       setSaving(false);
     }
@@ -140,7 +140,7 @@ export default function ConfigPage() {
   if (error) {
     return (
       <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-20 text-latte-text-tertiary">
-        <p className="text-lg font-medium">Failed to load config</p>
+        <p className="text-lg font-medium">加载配置失败</p>
         <p className="text-sm mt-1">{error}</p>
       </div>
     );
@@ -150,19 +150,19 @@ export default function ConfigPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <FadeInUp>
         <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
-          Project Config
+          项目配置
         </h1>
         <p className="text-sm text-latte-text-tertiary mt-1">
-          Customize review behavior for {DEFAULT_REPO}
+          为 {DEFAULT_REPO} 自定义审查行为
         </p>
       </FadeInUp>
 
       <FadeInUp delay={0.1}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">Context Analysis</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">上下文分析</h3>
           <div className="divide-y divide-latte-text-primary/5">
             <Toggle
-              label="Enable context analysis"
+              label="启用上下文分析"
               checked={reviewConfig.context_analysis?.enabled ?? false}
               onChange={(v) =>
                 setConfig({
@@ -175,7 +175,7 @@ export default function ConfigPage() {
               }
             />
             <Toggle
-              label="Historical bug check"
+              label="历史 Bug 检查"
               checked={reviewConfig.context_analysis?.historical_bug_check ?? false}
               onChange={(v) =>
                 setConfig({
@@ -188,7 +188,7 @@ export default function ConfigPage() {
               }
             />
             <Toggle
-              label="API contract detection"
+              label="API 契约检测"
               checked={reviewConfig.context_analysis?.api_contract_detection ?? false}
               onChange={(v) =>
                 setConfig({
@@ -202,7 +202,7 @@ export default function ConfigPage() {
             />
           </div>
           <div className="mt-4">
-            <label className="text-sm text-latte-text-secondary">Dependency depth</label>
+            <label className="text-sm text-latte-text-secondary">依赖深度</label>
             <Input
               type="number"
               value={reviewConfig.context_analysis?.dependency_depth || 2}
@@ -226,7 +226,7 @@ export default function ConfigPage() {
 
       <FadeInUp delay={0.15}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">Critical Paths</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">关键路径</h3>
           <div className="space-y-2 mb-4">
             {(reviewConfig.critical_paths || []).map((path: string, idx: number) => (
               <div key={idx} className="flex items-center justify-between px-3 py-2 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary">
@@ -237,12 +237,12 @@ export default function ConfigPage() {
               </div>
             ))}
             {!(reviewConfig.critical_paths || []).length && (
-              <p className="text-sm text-latte-text-muted">No critical paths defined</p>
+              <p className="text-sm text-latte-text-muted">未定义关键路径</p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <Input
-              placeholder="e.g. src/payment/"
+              placeholder="例如 src/payment/"
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
               className="flex-1 h-9 text-sm"
@@ -250,7 +250,7 @@ export default function ConfigPage() {
             />
             <Button variant="secondary" size="sm" onClick={addPath}>
               <Plus size={14} />
-              Add
+              添加
             </Button>
           </div>
         </GlassCard>
@@ -258,7 +258,7 @@ export default function ConfigPage() {
 
       <FadeInUp delay={0.2}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">Custom Rules</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">自定义规则</h3>
           <div className="space-y-3 mb-4">
             {(reviewConfig.custom_rules || []).map((rule: CustomRule, idx: number) => (
               <div key={idx} className="p-3 rounded-latte-md bg-latte-bg-tertiary text-sm">
@@ -273,24 +273,24 @@ export default function ConfigPage() {
               </div>
             ))}
             {!(reviewConfig.custom_rules || []).length && (
-              <p className="text-sm text-latte-text-muted">No custom rules defined</p>
+              <p className="text-sm text-latte-text-muted">未定义自定义规则</p>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Input
-              placeholder="Rule name"
+              placeholder="规则名称"
               value={newRule.name}
               onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
               className="h-9 text-sm"
             />
             <Input
-              placeholder="Pattern"
+              placeholder="匹配模式"
               value={newRule.pattern}
               onChange={(e) => setNewRule({ ...newRule, pattern: e.target.value })}
               className="h-9 text-sm"
             />
             <Input
-              placeholder="Message"
+              placeholder="提示信息"
               value={newRule.message}
               onChange={(e) => setNewRule({ ...newRule, message: e.target.value })}
               className="h-9 text-sm sm:col-span-2"
@@ -307,12 +307,12 @@ export default function ConfigPage() {
                   backgroundSize: "1rem",
                 }}
               >
-                <option value="warning">warning</option>
-                <option value="critical">critical</option>
+                <option value="warning">警告</option>
+                <option value="critical">严重</option>
               </select>
               <Button variant="secondary" size="sm" onClick={addRule}>
                 <Plus size={14} />
-                Add Rule
+                添加规则
               </Button>
             </div>
           </div>
@@ -321,10 +321,10 @@ export default function ConfigPage() {
 
       <FadeInUp delay={0.25}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">AI Models</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">AI 模型</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-latte-text-secondary">Primary</label>
+              <label className="text-sm text-latte-text-secondary">主模型</label>
               <Input
                 value={reviewConfig.ai_model?.primary || ""}
                 onChange={(e) =>
@@ -340,7 +340,7 @@ export default function ConfigPage() {
               />
             </div>
             <div>
-              <label className="text-sm text-latte-text-secondary">Fallback</label>
+              <label className="text-sm text-latte-text-secondary">备用模型</label>
               <Input
                 value={reviewConfig.ai_model?.fallback || ""}
                 onChange={(e) =>
@@ -362,7 +362,7 @@ export default function ConfigPage() {
       <FadeInUp delay={0.3}>
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "保存中..." : "保存更改"}
           </Button>
         </div>
       </FadeInUp>

@@ -21,7 +21,7 @@ export function FindingPanel({ findings, selectedLine }: FindingPanelProps) {
   return (
     <div className="h-full overflow-auto pr-2">
       <h3 className="text-sm font-semibold text-latte-text-primary mb-3 px-1">
-        Findings {filteredFindings.length > 0 && `(${filteredFindings.length})`}
+        发现 {filteredFindings.length > 0 && `(${filteredFindings.length})`}
       </h3>
       <div className="space-y-3" onMouseEnter={() => {}}>
         {filteredFindings.map((finding) => (
@@ -35,7 +35,7 @@ export function FindingPanel({ findings, selectedLine }: FindingPanelProps) {
         ))}
         {filteredFindings.length === 0 && (
           <div className="text-sm text-latte-text-tertiary py-8 text-center">
-            {selectedLine ? "No findings for this line" : "No findings available"}
+            {selectedLine ? "此行无发现" : "暂无可用的发现"}
           </div>
         )}
       </div>

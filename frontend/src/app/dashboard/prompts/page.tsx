@@ -43,7 +43,7 @@ export default function PromptsPage() {
         try {
           metadata = JSON.parse(newMetadata);
         } catch {
-          alert("Metadata must be valid JSON");
+          alert("元数据必须是有效的 JSON");
           setCreateLoading(false);
           return;
         }
@@ -59,7 +59,7 @@ export default function PromptsPage() {
       setNewMetadata("");
       mutate();
     } catch (err) {
-      alert("Failed to create: " + (err instanceof Error ? err.message : "Unknown error"));
+      alert("创建失败：" + (err instanceof Error ? err.message : "未知错误"));
     } finally {
       setCreateLoading(false);
     }
@@ -81,7 +81,7 @@ export default function PromptsPage() {
         try {
           metadata = JSON.parse(editMetadata);
         } catch {
-          alert("Metadata must be valid JSON");
+          alert("元数据必须是有效的 JSON");
           setEditLoading(false);
           return;
         }
@@ -94,7 +94,7 @@ export default function PromptsPage() {
       setEditingId(null);
       mutate();
     } catch (err) {
-      alert("Failed to save: " + (err instanceof Error ? err.message : "Unknown error"));
+      alert("保存失败：" + (err instanceof Error ? err.message : "未知错误"));
     } finally {
       setEditLoading(false);
     }
@@ -123,7 +123,7 @@ export default function PromptsPage() {
     } catch (err) {
       setTestStates((prev) => ({
         ...prev,
-        [prompt.id]: { loading: false, result: null, error: err instanceof Error ? err.message : "Test failed" },
+        [prompt.id]: { loading: false, result: null, error: err instanceof Error ? err.message : "测试失败" },
       }));
     }
   }
@@ -146,10 +146,10 @@ export default function PromptsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
-              Prompt Registry
+              Prompt 注册表
             </h1>
             <p className="text-sm text-latte-text-tertiary mt-1">
-              Manage prompt versions and A/B experiments
+              管理 Prompt 版本和 A/B 实验
             </p>
           </div>
           <Button
@@ -158,7 +158,7 @@ export default function PromptsPage() {
             disabled={isCreating}
           >
             <Check size={16} />
-            {isCreating ? "Creating..." : "New Version"}
+            {isCreating ? "创建中..." : "新版本"}
           </Button>
         </div>
       </FadeInUp>
@@ -166,27 +166,27 @@ export default function PromptsPage() {
       {isCreating && (
         <FadeInUp>
           <GlassCard className="p-6 space-y-4">
-            <h3 className="text-lg font-medium text-latte-text-primary">Create New Prompt Version</h3>
+            <h3 className="text-lg font-medium text-latte-text-primary">创建新 Prompt 版本</h3>
             <div>
-              <label className="text-sm text-latte-text-secondary block mb-1.5">Version</label>
+              <label className="text-sm text-latte-text-secondary block mb-1.5">版本</label>
               <Input
-                placeholder="e.g. v1.3.0"
+                placeholder="例如 v1.3.0"
                 value={newVersion}
                 onChange={(e) => setNewVersion(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-sm text-latte-text-secondary block mb-1.5">Content</label>
+              <label className="text-sm text-latte-text-secondary block mb-1.5">内容</label>
               <textarea
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
                 rows={6}
                 className="w-full rounded-latte-md bg-latte-bg-tertiary border border-transparent focus:border-latte-gold/40 outline-none px-3 py-2 text-sm text-latte-text-primary font-mono resize-none"
-                placeholder="Enter prompt text..."
+                placeholder="输入 Prompt 文本..."
               />
             </div>
             <div>
-              <label className="text-sm text-latte-text-secondary block mb-1.5">Metadata (JSON, optional)</label>
+              <label className="text-sm text-latte-text-secondary block mb-1.5">元数据（JSON，可选）</label>
               <textarea
                 value={newMetadata}
                 onChange={(e) => setNewMetadata(e.target.value)}
@@ -197,10 +197,10 @@ export default function PromptsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={handleCreate} disabled={createLoading || !newVersion.trim() || !newContent.trim()}>
-                {createLoading ? <Loader2 size={16} className="animate-spin" /> : "Save"}
+                {createLoading ? <Loader2 size={16} className="animate-spin" /> : "保存"}
               </Button>
               <Button variant="ghost" onClick={() => setIsCreating(false)}>
-                Cancel
+                取消
               </Button>
             </div>
           </GlassCard>
@@ -226,14 +226,14 @@ export default function PromptsPage() {
                   {isEditing ? (
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm text-latte-text-secondary block mb-1.5">Version</label>
+                        <label className="text-sm text-latte-text-secondary block mb-1.5">版本</label>
                         <Input
                           value={editVersion}
                           onChange={(e) => setEditVersion(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-sm text-latte-text-secondary block mb-1.5">Content</label>
+                        <label className="text-sm text-latte-text-secondary block mb-1.5">内容</label>
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
@@ -242,7 +242,7 @@ export default function PromptsPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm text-latte-text-secondary block mb-1.5">Metadata (JSON, optional)</label>
+                        <label className="text-sm text-latte-text-secondary block mb-1.5">元数据（JSON，可选）</label>
                         <textarea
                           value={editMetadata}
                           onChange={(e) => setEditMetadata(e.target.value)}
@@ -255,10 +255,10 @@ export default function PromptsPage() {
                           onClick={handleSaveEdit}
                           disabled={editLoading || !editVersion.trim() || !editContent.trim()}
                         >
-                          {editLoading ? <Loader2 size={16} className="animate-spin" /> : "Save"}
+                          {editLoading ? <Loader2 size={16} className="animate-spin" /> : "保存"}
                         </Button>
                         <Button variant="ghost" onClick={() => setEditingId(null)}>
-                          Cancel
+                          取消
                         </Button>
                       </div>
                     </div>
@@ -272,19 +272,19 @@ export default function PromptsPage() {
                             </h3>
                             {prompt.is_active && (
                               <Badge variant="success" dot>
-                                active
+                                活跃
                               </Badge>
                             )}
                             {prompt.is_baseline && (
                               <Badge variant="info" dot>
-                                baseline
+                                基线
                               </Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-4 mt-2 text-sm text-latte-text-tertiary">
-                            <span>Used in {prompt.repo_count} repos</span>
+                            <span>用于 {prompt.repo_count} 个仓库</span>
                             <span>·</span>
-                            <span>Accuracy {Math.round((prompt.accuracy || 0) * 100)}%</span>
+                            <span>准确率 {Math.round((prompt.accuracy || 0) * 100)}%</span>
                             {prompt.ab_ratio !== undefined && (
                               <>
                                 <span>·</span>
@@ -298,7 +298,7 @@ export default function PromptsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={() => startEdit(prompt)}>
-                            Edit
+                            编辑
                           </Button>
                           <Button
                             variant="secondary"
@@ -311,7 +311,7 @@ export default function PromptsPage() {
                             ) : (
                               <FlaskConical size={14} />
                             )}
-                            Test
+                            测试
                           </Button>
                         </div>
                       </div>
@@ -323,7 +323,7 @@ export default function PromptsPage() {
                             className="flex items-center gap-2 text-sm text-latte-text-secondary hover:text-latte-text-primary transition-colors"
                           >
                             {isTestExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            Test Result
+                            测试结果
                           </button>
                           {isTestExpanded && (
                             <div className="mt-3">

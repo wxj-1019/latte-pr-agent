@@ -17,12 +17,12 @@ import {
 } from "lucide-react";
 
 const specs = [
-  { label: "Language", value: "Python 3.11+", icon: Server },
-  { label: "Framework", value: "FastAPI + Celery", icon: Cpu },
-  { label: "Database", value: "PostgreSQL 16 + pgvector", icon: Database },
-  { label: "LLM Providers", value: "DeepSeek, Claude, Qwen", icon: GitBranch },
-  { label: "Static Analysis", value: "Semgrep", icon: Box },
-  { label: "Test Coverage", value: "72+ Automated Tests", icon: CheckCircle },
+  { label: "语言", value: "Python 3.11+", icon: Server },
+  { label: "框架", value: "FastAPI + Celery", icon: Cpu },
+  { label: "数据库", value: "PostgreSQL 16 + pgvector", icon: Database },
+  { label: "LLM 提供商", value: "DeepSeek, Claude, Qwen", icon: GitBranch },
+  { label: "静态分析", value: "Semgrep", icon: Box },
+  { label: "测试覆盖", value: "72+ 自动化测试", icon: CheckCircle },
 ];
 
 export default function HomePage() {
@@ -38,7 +38,7 @@ export default function HomePage() {
             className="font-display font-semibold tracking-tight text-latte-text-primary text-center mb-6"
             style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 1.1 }}
           >
-            Brewed for Scale
+            为规模化而生
           </h2>
           <p className="text-lg text-latte-text-secondary text-center max-w-2xl mx-auto mb-16">
             从 Webhook 接收到评论发布，全链路异步处理，支持 Kubernetes 水平扩展。
@@ -51,7 +51,7 @@ export default function HomePage() {
       <BentoGrid />
       <DashboardPreview />
 
-      {/* Tech Specs */}
+      {/* 技术规格 */}
       <section className="py-24 px-6 max-w-5xl mx-auto">
         <FadeInUp>
           <h2
@@ -93,14 +93,14 @@ export default function HomePage() {
             className="font-display font-semibold tracking-tight text-latte-text-primary mb-6"
             style={{ fontSize: "clamp(36px, 5vw, 64px)", lineHeight: 1.1 }}
           >
-            Start Brewing Better Code Today
+            从今天开始，酿造更优质的代码
           </h2>
           <p className="text-lg text-latte-text-secondary max-w-xl mx-auto mb-10">
             让 Latte PR Agent 成为你团队的代码审查专家。
           </p>
           <div className="flex items-center justify-center gap-4">
             <Button size="lg" onClick={() => router.push("/dashboard/reviews")}>
-              Get Started
+              开始使用
             </Button>
             <Button variant="secondary" size="lg" onClick={() => router.push("/dashboard")}>
               仪表盘

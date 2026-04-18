@@ -49,13 +49,13 @@ export default function ReviewDetailPage() {
   if (reviewError || !review) {
     return (
       <div className="max-w-7xl mx-auto flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-latte-text-tertiary">
-        <p className="text-lg font-medium">Failed to load review</p>
-        <p className="text-sm mt-1">{reviewError?.message || "Review not found"}</p>
+        <p className="text-lg font-medium">加载审查失败</p>
+        <p className="text-sm mt-1">{reviewError?.message || "审查记录未找到"}</p>
         <Link
           href="/dashboard/reviews"
           className="mt-4 text-latte-gold hover:underline text-sm"
         >
-          Back to reviews
+          返回审查列表
         </Link>
       </div>
     );
@@ -82,10 +82,10 @@ export default function ReviewDetailPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-display font-semibold tracking-tight text-latte-text-primary truncate">
-            #{review.pr_number} {review.pr_title || "Untitled PR"}
+            #{review.pr_number} {review.pr_title || "未命名 PR"}
             </h1>
           <p className="text-sm text-latte-text-tertiary">
-            {review.repo_id} · {review.ai_model || "unknown"}
+            {review.repo_id} · {review.ai_model || "未知"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ export default function ReviewDetailPage() {
               }
               dot
             >
-              {review.risk_level}
+              {({ low: "低", medium: "中", high: "高", critical: "严重" } as Record<string, string>)[review.risk_level] || review.risk_level}
             </Badge>
           )}
         </div>
@@ -148,7 +148,7 @@ export default function ReviewDetailPage() {
             ))
           ) : (
             <div className="flex items-center justify-center h-64 text-latte-text-tertiary">
-              No diff available
+              暂无 diff 数据
             </div>
           )}
         </motion.div>

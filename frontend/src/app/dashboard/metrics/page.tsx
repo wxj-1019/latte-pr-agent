@@ -47,7 +47,7 @@ export default function MetricsPage() {
       <FadeInUp>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
-            Metrics
+            指标
           </h1>
           <div className="flex gap-2">
             {rangeOptions.map((r) => (
@@ -70,8 +70,8 @@ export default function MetricsPage() {
       {error ? (
         <FadeInUp delay={0.1}>
           <div className="flex flex-col items-center justify-center py-12 text-latte-text-tertiary">
-            <p className="text-lg font-medium">Failed to load metrics</p>
-            <p className="text-sm mt-1">{error.message || "Please try again later"}</p>
+            <p className="text-lg font-medium">加载指标失败</p>
+            <p className="text-sm mt-1">{error.message || "请稍后重试"}</p>
           </div>
         </FadeInUp>
       ) : isLoading || !metrics ? (
@@ -84,25 +84,25 @@ export default function MetricsPage() {
         <FadeInUp delay={0.1}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <GlassCard className="p-6" variant="elevated">
-              <p className="text-sm text-latte-text-tertiary">Total Reviews</p>
+              <p className="text-sm text-latte-text-tertiary">审查总数</p>
               <p className="text-3xl font-display font-semibold text-latte-text-primary mt-2">
                 <CountUp value={metrics.total_reviews} />
               </p>
             </GlassCard>
             <GlassCard className="p-6" variant="elevated">
-              <p className="text-sm text-latte-text-tertiary">Total Findings</p>
+              <p className="text-sm text-latte-text-tertiary">发现项总数</p>
               <p className="text-3xl font-display font-semibold text-latte-text-primary mt-2">
                 <CountUp value={metrics.total_findings} />
               </p>
             </GlassCard>
             <GlassCard className="p-6" variant="elevated">
-              <p className="text-sm text-latte-text-tertiary">Avg Confidence</p>
+              <p className="text-sm text-latte-text-tertiary">平均置信度</p>
               <p className="text-3xl font-display font-semibold text-latte-text-primary mt-2">
                 <CountUp value={Math.round(metrics.avg_confidence * 100)} suffix="%" />
               </p>
             </GlassCard>
             <GlassCard className="p-6" variant="elevated">
-              <p className="text-sm text-latte-text-tertiary">False Positive Rate</p>
+              <p className="text-sm text-latte-text-tertiary">误报率</p>
               <p className="text-3xl font-display font-semibold text-latte-text-primary mt-2">
                 <CountUp value={Math.round(metrics.false_positive_rate * 100)} suffix="%" />
               </p>
@@ -113,7 +113,7 @@ export default function MetricsPage() {
 
       <FadeInUp delay={0.2}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">Review Volume</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">审查量</h3>
           <div className="h-72 w-full">
             {mounted ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -164,7 +164,7 @@ export default function MetricsPage() {
 
       <FadeInUp delay={0.3}>
         <GlassCard className="p-6">
-          <h3 className="text-lg font-medium text-latte-text-primary mb-4">Findings by Category</h3>
+          <h3 className="text-lg font-medium text-latte-text-primary mb-4">按类别分布的发现项</h3>
           <div className="h-64 w-full">
             {mounted ? (
             <ResponsiveContainer width="100%" height="100%">

@@ -6,8 +6,8 @@ import { GitBranch, Cpu, Database, ArrowDown } from "lucide-react";
 const nodes = [
   {
     id: "ingest",
-    title: "Webhook Ingest",
-    desc: "GitHub / GitLab events validated and queued",
+    title: "Webhook 接收",
+    desc: "GitHub / GitLab 事件验证并入队",
     icon: GitBranch,
     color: "text-latte-gold",
     borderColor: "border-latte-gold/20",
@@ -15,8 +15,8 @@ const nodes = [
   },
   {
     id: "workers",
-    title: "Celery Workers",
-    desc: "Multi-model review, AST analysis, static checks",
+    title: "Celery 工作节点",
+    desc: "多模型审查、AST 分析、静态检查",
     icon: Cpu,
     color: "text-latte-rose",
     borderColor: "border-latte-rose/20",
@@ -24,8 +24,8 @@ const nodes = [
   },
   {
     id: "store",
-    title: "Persistent Store",
-    desc: "PostgreSQL + pgvector for embeddings",
+    title: "持久化存储",
+    desc: "PostgreSQL + pgvector 向量存储",
     icon: Database,
     color: "text-latte-success",
     borderColor: "border-latte-success/20",
@@ -122,7 +122,7 @@ export function ArchitectureFlow() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full latte-glass border border-latte-gold/20">
           <ArrowDown size={14} className="text-latte-gold" />
           <span className="text-sm text-latte-text-secondary">
-            Horizontally scalable via Kubernetes
+            通过 Kubernetes 水平扩展
           </span>
         </div>
       </motion.div>

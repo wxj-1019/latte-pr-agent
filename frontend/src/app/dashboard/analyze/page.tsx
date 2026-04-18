@@ -105,13 +105,13 @@ export default function AnalyzePage() {
           <div>
             <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary flex items-center gap-2">
               <Sparkles size={22} className="text-latte-gold" />
-              Code Analyze
+              代码分析
             </h1>
-            <p className="text-sm text-latte-text-tertiary mt-1">Paste code and get an instant AI review</p>
+            <p className="text-sm text-latte-text-tertiary mt-1">粘贴代码，立即获取 AI 审查</p>
           </div>
           {data && (
             <Button variant="secondary" onClick={handleAnalyze} disabled={isLoading || !code.trim()}>
-              {isLoading ? "Analyzing..." : "Re-analyze"}
+              {isLoading ? "分析中..." : "重新分析"}
             </Button>
           )}
         </div>
@@ -142,7 +142,7 @@ export default function AnalyzePage() {
               onChange={(e) => setRepoId(e.target.value)}
               className="h-9 px-3 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary border border-transparent focus:border-latte-gold/40 outline-none flex-1 min-w-0"
             >
-              <option value="direct/default">Default (no project config)</option>
+              <option value="direct/default">默认（无项目配置）</option>
               {repos.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -155,7 +155,7 @@ export default function AnalyzePage() {
           </div>
           <div className="p-4 border-t border-latte-text-primary/5 bg-latte-bg-secondary/50">
             <Button onClick={handleAnalyze} disabled={isLoading || !code.trim()} className="w-full">
-              {isLoading ? "Analyzing..." : "Start Analysis"}
+              {isLoading ? "分析中..." : "开始分析"}
             </Button>
           </div>
         </GlassCard>
@@ -164,20 +164,20 @@ export default function AnalyzePage() {
           {!data && !isLoading && !error && (
             <div className="flex-1 flex flex-col items-center justify-center text-latte-text-tertiary">
               <Sparkles size={40} className="mb-3 opacity-50" />
-              <p className="text-sm">Your review results will appear here</p>
+              <p className="text-sm">审查结果将显示在这里</p>
             </div>
           )}
 
           {isLoading && !data && (
             <div className="flex-1 flex flex-col items-center justify-center text-latte-text-tertiary space-y-3">
               <div className="h-8 w-8 rounded-full border-2 border-latte-gold/30 border-t-latte-gold animate-spin" />
-              <p className="text-sm">AI is reviewing your code...</p>
+              <p className="text-sm">AI 正在审查你的代码...</p>
             </div>
           )}
 
           {error && !data && (
             <div className="flex-1 flex flex-col items-center justify-center text-latte-rose">
-              <p className="text-sm font-medium">Analysis failed</p>
+              <p className="text-sm font-medium">分析失败</p>
               <p className="text-xs mt-1 opacity-80">{error.message}</p>
             </div>
           )}
@@ -213,7 +213,7 @@ export default function AnalyzePage() {
                   <FindingCard key={finding.id} finding={finding} />
                 ))}
                 {data.findings.length === 0 && (
-                  <div className="text-sm text-latte-text-tertiary py-8 text-center">No issues found 🎉</div>
+                  <div className="text-sm text-latte-text-tertiary py-8 text-center">未发现任何问题 🎉</div>
                 )}
               </div>
             </div>

@@ -26,10 +26,10 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
     setSubmitting(true);
     try {
       await api.submitFeedback(findingId, true, "");
-      showToast("Marked as false positive");
+      showToast("已标记为误报");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      showToast("Failed to submit feedback: " + message, "error");
+      const message = err instanceof Error ? err.message : "未知错误";
+      showToast("提交反馈失败: " + message, "error");
     } finally {
       setSubmitting(false);
     }
@@ -64,7 +64,7 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
               {finding.severity}
             </Badge>
             <span className="text-xs text-latte-text-muted">
-              Line {finding.line_number ?? "-"}
+              第 {finding.line_number ?? "-"} 行
             </span>
           </div>
           <p className="text-sm text-latte-text-secondary mt-2 truncate">
@@ -94,7 +94,7 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
               </div>
               {finding.suggestion && (
                 <div className="rounded-latte-md bg-latte-bg-tertiary p-3 text-sm text-latte-text-secondary">
-                  <span className="font-medium text-latte-gold">Suggestion:</span>{" "}
+                  <span className="font-medium text-latte-gold">建议:</span>{" "}
                   {escapeHtml(finding.suggestion)}
                 </div>
               )}
@@ -102,9 +102,9 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
                 <div className="flex items-center gap-3">
                   <ConfidenceRing value={finding.confidence ?? 0} size={40} />
                   <div className="text-xs text-latte-text-muted">
-                    <p>Confidence</p>
+                    <p>置信度</p>
                     <p className="text-latte-text-secondary">
-                      {finding.ai_model || "unknown"}
+                      {finding.ai_model || "未知"}
                     </p>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
                   disabled={submitting}
                 >
                   <MessageSquare size={14} />
-                  False Positive
+                  误报
                 </Button>
               </div>
             </div>

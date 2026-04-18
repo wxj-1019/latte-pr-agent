@@ -11,23 +11,23 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<StatusType, { label: string; dotClass: string }> = {
   pending: {
-    label: "pending",
+    label: "待处理",
     dotClass: "bg-amber-500 animate-pulse-slow",
   },
   running: {
-    label: "running",
+    label: "进行中",
     dotClass: "bg-blue-500",
   },
   completed: {
-    label: "completed",
+    label: "已完成",
     dotClass: "bg-latte-success",
   },
   failed: {
-    label: "failed",
+    label: "失败",
     dotClass: "bg-latte-critical",
   },
   skipped: {
-    label: "skipped",
+    label: "已跳过",
     dotClass: "bg-latte-text-muted",
   },
 };
