@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { usePrompts } from "@/hooks/use-prompts";
+import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import { Check, FlaskConical, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -18,6 +19,7 @@ interface TestState {
 
 export default function PromptsPage() {
   const { prompts, isLoading, mutate } = usePrompts();
+  const { showToast } = useToast();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newVersion, setNewVersion] = useState("");
@@ -33,6 +35,7 @@ export default function PromptsPage() {
 
   const [testStates, setTestStates] = useState<Record<number, TestState>>({});
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
+  const [expandedPreviews, setExpandedPreviews] = useState<Set<number>>(new Set());
 
   async function handleCreate() {
     if (!newVersion.trim() || !newContent.trim()) return;
@@ -43,7 +46,7 @@ export default function PromptsPage() {
         try {
           metadata = JSON.parse(newMetadata);
         } catch {
-          alert("元数据必须是有效的 JSON");
+          showToast("元数据必须是有效的 JSON", "error");
           setCreateLoading(false);
           return;
         }
@@ -59,7 +62,7 @@ export default function PromptsPage() {
       setNewMetadata("");
       mutate();
     } catch (err) {
-      alert("创建失败：" + (err instanceof Error ? err.message : "未知错误"));
+      showToast("创建失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setCreateLoading(false);
     }
@@ -81,7 +84,7 @@ export default function PromptsPage() {
         try {
           metadata = JSON.parse(editMetadata);
         } catch {
-          alert("元数据必须是有效的 JSON");
+          showToast("元数据必须是有效的 JSON", "error");
           setEditLoading(false);
           return;
         }
@@ -94,7 +97,7 @@ export default function PromptsPage() {
       setEditingId(null);
       mutate();
     } catch (err) {
-      alert("保存失败：" + (err instanceof Error ? err.message : "未知错误"));
+      showToast("保存失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setEditLoading(false);
     }
@@ -130,6 +133,18 @@ export default function PromptsPage() {
 
   function toggleTestExpand(id: number) {
     setExpandedTests((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function togglePreview(id: number) {
+    setExpandedPreviews((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -314,6 +329,23 @@ export default function PromptsPage() {
                             测试
                           </Button>
                         </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-latte-text-primary/5">
+                        <button
+                          onClick={() => togglePreview(prompt.id)}
+                          className="flex items-center gap-2 text-xs text-latte-text-muted hover:text-latte-text-secondary transition-colors"
+                        >
+                          {expandedPreviews.has(prompt.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {expandedPreviews.has(prompt.id) ? "收起内容" : "查看内容"}
+                        </button>
+                        {expandedPreviews.has(prompt.id) && (
+                          <div className="mt-2 p-3 rounded-latte-md bg-latte-bg-tertiary/50">
+                            <pre className="text-xs font-mono text-latte-text-secondary whitespace-pre-wrap break-words max-h-48 overflow-auto">
+                              {prompt.content || "（无内容）"}
+                            </pre>
+                          </div>
+                        )}
                       </div>
 
                       {testState && (

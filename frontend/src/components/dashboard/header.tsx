@@ -1,18 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { RealtimeIndicator } from "@/components/ui/realtime-indicator";
+import { useSSE } from "@/hooks/use-sse";
 import { Search, Bell, User } from "lucide-react";
 
-interface HeaderProps {
-  sseStatus?: "connecting" | "connected" | "disconnected";
-}
-
-export function Header({ sseStatus = "connected" }: HeaderProps) {
+export function Header() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { status, reconnect } = useSSE();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement).tagName)
+      ) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function handleSearch(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && query.trim()) {
@@ -26,7 +39,8 @@ export function Header({ sseStatus = "connected" }: HeaderProps) {
       <div className="flex items-center gap-3 w-80">
         <Search size={16} className="text-latte-text-tertiary" />
         <Input
-          placeholder="Search reviews, repos..."
+          ref={inputRef}
+          placeholder="Search reviews, repos... (按 / 聚焦)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleSearch}
@@ -34,7 +48,10 @@ export function Header({ sseStatus = "connected" }: HeaderProps) {
         />
       </div>
       <div className="flex items-center gap-4">
-        <RealtimeIndicator status={sseStatus} />
+        <RealtimeIndicator
+          status={status}
+          onClick={status !== "connected" ? reconnect : undefined}
+        />
         <button
           disabled
           title="功能开发中"

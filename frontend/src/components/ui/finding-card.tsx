@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ReviewFinding } from "@/types";
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 
@@ -20,12 +21,14 @@ interface FindingCardProps {
 export function FindingCard({ finding, defaultExpanded = false }: FindingCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { showToast } = useToast();
 
-  async function handleFeedback(findingId: number) {
+  async function doSubmitFeedback() {
+    setConfirmOpen(false);
     setSubmitting(true);
     try {
-      await api.submitFeedback(findingId, true, "");
+      await api.submitFeedback(finding.id, true, "");
       showToast("已标记为误报");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "未知错误";
@@ -111,12 +114,21 @@ export function FindingCard({ finding, defaultExpanded = false }: FindingCardPro
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => handleFeedback(finding.id)}
+                  onClick={() => setConfirmOpen(true)}
                   disabled={submitting}
                 >
                   <MessageSquare size={14} />
                   误报
                 </Button>
+
+                <ConfirmDialog
+                  open={confirmOpen}
+                  title="标记为误报"
+                  description={`确定将第 ${finding.line_number ?? "-"} 行的发现标记为误报吗？此操作将帮助改进审查质量。`}
+                  onConfirm={doSubmitFeedback}
+                  onCancel={() => setConfirmOpen(false)}
+                  confirmText="确认标记"
+                />
               </div>
             </div>
           </motion.div>

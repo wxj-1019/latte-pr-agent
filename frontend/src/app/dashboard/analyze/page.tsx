@@ -23,6 +23,16 @@ const languages = [
   { value: "cpp", label: "C++" },
 ];
 
+const languageDefaults: Record<string, string> = {
+  python: "example.py",
+  javascript: "example.js",
+  typescript: "example.ts",
+  java: "example.java",
+  go: "example.go",
+  rust: "example.rs",
+  cpp: "example.cpp",
+};
+
 function ShikiEditor({
   code,
   onChange,
@@ -122,7 +132,11 @@ export default function AnalyzePage() {
           <div className="flex items-center gap-3 p-4 border-b border-latte-text-primary/5 bg-latte-bg-secondary/50">
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => {
+                const newLang = e.target.value;
+                setLanguage(newLang);
+                setFilename(languageDefaults[newLang] || "example.txt");
+              }}
               className="h-9 px-3 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary border border-transparent focus:border-latte-gold/40 outline-none"
             >
               {languages.map((l) => (

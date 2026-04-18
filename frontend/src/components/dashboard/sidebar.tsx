@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { GitPullRequest, BarChart3, Settings, FileText, Sparkles } from "lucide-react";
+import { LayoutDashboard, GitPullRequest, BarChart3, Settings, FileText, Sparkles } from "lucide-react";
 
 const navItems = [
+  { href: "/dashboard", icon: LayoutDashboard, label: "首页" },
   { href: "/dashboard/reviews", icon: GitPullRequest, label: "审查" },
   { href: "/dashboard/analyze", icon: Sparkles, label: "分析" },
   { href: "/dashboard/metrics", icon: BarChart3, label: "指标" },
@@ -18,10 +19,12 @@ export function Sidebar() {
 
   return (
     <aside className="latte-sidebar pt-6">
-      <div className="mb-8 w-10 h-10 flex items-center justify-center rounded-full bg-latte-bg-tertiary border border-latte-gold/20">
-        <span className="text-lg font-bold text-latte-gold">L</span>
+      <div className="mb-8 px-3">
+        <div className="w-10 h-10 flex items-center justify-center rounded-full bg-latte-bg-tertiary border border-latte-gold/20">
+          <span className="text-lg font-bold text-latte-gold">L</span>
+        </div>
       </div>
-      <nav className="flex flex-col gap-2">
+      <nav className="flex flex-col gap-1">
         {navItems.map((item) => (
           <Link
             key={item.href}
@@ -33,6 +36,7 @@ export function Sidebar() {
             title={item.label}
           >
             <item.icon size={20} strokeWidth={1.5} />
+            <span className="text-sm font-medium">{item.label}</span>
           </Link>
         ))}
       </nav>
