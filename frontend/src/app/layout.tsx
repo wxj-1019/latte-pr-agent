@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "nprogress/nprogress.css";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { EnvCheck } from "@/components/env-check";
 import { ToastProvider } from "@/components/ui/toast";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 export const metadata: Metadata = {
   title: "Latte PR Agent - 企业级 AI 代码审查",
@@ -17,6 +19,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
+        <ProgressBar />
         <EnvCheck />
         <ToastProvider>
           <ErrorBoundary>{children}</ErrorBoundary>

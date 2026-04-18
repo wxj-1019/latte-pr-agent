@@ -62,7 +62,7 @@ function TreeNode({
 }) {
   const isFile = node.__isFile;
   const path = node.__path;
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(depth === 0);
   const children = Object.entries(node).filter(([k]) => !k.startsWith("__"));
 
   if (isFile && path) {

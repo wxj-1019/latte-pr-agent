@@ -17,6 +17,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { BarChart3 } from "lucide-react";
 
 const rangeOptions: Array<"7d" | "30d" | "90d"> = ["7d", "30d", "90d"];
 
@@ -29,12 +30,7 @@ const pieColors = [
   "var(--latte-critical)",
 ];
 
-const defaultPieData = [
-  { name: "Security", value: 35 },
-  { name: "Performance", value: 25 },
-  { name: "Style", value: 20 },
-  { name: "Logic", value: 20 },
-];
+
 
 export default function MetricsPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
@@ -167,36 +163,39 @@ export default function MetricsPage() {
           <h3 className="text-lg font-medium text-latte-text-primary mb-4">按类别分布的发现项</h3>
           <div className="h-64 w-full">
             {mounted ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryDistribution && Object.keys(categoryDistribution).length > 0
-                    ? Object.entries(categoryDistribution).map(([name, value]) => ({ name, value }))
-                    : defaultPieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {(categoryDistribution && Object.keys(categoryDistribution).length > 0
-                    ? Object.entries(categoryDistribution).map(([name, value]) => ({ name, value }))
-                    : defaultPieData
-                  ).map((_entry, index) => (
-                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--latte-bg-secondary)",
-                    border: "1px solid rgba(245, 230, 211, 0.1)",
-                    borderRadius: "12px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+              categoryDistribution && Object.keys(categoryDistribution).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(categoryDistribution).map(([name, value]) => ({ name, value }))}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {Object.entries(categoryDistribution).map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--latte-bg-secondary)",
+                        border: "1px solid rgba(245, 230, 211, 0.1)",
+                        borderRadius: "12px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
+                  <BarChart3 size={40} className="opacity-30 mb-3" />
+                  <p className="text-sm">暂无分类数据</p>
+                  <p className="text-xs mt-1 opacity-60">完成审查后将自动更新</p>
+                </div>
+              )
             ) : null}
           </div>
         </GlassCard>

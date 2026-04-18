@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useReviews } from "@/hooks/use-reviews";
 import { useSSE } from "@/hooks/use-sse";
+import { useDebounce } from "@/hooks/use-debounce";
 import { ReviewList } from "@/components/dashboard/review-list";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import type { ReviewUpdate } from "@/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 const statusOptions = ["all", "pending", "running", "completed", "failed", "skipped"];
 const riskOptions = ["all", "low", "medium", "high", "critical"];
@@ -34,6 +35,7 @@ export default function ReviewsPage() {
   const [status, setStatus] = useState<string>("all");
   const [risk, setRisk] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
 
   const {
@@ -45,7 +47,7 @@ export default function ReviewsPage() {
     mutate,
   } = useReviews({
     status: status === "all" ? undefined : status,
-    repo: search || undefined,
+    repo: debouncedSearch || undefined,
     risk: risk === "all" ? undefined : risk,
     page,
   });
@@ -56,7 +58,7 @@ export default function ReviewsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, risk, search]);
+  }, [status, risk]);
 
   useEffect(() => {
     const unsubscribe = subscribe((update: ReviewUpdate) => {
@@ -123,7 +125,23 @@ export default function ReviewsPage() {
         </div>
       </FadeInUp>
 
-      {isLoading ? (
+      {error ? (
+        <FadeInUp delay={0.1}>
+          <div className="flex flex-col items-center justify-center py-20 text-latte-text-tertiary">
+            <p className="text-lg font-medium">加载失败</p>
+            <p className="text-sm mt-1">{error.message || "无法获取审查列表"}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-4"
+              onClick={() => mutate()}
+            >
+              <RefreshCw size={14} className="mr-1.5" />
+              重试
+            </Button>
+          </div>
+        </FadeInUp>
+      ) : isLoading ? (
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div

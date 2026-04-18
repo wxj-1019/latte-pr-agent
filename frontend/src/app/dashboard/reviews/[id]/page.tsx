@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useReviewDetail, useReviewFindings } from "@/hooks/use-reviews";
+import { useSSE } from "@/hooks/use-sse";
 import { FileTree } from "./components/file-tree";
 import { DiffViewer } from "./components/diff-viewer";
 import { FindingPanel } from "./components/finding-panel";
@@ -12,12 +13,63 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import type { PRFile, ReviewFinding } from "@/types";
+
+function LazyDiffViewer({
+  file,
+  findings,
+  onLineClick,
+  selectedLine,
+}: {
+  file: PRFile;
+  findings: ReviewFinding[];
+  onLineClick: (lineNum: number, filePath: string) => void;
+  selectedLine?: { line: number; file: string };
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className="min-h-[100px]">
+      {isVisible ? (
+        <DiffViewer
+          file={file}
+          findings={findings}
+          onLineClick={onLineClick}
+          selectedLine={selectedLine}
+        />
+      ) : (
+        <div className="h-32 rounded-latte-xl bg-latte-bg-secondary animate-pulse" />
+      )}
+    </div>
+  );
+}
 
 export default function ReviewDetailPage() {
   const params = useParams();
   const reviewId = Number(params.id);
-  const { review, isLoading: reviewLoading, error: reviewError } = useReviewDetail(reviewId);
-  const { findings, isLoading: findingsLoading } = useReviewFindings(reviewId);
+  const {
+    review,
+    isLoading: reviewLoading,
+    error: reviewError,
+    mutate: mutateReview,
+  } = useReviewDetail(reviewId);
+  const { findings, isLoading: findingsLoading, mutate: mutateFindings } = useReviewFindings(reviewId);
+  const { subscribe } = useSSE();
   const [selectedFile, setSelectedFile] = useState<string>("");
   const [selectedLine, setSelectedLine] = useState<{ line: number; file: string } | undefined>();
 
@@ -28,6 +80,16 @@ export default function ReviewDetailPage() {
       setSelectedFile(files[0].file_path);
     }
   }, [files, selectedFile]);
+
+  useEffect(() => {
+    const unsubscribe = subscribe((update) => {
+      if (update.review_id === reviewId) {
+        mutateReview();
+        mutateFindings();
+      }
+    });
+    return unsubscribe;
+  }, [subscribe, reviewId, mutateReview, mutateFindings]);
 
   const handleLineClick = (lineNum: number, filePath: string) => {
     setSelectedLine({ line: lineNum, file: filePath });
@@ -131,20 +193,14 @@ export default function ReviewDetailPage() {
           transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
         >
           {files.length > 0 ? (
-            files.map((file, index) => (
-              <motion.div
+            files.map((file) => (
+              <LazyDiffViewer
                 key={file.file_path}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 + index * 0.05, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <DiffViewer
-                  file={file}
-                  findings={findings}
-                  onLineClick={handleLineClick}
-                  selectedLine={selectedLine}
-                />
-              </motion.div>
+                file={file}
+                findings={findings}
+                onLineClick={handleLineClick}
+                selectedLine={selectedLine}
+              />
             ))
           ) : (
             <div className="flex items-center justify-center h-64 text-latte-text-tertiary">

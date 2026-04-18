@@ -157,7 +157,7 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
               if (line.type === "header") {
                 return (
                   <tr key={idx} className="bg-latte-bg-tertiary/50">
-                    <td colSpan={3} className="px-4 py-1 text-latte-text-muted">
+                    <td colSpan={4} className="px-4 py-1 text-latte-text-muted">
                       {line.content}
                     </td>
                   </tr>
@@ -182,9 +182,17 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
                   )}
                 >
                   <td
+                    className={cn(
+                      "pl-4 pr-2 py-0.5 text-right text-latte-text-muted select-none w-12",
+                      line.type === "remove" && "text-latte-rose/60"
+                    )}
+                  >
+                    {line.oldNum ?? ""}
+                  </td>
+                  <td
                     onClick={() => onLineClick?.(lineNum, file.file_path)}
                     className={cn(
-                      "relative pl-4 pr-2 py-0.5 text-right text-latte-text-muted select-none cursor-pointer w-12",
+                      "relative pr-2 py-0.5 text-right text-latte-text-muted select-none cursor-pointer w-12",
                       "hover:text-latte-text-primary hover:bg-latte-bg-tertiary",
                       hasFinding && "border-r-2 border-latte-gold text-latte-gold"
                     )}
@@ -202,6 +210,14 @@ export function DiffViewer({ file, findings, onLineClick, selectedLine }: DiffVi
                         </div>
                       </div>
                     )}
+                  </td>
+                  <td className={cn(
+                    "w-6 text-center text-xs select-none",
+                    line.type === "add" && "text-latte-success",
+                    line.type === "remove" && "text-latte-rose",
+                    line.type === "context" && "text-latte-text-muted/40"
+                  )}>
+                    {line.type === "add" ? "+" : line.type === "remove" ? "−" : " "}
                   </td>
                   <td
                     className={cn(

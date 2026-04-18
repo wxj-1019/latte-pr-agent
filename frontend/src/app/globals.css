@@ -160,19 +160,17 @@ body {
   }
 
   .latte-sidebar {
-    @apply flex flex-col items-center;
-    width: 64px;
+    @apply flex flex-col;
+    width: 180px;
     height: 100vh;
     background: rgba(10, 8, 6, 0.8);
     backdrop-filter: blur(12px);
     border-right: 1px solid rgba(245, 230, 211, 0.04);
+    padding: 0 12px;
   }
 
   .latte-sidebar-item {
-    @apply flex items-center justify-center transition-all duration-200;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--latte-radius-md);
+    @apply flex items-center gap-3 px-3 py-2.5 transition-all duration-200 rounded-latte-md;
     color: var(--latte-text-tertiary);
     cursor: pointer;
   }
@@ -197,6 +195,15 @@ body {
   .animate-spin-slow {
     animation: spin 2s linear infinite;
   }
+}
+
+/* NProgress override — Latte theme */
+#nprogress .bar {
+  background: var(--latte-gold) !important;
+  height: 2px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--latte-gold), 0 0 5px var(--latte-gold) !important;
 }
 
 @keyframes shake {

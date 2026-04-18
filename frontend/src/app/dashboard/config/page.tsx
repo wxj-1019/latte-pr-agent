@@ -5,6 +5,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
+import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api } from "@/lib/api";
 import { X, Plus } from "lucide-react";
 
@@ -27,8 +29,6 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
     </label>
   );
 }
-
-const DEFAULT_REPO = "default";
 
 interface CustomRule {
   name: string;
@@ -59,9 +59,33 @@ export default function ConfigPage() {
   const [saving, setSaving] = useState(false);
   const [newPath, setNewPath] = useState("");
   const [newRule, setNewRule] = useState({ name: "", pattern: "", message: "", severity: "warning" as "warning" | "critical" });
+  const { showToast } = useToast();
+
+  const [repos, setRepos] = useState<string[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState("default");
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDesc, setConfirmDesc] = useState("");
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
 
   useEffect(() => {
-    api.getProjectConfig(DEFAULT_REPO)
+    api.getRepos()
+      .then((res) => {
+        const list = res.repos || [];
+        setRepos(list);
+        if (list.length > 0 && !list.includes(selectedRepo)) {
+          setSelectedRepo(list[0]);
+        }
+      })
+      .catch(() => setRepos([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRepo) return;
+    setLoading(true);
+    api.getProjectConfig(selectedRepo)
       .then((data: unknown) => {
         const d = data as Record<string, unknown>;
         setConfig((d.config_json as Record<string, unknown>) || {});
@@ -70,17 +94,24 @@ export default function ConfigPage() {
         setError(err.message || "加载配置失败");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedRepo]);
 
   const reviewConfig = (config.review_config as ReviewConfigShape) || {};
+
+  function requestConfirm(title: string, desc: string, action: () => void) {
+    setConfirmTitle(title);
+    setConfirmDesc(desc);
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  }
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.updateProjectConfig(DEFAULT_REPO, config);
-      alert("配置已保存");
+      await api.updateProjectConfig(selectedRepo, config);
+      showToast("配置已保存");
     } catch (err) {
-      alert("保存失败：" + (err instanceof Error ? err.message : "未知错误"));
+      showToast("保存失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setSaving(false);
     }
@@ -152,9 +183,23 @@ export default function ConfigPage() {
         <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
           项目配置
         </h1>
-        <p className="text-sm text-latte-text-tertiary mt-1">
-          为 {DEFAULT_REPO} 自定义审查行为
-        </p>
+        <div className="flex items-center gap-3 mt-2">
+          <select
+            value={selectedRepo}
+            onChange={(e) => { setError(null); setSelectedRepo(e.target.value); }}
+            className="h-9 px-3 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary border border-transparent focus:border-latte-gold/40 outline-none appearance-none"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23C4A77D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 0.5rem center",
+              backgroundSize: "1rem",
+            }}
+          >
+            {repos.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
       </FadeInUp>
 
       <FadeInUp delay={0.1}>
@@ -231,7 +276,14 @@ export default function ConfigPage() {
             {(reviewConfig.critical_paths || []).map((path: string, idx: number) => (
               <div key={idx} className="flex items-center justify-between px-3 py-2 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary">
                 <span>{path}</span>
-                <button onClick={() => removePath(idx)} className="text-latte-text-muted hover:text-latte-critical transition-colors">
+                <button
+                  onClick={() => requestConfirm(
+                    "删除关键路径",
+                    `确定要删除 "${path}" 吗？此操作无法撤销。`,
+                    () => removePath(idx)
+                  )}
+                  className="text-latte-text-muted hover:text-latte-critical transition-colors"
+                >
                   <X size={14} />
                 </button>
               </div>
@@ -264,7 +316,14 @@ export default function ConfigPage() {
               <div key={idx} className="p-3 rounded-latte-md bg-latte-bg-tertiary text-sm">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-latte-text-primary">{rule.name}</span>
-                  <button onClick={() => removeRule(idx)} className="text-latte-text-muted hover:text-latte-critical transition-colors">
+                  <button
+                    onClick={() => requestConfirm(
+                      "删除自定义规则",
+                      `确定要删除规则 "${rule.name}" 吗？此操作无法撤销。`,
+                      () => removeRule(idx)
+                    )}
+                    className="text-latte-text-muted hover:text-latte-critical transition-colors"
+                  >
                     <X size={14} />
                   </button>
                 </div>
@@ -366,6 +425,14 @@ export default function ConfigPage() {
           </Button>
         </div>
       </FadeInUp>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={confirmTitle}
+        description={confirmDesc}
+        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }
