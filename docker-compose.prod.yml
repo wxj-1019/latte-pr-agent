@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@postgres:5432/code_review
       - SYNC_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/code_review
@@ -21,6 +21,7 @@ services:
       - QWEN_API_KEY=${QWEN_API_KEY}
       - APP_ENV=production
       - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://49.234.190.85,http://localhost
       - MAX_CONCURRENT_REVIEWS=50
       - ENABLE_REASONER_REVIEW=${ENABLE_REASONER_REVIEW:-false}
     depends_on:
@@ -60,6 +61,7 @@ services:
       - QWEN_API_KEY=${QWEN_API_KEY}
       - APP_ENV=production
       - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://49.234.190.85,http://localhost
       - ENABLE_REASONER_REVIEW=${ENABLE_REASONER_REVIEW:-false}
     depends_on:
       postgres:
