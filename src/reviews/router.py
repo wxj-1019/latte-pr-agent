@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -314,7 +313,7 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
             "risk_level": risk_level,
             "findings": [_serialize_finding(f) for f in findings],
         }
-    except Exception as exc:
+    except Exception:
         try:
             async with db.begin():
                 await review_repo.update_status(review_id, "failed")
@@ -325,3 +324,145 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
     finally:
         if tmpdir is not None:
             tmpdir.cleanup()
+
+
+class FetchPRsRequest(BaseModel):
+    repo_id: str
+    platform: str = "github"
+
+
+class TriggerReviewRequest(BaseModel):
+    repo_id: str
+    pr_number: int
+    platform: str = "github"
+
+
+@router.post("/fetch-prs")
+async def fetch_pull_requests(
+    req: FetchPRsRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    from services.settings_service import resolve_setting
+
+    if req.platform == "github":
+        token = await resolve_setting(db, "github_token", settings.github_token.get_secret_value())
+    elif req.platform == "gitlab":
+        token = await resolve_setting(db, "gitlab_token", settings.gitlab_token.get_secret_value())
+    else:
+        raise HTTPException(status_code=400, detail=f"不支持的平台: {req.platform}")
+
+    if not token:
+        raise HTTPException(status_code=400, detail=f"{req.platform} Token 未配置，请先在系统设置中配置")
+
+    try:
+        if req.platform == "github":
+            from github import Github
+            client = Github(token)
+            repo = client.get_repo(req.repo_id)
+            pulls = repo.get_pulls(state="open", sort="updated", direction="desc")
+            pr_list = []
+            for pr in pulls[:30]:
+                pr_list.append({
+                    "number": pr.number,
+                    "title": pr.title,
+                    "author": pr.user.login if pr.user else "",
+                    "head_branch": pr.head.ref,
+                    "base_branch": pr.base.ref,
+                    "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
+                    "additions": pr.additions,
+                    "deletions": pr.deletions,
+                    "changed_files": pr.changed_files,
+                })
+            return {"pulls": pr_list, "total": pulls.totalCount if hasattr(pulls, 'totalCount') else len(pr_list)}
+        elif req.platform == "gitlab":
+            import gitlab
+            gitlab_url = await resolve_setting(db, "gitlab_url", settings.gitlab_url)
+            gl = gitlab.Gitlab(gitlab_url, private_token=token)
+            project = gl.projects.get(req.repo_id)
+            mrs = project.mergerequests.list(state="opened", order_by="updated_at", sort="desc", per_page=30)
+            pr_list = []
+            for mr in mrs:
+                pr_list.append({
+                    "number": mr.iid,
+                    "title": mr.title,
+                    "author": mr.author.get("username", "") if mr.author else "",
+                    "head_branch": mr.source_branch,
+                    "base_branch": mr.target_branch,
+                    "updated_at": mr.updated_at,
+                    "additions": 0,
+                    "deletions": 0,
+                    "changed_files": 0,
+                })
+            return {"pulls": pr_list, "total": len(pr_list)}
+    except Exception as exc:
+        logger.exception("Failed to fetch PRs for %s", req.repo_id)
+        raise HTTPException(status_code=500, detail=f"获取 PR 列表失败: {exc}")
+
+
+@router.post("/trigger")
+async def trigger_manual_review(
+    req: TriggerReviewRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from services.settings_service import resolve_setting
+
+    if req.platform == "github":
+        token = await resolve_setting(db, "github_token", settings.github_token.get_secret_value())
+    elif req.platform == "gitlab":
+        token = await resolve_setting(db, "gitlab_token", settings.gitlab_token.get_secret_value())
+    else:
+        raise HTTPException(status_code=400, detail=f"不支持的平台: {req.platform}")
+
+    if not token:
+        raise HTTPException(status_code=400, detail=f"{req.platform} Token 未配置")
+
+    try:
+        if req.platform == "github":
+            from github import Github
+            client = Github(token)
+            repo = client.get_repo(req.repo_id)
+            pr = repo.get_pull(req.pr_number)
+            head_sha = pr.head.sha
+            pr_title = pr.title
+            pr_author = pr.user.login if pr.user else ""
+            changed_files = pr.changed_files
+        else:
+            head_sha = ""
+            pr_title = ""
+            pr_author = ""
+            changed_files = 0
+
+        from webhooks.rate_limiter import RateLimiter
+        allowed, msg = RateLimiter.check_pr_size(changed_files)
+        status = "pending" if allowed else "skipped"
+
+        review = await ReviewRepository(db).create(
+            platform=req.platform,
+            repo_id=req.repo_id,
+            pr_number=req.pr_number,
+            pr_title=pr_title,
+            pr_author=pr_author,
+            head_sha=head_sha,
+            status=status,
+            trigger_type="manual",
+        )
+        await db.commit()
+
+        if allowed:
+            try:
+                from tasks import get_celery_task
+                get_celery_task().delay(review.id)
+            except (ImportError, ModuleNotFoundError, RuntimeError, OSError):
+                from services.review_service import run_review
+                import asyncio
+                asyncio.get_event_loop().create_task(run_review(review.id))
+
+        return {
+            "message": "审查已触发" if allowed else msg,
+            "review_id": review.id,
+            "status": status,
+        }
+    except Exception as exc:
+        logger.exception("Failed to trigger review for %s#%s", req.repo_id, req.pr_number)
+        raise HTTPException(status_code=500, detail=f"触发审查失败: {exc}")

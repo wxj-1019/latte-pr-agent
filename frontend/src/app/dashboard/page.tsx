@@ -7,13 +7,15 @@ import { FadeInUp } from "@/components/motion/fade-in-up";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CountUp } from "@/components/ui/count-up";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
+import { ManualTriggerDialog } from "@/components/dashboard/manual-trigger-dialog";
 import { Button } from "@/components/ui/button";
-import { Rocket } from "lucide-react";
+import { Rocket, GitPullRequest } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-  const { stats, isLoading, error } = useStats();
+  const { stats, isLoading, error, mutate } = useStats();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTriggerDialog, setShowTriggerDialog] = useState(false);
 
   if (error) {
     return (
@@ -37,13 +39,27 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <FadeInUp>
-        <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
-          仪表盘
-        </h1>
-        <p className="text-sm text-latte-text-tertiary mt-1">
-          代码审查活动总览
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
+              仪表盘
+            </h1>
+            <p className="text-sm text-latte-text-tertiary mt-1">
+              代码审查活动总览
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => setShowTriggerDialog(true)}>
+            <GitPullRequest size={14} />
+            手动审查
+          </Button>
+        </div>
       </FadeInUp>
+
+      <ManualTriggerDialog
+        open={showTriggerDialog}
+        onClose={() => setShowTriggerDialog(false)}
+        onTriggered={() => mutate()}
+      />
 
       {isEmpty && (
         <FadeInUp delay={0.1}>

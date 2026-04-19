@@ -23,6 +23,8 @@ import {
   XCircle,
   Loader2,
   RefreshCw,
+  Download,
+  Play,
 } from "lucide-react";
 
 interface OnboardingWizardProps {
@@ -56,7 +58,7 @@ const STEPS = [
   { icon: GitBranch, title: "注册仓库", desc: "添加你的仓库" },
   { icon: Settings, title: "配置审查", desc: "自定义审查设置" },
   { icon: ShieldCheck, title: "验证配置", desc: "测试配置" },
-  { icon: Webhook, title: "设置 Webhook", desc: "连接仓库" },
+  { icon: Webhook, title: "Webhook (可选)", desc: "自动触发" },
   { icon: Sparkles, title: "全部完成！", desc: "开始审查" },
 ];
 
@@ -206,6 +208,42 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       showToast("已复制到剪贴板");
     } catch {
       showToast("复制失败，请手动复制", "error");
+    }
+  }
+
+  const [prList, setPrList] = useState<Array<{ number: number; title: string; author: string; head_branch: string; base_branch: string; updated_at: string | null; additions: number; deletions: number; changed_files: number }>>([]);
+  const [fetchingPRs, setFetchingPRs] = useState(false);
+  const [triggeringPR, setTriggeringPR] = useState<number | null>(null);
+
+  async function handleFetchPRs() {
+    if (!repoId) return;
+    setFetchingPRs(true);
+    try {
+      const result = await api.fetchPullRequests(repoId, platform);
+      setPrList(result.pulls);
+      if (result.pulls.length === 0) {
+        showToast("该仓库没有打开的 Pull Request");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      showToast("获取 PR 失败：" + message, "error");
+    } finally {
+      setFetchingPRs(false);
+    }
+  }
+
+  async function handleTriggerReview(prNumber: number) {
+    if (!repoId) return;
+    setTriggeringPR(prNumber);
+    try {
+      const result = await api.triggerManualReview(repoId, prNumber, platform);
+      showToast(`审查已触发！Review #${result.review_id}`);
+      onComplete();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      showToast("触发审查失败：" + message, "error");
+    } finally {
+      setTriggeringPR(null);
     }
   }
 
@@ -501,14 +539,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <ChevronLeft size={16} />
                   返回编辑配置
                 </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => setStep(3)}
-                  disabled={!verifyResult || !verifyResult.passed}
-                >
-                  继续设置 Webhook
-                  <ChevronRight size={16} />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setStep(4)}
+                    disabled={!verifyResult || !verifyResult.passed}
+                  >
+                    跳过，稍后配置
+                    <ChevronRight size={16} />
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => setStep(3)}
+                    disabled={!verifyResult || !verifyResult.passed}
+                  >
+                    配置 Webhook
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
               </div>
             </GlassCard>
           )}
@@ -596,10 +644,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <ChevronLeft size={16} />
                   返回
                 </Button>
-                <Button variant="primary" onClick={() => setStep(4)}>
-                  我已配置 Webhook
-                  <ChevronRight size={16} />
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => setStep(4)}>
+                    跳过
+                    <ChevronRight size={16} />
+                  </Button>
+                  <Button variant="primary" onClick={() => setStep(4)}>
+                    我已配置 Webhook
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
               </div>
             </GlassCard>
           )}
@@ -618,10 +672,63 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <h3 className="text-xl font-display font-semibold text-latte-text-primary mb-2">
                 一切就绪！
               </h3>
-              <p className="text-sm text-latte-text-tertiary max-w-md mx-auto mb-8">
-                Latte PR Agent 正在监控你的仓库。每个拉取请求都将被
-                自动审查，检测安全问题、代码质量和最佳实践。
+              <p className="text-sm text-latte-text-tertiary max-w-md mx-auto mb-6">
+                配置完成。你可以配置 Webhook 实现自动审查，或手动获取 PR 进行审查。
               </p>
+
+              <div className="max-w-md mx-auto mb-6">
+                <button
+                  onClick={handleFetchPRs}
+                  disabled={fetchingPRs}
+                  className="w-full py-3 px-4 rounded-latte-lg bg-latte-gold/10 border border-latte-gold/20 text-latte-gold font-medium text-sm hover:bg-latte-gold/15 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {fetchingPRs ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      正在获取 PR 列表...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      获取仓库的 Pull Requests
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {prList.length > 0 && (
+                <div className="max-w-md mx-auto mb-6 space-y-2 text-left">
+                  <p className="text-xs text-latte-text-tertiary text-center mb-3">
+                    点击 PR 触发审查
+                  </p>
+                  {prList.map((pr) => (
+                    <button
+                      key={pr.number}
+                      onClick={() => handleTriggerReview(pr.number)}
+                      disabled={triggeringPR === pr.number}
+                      className="w-full p-3 rounded-latte-lg bg-latte-bg-tertiary/50 border border-latte-text-primary/5 hover:border-latte-gold/20 hover:bg-latte-bg-tertiary transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                    >
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-latte-gold/10 flex items-center justify-center">
+                        {triggeringPR === pr.number ? (
+                          <Loader2 size={14} className="animate-spin text-latte-gold" />
+                        ) : (
+                          <Play size={14} className="text-latte-gold" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-latte-text-primary truncate">
+                          #{pr.number} {pr.title}
+                        </p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs text-latte-text-muted">{pr.author}</span>
+                          <span className="text-xs text-latte-success">+{pr.additions}</span>
+                          <span className="text-xs text-latte-critical">-{pr.deletions}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto mb-8">
                 {[
