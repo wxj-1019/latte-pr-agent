@@ -37,8 +37,8 @@ export function HeroSection() {
       style={{
         background: reducedMotion
           ? "var(--latte-bg-primary)"
-          : `radial-gradient(ellipse 80% 50% at ${mouse.x * 100}% ${mouse.y * 100}%, rgba(196, 167, 125, 0.12), transparent),
-          radial-gradient(ellipse 60% 40% at 80% 80%, rgba(212, 165, 154, 0.06), transparent),
+          : `radial-gradient(ellipse 80% 50% at ${mouse.x * 100}% ${mouse.y * 100}%, var(--latte-hero-gradient-1), transparent),
+          radial-gradient(ellipse 60% 40% at 80% 80%, var(--latte-hero-gradient-2), transparent),
           var(--latte-bg-primary)`,
       }}
     >

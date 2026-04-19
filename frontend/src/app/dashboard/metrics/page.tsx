@@ -114,22 +114,22 @@ export default function MetricsPage() {
             {mounted ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(245, 230, 211, 0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--latte-chart-grid)" />
                 <XAxis
                   dataKey="date"
                   stroke="var(--latte-text-tertiary)"
                   tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(245, 230, 211, 0.1)" }}
+                  axisLine={{ stroke: "var(--latte-chart-axis)" }}
                 />
                 <YAxis
                   stroke="var(--latte-text-tertiary)"
                   tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }}
-                  axisLine={{ stroke: "rgba(245, 230, 211, 0.1)" }}
+                  axisLine={{ stroke: "var(--latte-chart-axis)" }}
                 />
                 <Tooltip
                   contentStyle={{
                     background: "var(--latte-bg-secondary)",
-                    border: "1px solid rgba(245, 230, 211, 0.1)",
+                    border: "1px solid var(--latte-chart-tooltip-border)",
                     borderRadius: "12px",
                   }}
                   labelStyle={{ color: "var(--latte-text-primary)" }}
@@ -183,7 +183,7 @@ export default function MetricsPage() {
                     <Tooltip
                       contentStyle={{
                         background: "var(--latte-bg-secondary)",
-                        border: "1px solid rgba(245, 230, 211, 0.1)",
+                        border: "1px solid var(--latte-chart-tooltip-border)",
                         borderRadius: "12px",
                       }}
                     />
