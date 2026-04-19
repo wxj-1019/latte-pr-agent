@@ -25,8 +25,6 @@ COPY --from=builder /install /usr/local
 
 COPY src/ ./src/
 COPY sql/ ./sql/
-COPY config/ ./config/
-COPY prompts/ ./prompts/
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1

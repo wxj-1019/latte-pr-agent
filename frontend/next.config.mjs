@@ -28,6 +28,10 @@ const nextConfig = {
   // Enable compression
   compress: true,
 
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
+
   // Security headers
   async headers() {
     return [
