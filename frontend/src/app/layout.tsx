@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { EnvCheck } from "@/components/env-check";
 import { ToastProvider } from "@/components/ui/toast";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { ThemeProvider } from "@/themes";
 
 export const metadata: Metadata = {
   title: "Latte PR Agent - 企业级 AI 代码审查",
@@ -24,11 +25,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="antialiased">
-        <ProgressBar />
-        <EnvCheck />
-        <ToastProvider>
-          <ErrorBoundary>{children}</ErrorBoundary>
-        </ToastProvider>
+        <ThemeProvider>
+          <ProgressBar />
+          <EnvCheck />
+          <ToastProvider>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

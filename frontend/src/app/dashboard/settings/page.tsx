@@ -153,7 +153,12 @@ export default function SystemSettingsPage() {
                 const isSecret = SECRET_KEYS.has(item.key);
                 const isVisible = showValues[item.key];
                 const hasChanged = changedKeys.has(item.key);
-                const currentValue = editValues[item.key] ?? "";
+                const rawValue = editValues[item.key] ?? "";
+                // Show placeholder mask for saved secrets so users know a value exists
+                const currentValue =
+                  isSecret && item.has_value && !hasChanged && !rawValue
+                    ? "••••••"
+                    : rawValue;
 
                 return (
                   <div key={item.key}>
@@ -176,7 +181,7 @@ export default function SystemSettingsPage() {
                     <p className="text-xs text-latte-text-muted mb-2">{item.description}</p>
                     <div className="relative">
                       <Input
-                        type={isSecret && !isVisible ? "password" : "text"}
+                        type={isSecret && !isVisible && !currentValue.startsWith("•") ? "password" : "text"}
                         value={currentValue}
                         onChange={(e) => handleChange(item.key, e.target.value)}
                         placeholder={item.has_value && !hasChanged ? "已配置，输入新值可覆盖" : "请输入..."}
