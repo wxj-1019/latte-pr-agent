@@ -125,4 +125,20 @@ export const api = {
       body: JSON.stringify({ settings: settingsList }),
     });
   },
+
+  fetchPullRequests: async (repoId: string, platform: string = "github") => {
+    return fetchJson<{ pulls: Array<{ number: number; title: string; author: string; head_branch: string; base_branch: string; updated_at: string | null; additions: number; deletions: number; changed_files: number }>; total: number }>("/reviews/fetch-prs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_id: repoId, platform }),
+    });
+  },
+
+  triggerManualReview: async (repoId: string, prNumber: number, platform: string = "github") => {
+    return fetchJson<{ message: string; review_id: number; status: string }>("/reviews/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_id: repoId, pr_number: prNumber, platform }),
+    });
+  },
 };

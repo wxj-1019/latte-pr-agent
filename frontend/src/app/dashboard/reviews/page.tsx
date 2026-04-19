@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import type { ReviewUpdate } from "@/types";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, GitPullRequest } from "lucide-react";
+import { ManualTriggerDialog } from "@/components/dashboard/manual-trigger-dialog";
 
 const statusOptions = ["all", "pending", "running", "completed", "failed", "skipped"];
 const riskOptions = ["all", "low", "medium", "high", "critical"];
@@ -54,6 +55,7 @@ export default function ReviewsPage() {
   });
 
   const { subscribe } = useSSE();
+  const [showTriggerDialog, setShowTriggerDialog] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -87,6 +89,14 @@ export default function ReviewsPage() {
             审查
           </h1>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowTriggerDialog(true)}
+            >
+              <GitPullRequest size={14} />
+              手动审查
+            </Button>
             <div className="flex flex-wrap gap-1.5">
               {statusOptions.map((s) => (
                 <button
@@ -164,6 +174,12 @@ export default function ReviewsPage() {
           <ReviewList reviews={reviews} />
         </FadeInUp>
       )}
+
+      <ManualTriggerDialog
+        open={showTriggerDialog}
+        onClose={() => setShowTriggerDialog(false)}
+        onTriggered={() => mutate()}
+      />
 
       {/* Pagination */}
       {totalPages > 1 && (
