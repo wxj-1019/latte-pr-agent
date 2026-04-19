@@ -113,4 +113,16 @@ export const api = {
       body: JSON.stringify({ repo_id: repoId, platform }),
     });
   },
+
+  getSystemSettings: async () => {
+    return fetchJson<{ categories: Record<string, Array<{ key: string; has_value: boolean; value?: string | null; description: string }>> }>("/settings");
+  },
+
+  batchUpdateSystemSettings: async (settingsList: Array<{ key: string; value: string }>) => {
+    return fetchJson<{ results: Array<{ key: string; status: string; message?: string }> }>("/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: settingsList }),
+    });
+  },
 };

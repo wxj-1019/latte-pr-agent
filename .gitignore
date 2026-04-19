@@ -41,6 +41,9 @@ htmlcov/
 # Environment variables
 .env
 
+# Encryption key
+.secret_key
+
 # Database
 *.db
 *.sqlite3

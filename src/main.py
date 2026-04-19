@@ -18,6 +18,7 @@ from prompts.router import router as prompts_router
 from reviews.router import router as reviews_router
 from configs.router import router as configs_router
 from stats.router import router as stats_router
+from settings.router import router as settings_router
 from models import get_db, Review
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ app.include_router(prompts_router)
 app.include_router(reviews_router)
 app.include_router(configs_router)
 app.include_router(stats_router)
+app.include_router(settings_router)
 
 
 @app.get("/health", tags=["health"])

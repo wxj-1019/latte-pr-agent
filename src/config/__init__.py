@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     max_concurrent_reviews: int = 20
     enable_reasoner_review: bool = False
     cors_origins: str = "*"
+    admin_api_key: str = ""
 
 
 settings = Settings()

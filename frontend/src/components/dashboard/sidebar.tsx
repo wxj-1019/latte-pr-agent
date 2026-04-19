@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, GitPullRequest, BarChart3, Settings, FileText, Sparkles } from "lucide-react";
+import { LayoutDashboard, GitPullRequest, BarChart3, Settings, FileText, Sparkles, Shield } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "首页" },
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/dashboard/metrics", icon: BarChart3, label: "指标" },
   { href: "/dashboard/config", icon: Settings, label: "配置" },
   { href: "/dashboard/prompts", icon: FileText, label: "Prompts" },
+  { href: "/dashboard/settings", icon: Shield, label: "系统设置" },
 ];
 
 export function Sidebar() {
