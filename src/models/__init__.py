@@ -4,6 +4,7 @@ from models.finding import ReviewFinding, DeveloperFeedback
 from models.bug_knowledge import BugKnowledge
 from models.file_dependency import FileDependency
 from models.prompt_experiment import PromptExperiment, PromptExperimentAssignment
+from models.system_settings import SystemSettings
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "FileDependency",
     "PromptExperiment",
     "PromptExperimentAssignment",
+    "SystemSettings",
 ]

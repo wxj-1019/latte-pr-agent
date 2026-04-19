@@ -11,6 +11,7 @@ from webhooks.verifier import WebhookVerifier
 from webhooks.parser import WebhookParser
 from webhooks.rate_limiter import RateLimiter
 from services.review_service import run_review
+from services.settings_service import resolve_setting
 from tasks import get_celery_task
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,9 @@ async def github_webhook(
     if not x_hub_signature_256:
         logger.warning("GitHub webhook rejected: missing signature")
         raise HTTPException(status_code=401, detail="缺少 Webhook 签名")
+    webhook_secret = await resolve_setting(db, "github_webhook_secret", settings.github_webhook_secret)
     if not WebhookVerifier.verify_github(
-        payload_bytes, x_hub_signature_256, settings.github_webhook_secret
+        payload_bytes, x_hub_signature_256, webhook_secret
     ):
         logger.warning("GitHub webhook rejected: invalid signature")
         raise HTTPException(status_code=401, detail="Webhook 签名无效")
@@ -100,8 +102,9 @@ async def gitlab_webhook(
     if not x_gitlab_token:
         logger.warning("GitLab webhook rejected: missing token")
         raise HTTPException(status_code=401, detail="缺少 Webhook Token")
+    webhook_secret = await resolve_setting(db, "gitlab_webhook_secret", settings.gitlab_webhook_secret)
     if not WebhookVerifier.verify_gitlab(
-        x_gitlab_token, settings.gitlab_webhook_secret
+        x_gitlab_token, webhook_secret
     ):
         logger.warning("GitLab webhook rejected: invalid token")
         raise HTTPException(status_code=401, detail="Webhook Token 无效")

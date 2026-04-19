@@ -97,6 +97,17 @@ CREATE TABLE IF NOT EXISTS file_dependencies (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8. 系统设置表（加密存储 Token / API Key 等敏感配置）
+CREATE TABLE IF NOT EXISTS system_settings (
+    id              BIGSERIAL PRIMARY KEY,
+    key             VARCHAR(100) NOT NULL,
+    encrypted_value TEXT NOT NULL DEFAULT '',
+    category        VARCHAR(50) NOT NULL DEFAULT 'general',
+    description     VARCHAR(255) NOT NULL DEFAULT '',
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(key)
+);
+
 -- ======================== 索引 ========================
 CREATE INDEX IF NOT EXISTS idx_reviews_platform_repo ON reviews(platform, repo_id, pr_number);
 CREATE INDEX IF NOT EXISTS idx_reviews_org ON reviews(org_id, platform, repo_id);

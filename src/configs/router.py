@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import get_db
 from config.project_config import ProjectConfigService
 from config import settings
+from services.settings_service import get_effective_settings
 
 logger = logging.getLogger(__name__)
 
@@ -66,16 +67,16 @@ async def update_config(repo_id: str, body: ConfigUpdateRequest, db: AsyncSessio
 
 
 @router.post("/verify")
-async def verify_project_config(body: VerifyRequest):
+async def verify_project_config(body: VerifyRequest, db: AsyncSession = Depends(get_db)):
+    effective = await get_effective_settings(db)
     checks: list[VerifyCheckResult] = []
 
-    # 1. Git platform token
     if body.platform == "github":
-        token = settings.github_token.get_secret_value()
+        token = effective.get("github_token", "")
         if not token:
             checks.append(VerifyCheckResult(
                 name="github_token", status="error",
-                message="GitHub Token not configured. Please set GITHUB_TOKEN in .env",
+                message="GitHub Token not configured. Please set it in 系统设置",
             ))
         else:
             try:
@@ -92,16 +93,17 @@ async def verify_project_config(body: VerifyRequest):
                     message=f"Cannot access repository: {exc}",
                 ))
     elif body.platform == "gitlab":
-        token = settings.gitlab_token.get_secret_value()
+        token = effective.get("gitlab_token", "")
+        gitlab_url = effective.get("gitlab_url", "") or settings.gitlab_url
         if not token:
             checks.append(VerifyCheckResult(
                 name="gitlab_token", status="error",
-                message="GitLab Token not configured. Please set GITLAB_TOKEN in .env",
+                message="GitLab Token not configured. Please set it in 系统设置",
             ))
         else:
             try:
                 import gitlab
-                gl = gitlab.Gitlab(settings.gitlab_url, private_token=token)
+                gl = gitlab.Gitlab(gitlab_url, private_token=token)
                 project = gl.projects.get(body.repo_id)
                 checks.append(VerifyCheckResult(
                     name="gitlab_token", status="ok",
@@ -113,9 +115,8 @@ async def verify_project_config(body: VerifyRequest):
                     message=f"Cannot access project: {exc}",
                 ))
 
-    # 2. Webhook secret
     if body.platform == "github":
-        secret = settings.github_webhook_secret
+        secret = effective.get("github_webhook_secret", "")
         if secret:
             checks.append(VerifyCheckResult(
                 name="webhook_secret", status="ok",
@@ -127,7 +128,7 @@ async def verify_project_config(body: VerifyRequest):
                 message="Webhook secret not set. Webhook verification will be skipped",
             ))
     elif body.platform == "gitlab":
-        secret = settings.gitlab_webhook_secret
+        secret = effective.get("gitlab_webhook_secret", "")
         if secret:
             checks.append(VerifyCheckResult(
                 name="webhook_secret", status="ok",
@@ -139,12 +140,11 @@ async def verify_project_config(body: VerifyRequest):
                 message="Webhook secret not set",
             ))
 
-    # 3. LLM API Key
     llm_keys = {
-        "deepseek": settings.deepseek_api_key.get_secret_value(),
-        "anthropic": settings.anthropic_api_key.get_secret_value(),
-        "openai": settings.openai_api_key.get_secret_value(),
-        "qwen": settings.qwen_api_key.get_secret_value(),
+        "deepseek": effective.get("deepseek_api_key", ""),
+        "anthropic": effective.get("anthropic_api_key", ""),
+        "openai": effective.get("openai_api_key", ""),
+        "qwen": effective.get("qwen_api_key", ""),
     }
     available = [k for k, v in llm_keys.items() if v]
     if available:
@@ -155,10 +155,9 @@ async def verify_project_config(body: VerifyRequest):
     else:
         checks.append(VerifyCheckResult(
             name="llm_api_key", status="error",
-            message="No LLM API Key configured. Please set at least one of: DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, QWEN_API_KEY",
+            message="No LLM API Key configured. Please set at least one key in 系统设置",
         ))
 
-    # 4. Database connection
     try:
         from sqlalchemy import text
         from models.base import async_engine
@@ -174,13 +173,11 @@ async def verify_project_config(body: VerifyRequest):
             message=f"Database connection failed: {exc}",
         ))
 
-    # 5. Redis (optional)
     try:
         import redis.asyncio as aioredis
         redis_url = settings.redis_url.get_secret_value()
-        r = aioredis.from_url(redis_url)
-        await r.ping()
-        await r.close()
+        async with aioredis.from_url(redis_url) as r:
+            await r.ping()
         checks.append(VerifyCheckResult(
             name="redis", status="ok",
             message="Redis connection successful",
