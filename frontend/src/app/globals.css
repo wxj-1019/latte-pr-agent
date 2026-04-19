@@ -43,6 +43,42 @@
   --latte-confidence-med: #C4A77D;
   --latte-confidence-high: #7D8471;
 
+  /* semantic tokens for components */
+  --latte-hero-gradient-1: rgba(196, 167, 125, 0.15);
+  --latte-hero-gradient-2: rgba(212, 165, 154, 0.08);
+  --latte-glass-bg: rgba(20, 17, 14, 0.55);
+  --latte-glass-border: rgba(245, 230, 211, 0.06);
+  --latte-glass-inset: rgba(245, 230, 211, 0.04);
+  --latte-glass-hover-border: rgba(196, 167, 125, 0.2);
+  --latte-glass-hover-inset: rgba(245, 230, 211, 0.08);
+  --latte-btn-gradient-from: rgba(232, 220, 196, 0.14);
+  --latte-btn-gradient-to: rgba(232, 220, 196, 0.04);
+  --latte-btn-border: rgba(232, 220, 196, 0.22);
+  --latte-btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --latte-btn-hover-gradient-from: rgba(232, 220, 196, 0.2);
+  --latte-btn-hover-gradient-to: rgba(232, 220, 196, 0.08);
+  --latte-btn-hover-border: rgba(232, 220, 196, 0.35);
+  --latte-btn-secondary-border: rgba(245, 230, 211, 0.1);
+  --latte-btn-secondary-hover-border: rgba(245, 230, 211, 0.18);
+  --latte-badge-inset: rgba(255, 255, 255, 0.08);
+  --latte-badge-success-text: #D4DACA;
+  --latte-badge-warning-text: #E8C4B0;
+  --latte-badge-critical-text: #E8B8B8;
+  --latte-badge-info-text: #D8CFC4;
+  --latte-input-focus-border: rgba(196, 167, 125, 0.4);
+  --latte-input-focus-ring: rgba(196, 167, 125, 0.1);
+  --latte-sidebar-bg: rgba(10, 8, 6, 0.8);
+  --latte-sidebar-border: rgba(245, 230, 211, 0.04);
+  --latte-sidebar-active-bg: rgba(196, 167, 125, 0.08);
+  --latte-sidebar-active-shadow: rgba(196, 167, 125, 0.1);
+
+  --latte-particle-color-1: 196, 167, 125;
+  --latte-particle-color-2: 212, 165, 154;
+
+  --latte-chart-grid: rgba(245, 230, 211, 0.06);
+  --latte-chart-axis: rgba(245, 230, 211, 0.1);
+  --latte-chart-tooltip-border: rgba(245, 230, 211, 0.1);
+
   --latte-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --latte-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
   --latte-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.5);
@@ -74,38 +110,38 @@ body {
 @layer components {
   .latte-hero-bg {
     background:
-      radial-gradient(ellipse 80% 50% at 20% 40%, rgba(196, 167, 125, 0.15), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(212, 165, 154, 0.08), transparent),
+      radial-gradient(ellipse 80% 50% at 20% 40%, var(--latte-hero-gradient-1), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, var(--latte-hero-gradient-2), transparent),
       var(--latte-bg-primary);
   }
 
   .latte-glass {
-    background: rgba(20, 17, 14, 0.55);
+    background: var(--latte-glass-bg);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(245, 230, 211, 0.06);
+    border: 1px solid var(--latte-glass-border);
     border-radius: var(--latte-radius-xl);
-    box-shadow: var(--latte-shadow-md), inset 0 1px 0 rgba(245, 230, 211, 0.04);
+    box-shadow: var(--latte-shadow-md), inset 0 1px 0 var(--latte-glass-inset);
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .latte-glass:hover {
-    border-color: rgba(196, 167, 125, 0.2);
-    box-shadow: var(--latte-shadow-gold), inset 0 1px 0 rgba(245, 230, 211, 0.08);
+    border-color: var(--latte-glass-hover-border);
+    box-shadow: var(--latte-shadow-gold), inset 0 1px 0 var(--latte-glass-hover-inset);
   }
 
   .latte-btn-primary {
     @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-300 ease-apple-smooth;
-    background: linear-gradient(180deg, rgba(232, 220, 196, 0.14), rgba(232, 220, 196, 0.04));
-    border: 1px solid rgba(232, 220, 196, 0.22);
+    background: linear-gradient(180deg, var(--latte-btn-gradient-from), var(--latte-btn-gradient-to));
+    border: 1px solid var(--latte-btn-border);
     border-radius: var(--latte-radius-full);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--latte-btn-shadow);
     color: var(--latte-text-primary);
   }
 
   .latte-btn-primary:hover {
-    background: linear-gradient(180deg, rgba(232, 220, 196, 0.2), rgba(232, 220, 196, 0.08));
-    border-color: rgba(232, 220, 196, 0.35);
+    background: linear-gradient(180deg, var(--latte-btn-hover-gradient-from), var(--latte-btn-hover-gradient-to));
+    border-color: var(--latte-btn-hover-border);
     box-shadow: var(--latte-shadow-gold);
     transform: translateY(-1px);
   }
@@ -113,26 +149,26 @@ body {
   .latte-btn-secondary {
     @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-300 ease-apple-smooth;
     background: transparent;
-    border: 1px solid rgba(245, 230, 211, 0.1);
+    border: 1px solid var(--latte-btn-secondary-border);
     border-radius: var(--latte-radius-full);
     color: var(--latte-text-secondary);
   }
 
   .latte-btn-secondary:hover {
     background: var(--latte-bg-tertiary);
-    border-color: rgba(245, 230, 211, 0.18);
+    border-color: var(--latte-btn-secondary-hover-border);
     color: var(--latte-text-primary);
   }
 
   .latte-badge {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold tracking-wide rounded-latte-sm;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 var(--latte-badge-inset);
   }
 
-  .latte-badge-success { color: #D4DACA; background: var(--latte-success-bg); }
-  .latte-badge-warning { color: #E8C4B0; background: var(--latte-warning-bg); }
-  .latte-badge-critical { color: #E8B8B8; background: var(--latte-critical-bg); }
-  .latte-badge-info { color: #D8CFC4; background: var(--latte-info-bg); }
+  .latte-badge-success { color: var(--latte-badge-success-text); background: var(--latte-success-bg); }
+  .latte-badge-warning { color: var(--latte-badge-warning-text); background: var(--latte-warning-bg); }
+  .latte-badge-critical { color: var(--latte-badge-critical-text); background: var(--latte-critical-bg); }
+  .latte-badge-info { color: var(--latte-badge-info-text); background: var(--latte-info-bg); }
 
   .latte-badge-dot {
     @apply rounded-full;
@@ -154,18 +190,28 @@ body {
   }
 
   .latte-input:focus {
-    border-color: rgba(196, 167, 125, 0.4);
-    box-shadow: 0 0 0 3px rgba(196, 167, 125, 0.1);
+    border-color: var(--latte-input-focus-border);
+    box-shadow: 0 0 0 3px var(--latte-input-focus-ring);
     background: var(--latte-bg-hover);
+  }
+
+  .latte-glass .latte-input {
+    background: var(--latte-input-glass-bg);
+    border-color: var(--latte-input-glass-border);
+  }
+
+  .latte-glass .latte-input:focus {
+    background: var(--latte-input-glass-focus-bg);
+    border-color: var(--latte-input-glass-focus-border);
   }
 
   .latte-sidebar {
     @apply flex flex-col;
     width: 180px;
     height: 100vh;
-    background: rgba(10, 8, 6, 0.8);
+    background: var(--latte-sidebar-bg);
     backdrop-filter: blur(12px);
-    border-right: 1px solid rgba(245, 230, 211, 0.04);
+    border-right: 1px solid var(--latte-sidebar-border);
     padding: 0 12px;
   }
 
@@ -178,8 +224,8 @@ body {
   .latte-sidebar-item:hover,
   .latte-sidebar-item.active {
     color: var(--latte-gold);
-    background: rgba(196, 167, 125, 0.08);
-    box-shadow: 0 0 16px rgba(196, 167, 125, 0.1);
+    background: var(--latte-sidebar-active-bg);
+    box-shadow: 0 0 16px var(--latte-sidebar-active-shadow);
   }
 }
 
@@ -228,4 +274,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--latte-gold-dim);
+}
+
+/* Theme transition — only active during explicit theme switches */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              fill 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              stroke 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }

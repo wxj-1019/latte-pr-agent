@@ -11,13 +11,18 @@ export const metadata: Metadata = {
   description: "企业级 AI 代码审查系统，具备多模型智能、上下文感知分析和质量门禁。",
 };
 
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('latte-theme')||'latte-night';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','latte-night');}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         <ProgressBar />
         <EnvCheck />

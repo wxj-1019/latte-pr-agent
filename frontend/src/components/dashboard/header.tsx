@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { RealtimeIndicator } from "@/components/ui/realtime-indicator";
 import { useSSE } from "@/hooks/use-sse";
 import { Search, Bell, User } from "lucide-react";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 
 export function Header() {
   const router = useRouter();
@@ -52,6 +53,7 @@ export function Header() {
           status={status}
           onClick={status !== "connected" ? reconnect : undefined}
         />
+        <ThemeSwitcher />
         <button
           disabled
           title="功能开发中"

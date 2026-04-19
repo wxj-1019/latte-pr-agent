@@ -85,7 +85,7 @@ export default function HomePage() {
       <section
         className="py-32 px-6 text-center"
         style={{
-          background: `radial-gradient(ellipse 60% 40% at 50% 100%, rgba(196, 167, 125, 0.12), transparent), var(--latte-bg-primary)`,
+          background: `radial-gradient(ellipse 60% 40% at 50% 100%, var(--latte-hero-gradient-1), transparent), var(--latte-bg-primary)`,
         }}
       >
         <FadeInUp>

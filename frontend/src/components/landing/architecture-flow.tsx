@@ -36,7 +36,7 @@ const nodes = [
 function DataPacket({ delay }: { delay: number }) {
   return (
     <motion.div
-      className="absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-latte-gold shadow-[0_0_8px_rgba(196,167,125,0.6)] z-10"
+      className="absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-latte-gold shadow-[0_0_8px_var(--latte-gold-glow)] z-10"
       initial={{ top: "0%", opacity: 0 }}
       animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
       transition={{
