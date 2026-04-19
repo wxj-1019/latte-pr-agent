@@ -56,10 +56,10 @@ docs/bug/
 
 | 严重程度 | 待修复 | 修复中 | 已修复 | 总计 |
 |----------|--------|--------|--------|------|
-| 🔴 高 | 0 | 0 | 10 | 10 |
-| 🟡 中 | 0 | 0 | 16 | 16 |
-| 🟢 低 | 0 | 0 | 1 | 1 |
-| **总计** | **0** | **0** | **27** | **27** |
+| 🔴 高 | 2 | 0 | 10 | 12 |
+| 🟡 中 | 1 | 0 | 16 | 17 |
+| 🟢 低 | 4 | 0 | 1 | 5 |
+| **总计** | **7** | **0** | **27** | **34** |
 
 ## 已修复的Bug
 
@@ -94,6 +94,19 @@ docs/bug/
 
 ### 🟢 低优先级（已修复 — 自主修复复查）
 22. **ResilientReviewRouter 兼容旧配置键 "primary"** - `fixed/partial-fix-review-2026-04-18.md#问题5`
+
+### 🔴 高优先级（待修复 — 前端 UX 审查）
+23. **`reviews/page.tsx` error 变量未解构，错误状态 UI 永不触发** - `frontend-ux-review-2026-04-18.md#Bug-1`
+24. **`useReviewDetail` 未返回 `mutate`，SSE 实时更新完全失效** - `frontend-ux-review-2026-04-18.md#Bug-2`
+
+### 🟡 中优先级（待修复 — 前端 UX 审查）
+25. **SSE Provider 组件卸载后残留重连定时器** - `frontend-ux-review-2026-04-18.md#Bug-3`
+
+### 🟢 低优先级（待修复 — 前端 UX 审查）
+26. **侧边栏"首页"链接在所有子页面都高亮** - `frontend-ux-review-2026-04-18.md#Bug-4`
+27. **搜索词变化时不重置页码** - `frontend-ux-review-2026-04-18.md#Bug-5`
+28. **`layout.tsx` 向 `Header` 传递未使用的 `sseStatus` prop** - `frontend-ux-review-2026-04-18.md#缺陷-6`
+29. **全局加载进度条（NProgress）组件缺失** - `frontend-ux-review-2026-04-18.md#缺陷-7`
 
 ### 🟡 中优先级（已修复 — 接口对齐）
 23. **API-INT-001: 前端后端接口不匹配** - `fixed/api-integration-bugs-2026-04-17.md`
