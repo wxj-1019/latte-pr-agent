@@ -55,5 +55,8 @@ Thumbs.db
 # IDE / AI assistants
 .claude/
 
+# Deploy scripts
+check_deploy.py
+
 # Logs
 *.log
