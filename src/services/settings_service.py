@@ -22,6 +22,27 @@ SETTINGS_SCHEMA = {
 }
 
 
+def _env_values() -> dict:
+    """Read current .env values so the settings page can show them as fallback."""
+    from config import settings
+
+    def _get(val):
+        # Tests may use plain str instead of SecretStr
+        return val.get_secret_value() if hasattr(val, "get_secret_value") else (val or "")
+
+    return {
+        "github_token": _get(settings.github_token),
+        "github_webhook_secret": _get(settings.github_webhook_secret),
+        "gitlab_token": _get(settings.gitlab_token),
+        "gitlab_webhook_secret": _get(settings.gitlab_webhook_secret),
+        "gitlab_url": _get(settings.gitlab_url),
+        "deepseek_api_key": _get(settings.deepseek_api_key),
+        "anthropic_api_key": _get(settings.anthropic_api_key),
+        "openai_api_key": _get(settings.openai_api_key),
+        "qwen_api_key": _get(settings.qwen_api_key),
+    }
+
+
 async def get_setting(db: AsyncSession, key: str) -> Optional[str]:
     result = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
     row = result.scalar_one_or_none()
@@ -31,33 +52,51 @@ async def get_setting(db: AsyncSession, key: str) -> Optional[str]:
 
 
 async def get_all_settings(db: AsyncSession) -> dict:
+    """Return all settings for the admin UI.
+
+    For non-secret keys the raw value is returned (DB overrides .env).
+    For secret keys the raw value is hidden, but ``has_value`` reflects
+    whether a value exists in DB *or* .env so the UI can show a placeholder.
+    """
+    env_values = _env_values()
     result = await db.execute(select(SystemSettings))
     rows = result.scalars().all()
+
     settings_map = {}
     for row in rows:
         schema = SETTINGS_SCHEMA.get(row.key, {"secret": True})
-        if schema.get("secret", True):
+        is_secret = schema.get("secret", True)
+        db_has_value = bool(row.encrypted_value)
+        env_val = env_values.get(row.key, "")
+        env_has_value = bool(env_val)
+
+        if is_secret:
             settings_map[row.key] = {
                 "value": None,
-                "has_value": bool(row.encrypted_value),
-                "category": row.category,
-                "description": row.description,
-            }
-        else:
-            settings_map[row.key] = {
-                "value": decrypt_value(row.encrypted_value),
-                "has_value": bool(row.encrypted_value),
-                "category": row.category,
-                "description": row.description,
-            }
-    for key, schema in SETTINGS_SCHEMA.items():
-        if key not in settings_map:
-            settings_map[key] = {
-                "value": None,
-                "has_value": False,
+                "has_value": db_has_value or env_has_value,
                 "category": schema["category"],
                 "description": schema["description"],
             }
+        else:
+            settings_map[row.key] = {
+                "value": decrypt_value(row.encrypted_value) if db_has_value else env_val,
+                "has_value": db_has_value or env_has_value,
+                "category": schema["category"],
+                "description": schema["description"],
+            }
+
+    # Fill missing keys from schema with .env fallback
+    for key, schema in SETTINGS_SCHEMA.items():
+        if key not in settings_map:
+            env_val = env_values.get(key, "")
+            is_secret = schema.get("secret", True)
+            settings_map[key] = {
+                "value": None if is_secret else env_val,
+                "has_value": bool(env_val),
+                "category": schema["category"],
+                "description": schema["description"],
+            }
+
     return settings_map
 
 
@@ -92,22 +131,9 @@ async def resolve_setting(db: AsyncSession, key: str, env_fallback: str = "") ->
 
 
 async def get_effective_settings(db: AsyncSession) -> dict:
-    from config import settings
-
-    keys_map = {
-        "github_token": settings.github_token.get_secret_value(),
-        "github_webhook_secret": settings.github_webhook_secret,
-        "gitlab_token": settings.gitlab_token.get_secret_value(),
-        "gitlab_webhook_secret": settings.gitlab_webhook_secret,
-        "gitlab_url": settings.gitlab_url,
-        "deepseek_api_key": settings.deepseek_api_key.get_secret_value(),
-        "anthropic_api_key": settings.anthropic_api_key.get_secret_value(),
-        "openai_api_key": settings.openai_api_key.get_secret_value(),
-        "qwen_api_key": settings.qwen_api_key.get_secret_value(),
-    }
-
+    env_values = _env_values()
     effective = {}
-    for key, env_val in keys_map.items():
+    for key, env_val in env_values.items():
         db_val = await get_setting(db, key)
         effective[key] = db_val if db_val is not None else env_val
     return effective
