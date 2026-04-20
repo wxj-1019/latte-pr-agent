@@ -30,7 +30,12 @@ def run_review_task(self, review_id: int) -> None:
     """Celery task wrapper for run_review."""
     import asyncio
     try:
-        asyncio.run(run_review(review_id))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_review(review_id))
+        finally:
+            loop.close()
     except (OSError, ConnectionError, TimeoutError) as exc:
         logger.exception("Celery task failed for review %s: %s", review_id, exc)
         raise self.retry(exc=exc, countdown=10)
