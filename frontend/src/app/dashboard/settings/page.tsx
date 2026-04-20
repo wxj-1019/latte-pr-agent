@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
-import { Eye, EyeOff, Check, XCircle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Check, XCircle, Loader2, Zap, Copy, ExternalLink } from "lucide-react";
 
 interface SettingItem {
   key: string;
@@ -17,6 +17,21 @@ interface SettingItem {
 }
 
 type SettingsCategories = Record<string, SettingItem[]>;
+
+interface WebhookCheckResult {
+  name: string;
+  status: string;
+  message: string;
+  webhook_url?: string;
+  webhook_secret?: string;
+}
+
+interface WebhookTestResult {
+  platform: string;
+  passed: boolean;
+  checks: WebhookCheckResult[];
+  webhook_secret: string;
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   platform: "平台连接",
@@ -54,6 +69,8 @@ export default function SystemSettingsPage() {
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [changedKeys, setChangedKeys] = useState<Set<string>>(new Set());
+  const [testingWebhook, setTestingWebhook] = useState<"github" | "gitlab" | null>(null);
+  const [webhookResults, setWebhookResults] = useState<Record<string, WebhookTestResult>>({});
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -98,15 +115,47 @@ export default function SystemSettingsPage() {
         key,
         value: editValues[key] || "",
       }));
-      await api.batchUpdateSystemSettings(settingsList);
-      showToast("设置已保存");
-      setChangedKeys(new Set());
-      await loadSettings();
+      const res = await api.batchUpdateSystemSettings(settingsList);
+      const errors = res.results.filter((r) => r.status === "error");
+      if (errors.length > 0) {
+        showToast(
+          `保存失败：${errors.map((e) => `${e.key}: ${e.message}`).join(", ")}`,
+          "error"
+        );
+      } else {
+        showToast("设置已保存");
+        setChangedKeys(new Set());
+        await loadSettings();
+      }
     } catch (err) {
       showToast("保存失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleTestWebhook(platform: "github" | "gitlab") {
+    setTestingWebhook(platform);
+    try {
+      const result = await api.testWebhook(platform);
+      setWebhookResults((prev) => ({ ...prev, [platform]: result }));
+
+      if (result.passed) {
+        showToast(`${platform === "github" ? "GitHub" : "GitLab"} Webhook 测试通过`, "success");
+        await loadSettings();
+      } else {
+        showToast(`${platform === "github" ? "GitHub" : "GitLab"} Webhook 测试未通过，请检查配置`, "error");
+      }
+    } catch (err) {
+      showToast("测试失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+    } finally {
+      setTestingWebhook(null);
+    }
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    showToast("已复制到剪贴板");
   }
 
   if (loading) {
@@ -145,16 +194,46 @@ export default function SystemSettingsPage() {
       {Object.entries(categories).map(([catKey, items], catIdx) => (
         <FadeInUp key={catKey} delay={0.1 * (catIdx + 1)}>
           <GlassCard className="p-6">
-            <h3 className="text-lg font-medium text-latte-text-primary mb-4">
-              {CATEGORY_LABELS[catKey] || catKey}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-latte-text-primary">
+                {CATEGORY_LABELS[catKey] || catKey}
+              </h3>
+              {catKey === "platform" && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestWebhook("github")}
+                    disabled={testingWebhook === "github"}
+                  >
+                    {testingWebhook === "github" ? (
+                      <><Loader2 size={14} className="animate-spin" /> 测试中...</>
+                    ) : (
+                      <><Zap size={14} /> 测试 GitHub</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestWebhook("gitlab")}
+                    disabled={testingWebhook === "gitlab"}
+                  >
+                    {testingWebhook === "gitlab" ? (
+                      <><Loader2 size={14} className="animate-spin" /> 测试中...</>
+                    ) : (
+                      <><Zap size={14} /> 测试 GitLab</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               {items.map((item) => {
                 const isSecret = SECRET_KEYS.has(item.key);
                 const isVisible = showValues[item.key];
                 const hasChanged = changedKeys.has(item.key);
                 const rawValue = editValues[item.key] ?? "";
-                // Show placeholder mask for saved secrets so users know a value exists
                 const currentValue =
                   isSecret && item.has_value && !hasChanged && !rawValue
                     ? "••••••"
@@ -201,6 +280,13 @@ export default function SystemSettingsPage() {
                 );
               })}
             </div>
+
+            {catKey === "platform" && webhookResults.github && (
+              <WebhookTestResultCard result={webhookResults.github} onCopy={copyToClipboard} />
+            )}
+            {catKey === "platform" && webhookResults.gitlab && (
+              <WebhookTestResultCard result={webhookResults.gitlab} onCopy={copyToClipboard} />
+            )}
           </GlassCard>
         </FadeInUp>
       ))}
@@ -224,6 +310,78 @@ export default function SystemSettingsPage() {
           </Button>
         </div>
       </FadeInUp>
+    </div>
+  );
+}
+
+function WebhookTestResultCard({
+  result,
+  onCopy,
+}: {
+  result: WebhookTestResult;
+  onCopy: (text: string) => void;
+}) {
+  const platformLabel = result.platform === "github" ? "GitHub" : "GitLab";
+
+  return (
+    <div className="mt-6 pt-4 border-t border-latte-bg-tertiary">
+      <h4 className="text-sm font-medium text-latte-text-primary mb-3 flex items-center gap-2">
+        <Zap size={14} className={result.passed ? "text-latte-success" : "text-latte-warning"} />
+        {platformLabel} Webhook 测试结果
+      </h4>
+      <div className="space-y-2">
+        {result.checks.map((check) => (
+          <div
+            key={check.name}
+            className={`text-xs px-3 py-2 rounded-lg flex items-start gap-2 ${
+              check.status === "ok" || check.status === "generated"
+                ? "bg-latte-success/10 text-latte-success"
+                : check.status === "error"
+                ? "bg-latte-critical/10 text-latte-critical"
+                : "bg-blue-500/10 text-blue-400"
+            }`}
+          >
+            <span className="mt-0.5">
+              {check.status === "ok" || check.status === "generated" ? (
+                <Check size={12} />
+              ) : check.status === "error" ? (
+                <XCircle size={12} />
+              ) : (
+                <ExternalLink size={12} />
+              )}
+            </span>
+            <div className="flex-1">
+              <span className="font-medium">{check.name}</span>: {check.message}
+              {check.webhook_url && (
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="bg-latte-bg-secondary px-2 py-0.5 rounded text-[11px] break-all">
+                    {check.webhook_url}
+                  </code>
+                  <button
+                    onClick={() => onCopy(check.webhook_url!)}
+                    className="text-latte-text-muted hover:text-latte-text-secondary transition-colors shrink-0"
+                  >
+                    <Copy size={11} />
+                  </button>
+                </div>
+              )}
+              {check.webhook_secret && (
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="bg-latte-bg-secondary px-2 py-0.5 rounded text-[11px] break-all">
+                    {check.webhook_secret}
+                  </code>
+                  <button
+                    onClick={() => onCopy(check.webhook_secret!)}
+                    className="text-latte-text-muted hover:text-latte-text-secondary transition-colors shrink-0"
+                  >
+                    <Copy size={11} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
