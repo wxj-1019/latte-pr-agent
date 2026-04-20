@@ -130,6 +130,14 @@ async def resolve_setting(db: AsyncSession, key: str, env_fallback: str = "") ->
     return env_fallback
 
 
+async def get_setting_value(db: AsyncSession, key: str) -> Optional[str]:
+    env_values = _env_values()
+    db_val = await get_setting(db, key)
+    if db_val is not None:
+        return db_val
+    return env_values.get(key) or None
+
+
 async def get_effective_settings(db: AsyncSession) -> dict:
     env_values = _env_values()
     effective = {}

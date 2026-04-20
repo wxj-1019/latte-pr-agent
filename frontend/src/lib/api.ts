@@ -126,6 +126,19 @@ export const api = {
     });
   },
 
+  testWebhook: async (platform: "github" | "gitlab") => {
+    return fetchJson<{
+      platform: string;
+      passed: boolean;
+      checks: Array<{ name: string; status: string; message: string; webhook_url?: string; webhook_secret?: string }>;
+      webhook_secret: string;
+    }>("/settings/test-webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform }),
+    });
+  },
+
   fetchPullRequests: async (repoId: string, platform: string = "github") => {
     return fetchJson<{ pulls: Array<{ number: number; title: string; author: string; head_branch: string; base_branch: string; updated_at: string | null; additions: number; deletions: number; changed_files: number }>; total: number }>("/reviews/fetch-prs", {
       method: "POST",
