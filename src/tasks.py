@@ -29,7 +29,9 @@ celery_app.conf.update(
 def run_review_task(self, review_id: int) -> None:
     """Celery task wrapper for run_review."""
     import asyncio
+    from models.base import recreate_engine
     try:
+        recreate_engine()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
