@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from main import app
 from models import Base, get_db
+from config import settings
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -38,10 +39,15 @@ async def async_client_with_db():
         async with async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)() as session:
             yield session
 
+    original_admin_key = settings.admin_api_key
+    settings.admin_api_key = ""
+
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         yield client
     app.dependency_overrides.clear()
+
+    settings.admin_api_key = original_admin_key
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

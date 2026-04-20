@@ -142,9 +142,8 @@ async def run_review(review_id: int) -> None:
     """Background task: execute full review pipeline."""
     AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
     async with AsyncSessionLocal() as session:
-        # Load dynamic settings from DB so tokens / API keys can be overridden
-        # without restarting the service.
         await apply_db_settings(session)
+        await session.commit()
 
         review_repo = ReviewRepository(session)
         review = await review_repo.get_by_id(review_id)
@@ -155,14 +154,15 @@ async def run_review(review_id: int) -> None:
         provider = _create_provider(review)
 
         try:
-            async with session.begin():
-                await _run_review_core(session, review, provider)
+            await _run_review_core(session, review, provider)
+            await session.commit()
             logger.info("Review %s: completed successfully", review_id)
         except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as exc:
             logger.warning("Review %s: network/external service error: %s", review_id, exc)
+            await session.rollback()
             try:
-                async with session.begin():
-                    await review_repo.update_status(review_id, "failed")
+                await review_repo.update_status(review_id, "failed")
+                await session.commit()
             except Exception:
                 logger.exception("Review %s: failed to update failed status", review_id)
             if provider:
@@ -174,9 +174,10 @@ async def run_review(review_id: int) -> None:
             return
         except Exception as exc:
             logger.exception("Review %s: unexpected error (possible bug): %s", review_id, exc)
+            await session.rollback()
             try:
-                async with session.begin():
-                    await review_repo.update_status(review_id, "failed")
+                await review_repo.update_status(review_id, "failed")
+                await session.commit()
             except Exception:
                 logger.exception("Review %s: failed to update failed status", review_id)
             if provider:
