@@ -201,7 +201,7 @@ export default function SystemSettingsPage() {
               {catKey === "platform" && (
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleTestWebhook("github")}
                     disabled={testingWebhook === "github"}
@@ -213,7 +213,7 @@ export default function SystemSettingsPage() {
                     )}
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleTestWebhook("gitlab")}
                     disabled={testingWebhook === "gitlab"}

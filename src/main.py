@@ -19,6 +19,8 @@ from reviews.router import router as reviews_router
 from configs.router import router as configs_router
 from stats.router import router as stats_router
 from settings.router import router as settings_router
+from projects.router import router as projects_router
+from commits.router import router as commits_router
 from models import get_db, Review
 
 logger = logging.getLogger(__name__)
@@ -92,6 +94,8 @@ app.include_router(reviews_router)
 app.include_router(configs_router)
 app.include_router(stats_router)
 app.include_router(settings_router)
+app.include_router(projects_router)
+app.include_router(commits_router)
 
 
 @app.get("/health", tags=["health"])

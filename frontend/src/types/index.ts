@@ -154,3 +154,60 @@ export interface AnalyzeResult {
   risk_level: "low" | "medium" | "high" | "critical";
   findings: ReviewFinding[];
 }
+
+export interface ProjectRepo {
+  id: number;
+  org_id: string;
+  platform: "github" | "gitlab";
+  repo_id: string;
+  repo_url: string;
+  branch: string;
+  local_path?: string;
+  status: "pending" | "cloning" | "ready" | "error";
+  error_message?: string;
+  last_analyzed_sha?: string;
+  total_commits: number;
+  total_findings: number;
+  config_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommitAnalysis {
+  commit_hash: string;
+  parent_hash?: string;
+  author_name: string;
+  author_email: string;
+  message: string;
+  commit_ts: string;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  diff_content?: string;
+  summary?: string;
+  risk_level?: "low" | "medium" | "high" | "critical";
+  ai_model?: string;
+  status: "pending" | "analyzing" | "completed" | "failed";
+  findings: CommitFindingItem[];
+}
+
+export interface CommitFindingItem {
+  id: number;
+  file_path: string;
+  line_number?: number;
+  severity: "info" | "warning" | "critical";
+  category: string;
+  description: string;
+  suggestion?: string;
+  confidence?: number;
+  evidence?: string;
+  reasoning?: string;
+}
+
+export interface ProjectStats {
+  total_commits: number;
+  analyzed_commits: number;
+  total_findings: number;
+  severity_distribution: Record<string, number>;
+  category_distribution: Record<string, number>;
+}

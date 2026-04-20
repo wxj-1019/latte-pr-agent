@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, GitPullRequest, BarChart3, Settings, FileText, Sparkles, Shield } from "lucide-react";
+import { LayoutDashboard, GitPullRequest, BarChart3, Settings, FileText, Sparkles, Shield, FolderGit2 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "首页" },
+  { href: "/dashboard/projects", icon: FolderGit2, label: "项目" },
   { href: "/dashboard/reviews", icon: GitPullRequest, label: "审查" },
   { href: "/dashboard/analyze", icon: Sparkles, label: "分析" },
   { href: "/dashboard/metrics", icon: BarChart3, label: "指标" },

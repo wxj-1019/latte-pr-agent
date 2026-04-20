@@ -5,6 +5,9 @@ from models.bug_knowledge import BugKnowledge
 from models.file_dependency import FileDependency
 from models.prompt_experiment import PromptExperiment, PromptExperimentAssignment
 from models.system_settings import SystemSettings
+from models.project_repo import ProjectRepo
+from models.commit_analysis import CommitAnalysis
+from models.commit_finding import CommitFinding
 
 __all__ = [
     "Base",
@@ -20,4 +23,7 @@ __all__ = [
     "PromptExperiment",
     "PromptExperimentAssignment",
     "SystemSettings",
+    "ProjectRepo",
+    "CommitAnalysis",
+    "CommitFinding",
 ]

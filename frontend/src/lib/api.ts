@@ -1,4 +1,4 @@
-import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult } from "@/types";
+import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats } from "@/types";
 import { csrfHeaders } from "./csrf";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -153,5 +153,60 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ repo_id: repoId, pr_number: prNumber, platform }),
     });
+  },
+
+  listProjects: async () => {
+    return fetchJson<{ projects: ProjectRepo[] }>("/projects");
+  },
+
+  addProject: async (body: { platform: string; repo_url: string; branch?: string }) => {
+    return fetchJson<{ project: ProjectRepo; message: string }>("/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  getProject: async (id: number) => {
+    return fetchJson<ProjectRepo>(`/projects/${id}`);
+  },
+
+  deleteProject: async (id: number) => {
+    return fetchJson<{ message: string }>(`/projects/${id}`, { method: "DELETE" });
+  },
+
+  syncProject: async (id: number) => {
+    return fetchJson<{ message: string; pulled: number }>(`/projects/${id}/sync`, { method: "POST" });
+  },
+
+  scanCommits: async (projectId: number, maxCommits: number = 50) => {
+    return fetchJson<{ project_id: number; scanned: number; saved: number }>(
+      `/projects/${projectId}/scan?max_commits=${maxCommits}`,
+      { method: "POST" }
+    );
+  },
+
+  listCommits: async (projectId: number, page: number = 1, pageSize: number = 20, riskLevel?: string) => {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (riskLevel) params.set("risk_level", riskLevel);
+    return fetchJson<{ commits: CommitAnalysis[]; total: number; page: number; page_size: number }>(
+      `/projects/${projectId}/commits?${params.toString()}`
+    );
+  },
+
+  getCommitDetail: async (projectId: number, commitHash: string) => {
+    return fetchJson<CommitAnalysis>(`/projects/${projectId}/commits/${commitHash}`);
+  },
+
+  getProjectStats: async (projectId: number) => {
+    return fetchJson<ProjectStats>(`/projects/${projectId}/stats`);
+  },
+
+  getProjectFindings: async (projectId: number, severity?: string, page: number = 1) => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (severity) params.set("severity", severity);
+    return fetchJson<{ findings: Array<Record<string, unknown>>; total: number; page: number }>(
+      `/projects/${projectId}/findings?${params.toString()}`
+    );
   },
 };
