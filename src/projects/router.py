@@ -65,14 +65,16 @@ async def sync_project(project_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
 
     import subprocess
+    import os
     new_commits = 0
     try:
-        if project.local_path and __import__("os").path.isdir(__import__("os").path.join(project.local_path, ".git")):
+        if project.local_path and os.path.isdir(os.path.join(project.local_path, ".git")):
             subprocess.run(
                 ["git", "fetch", "origin"],
                 cwd=project.local_path,
                 capture_output=True,
                 timeout=60,
+                check=True,
             )
             result = subprocess.run(
                 ["git", "log", f"HEAD..origin/{project.branch}", "--oneline"],
@@ -80,6 +82,7 @@ async def sync_project(project_id: int, db: AsyncSession = Depends(get_db)):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                check=True,
             )
             new_commits = len([line for line in result.stdout.strip().split("\n") if line])
             subprocess.run(
@@ -87,21 +90,17 @@ async def sync_project(project_id: int, db: AsyncSession = Depends(get_db)):
                 cwd=project.local_path,
                 capture_output=True,
                 timeout=60,
+                check=True,
             )
         else:
-            os_path = __import__("os").path
-            os_builtin = __import__("os")
-            os_builtin.makedirs(os_path.dirname(project.local_path), exist_ok=True)
+            os.makedirs(os.path.dirname(project.local_path), exist_ok=True)
             subprocess.run(
                 ["git", "clone", "--branch", project.branch, project.repo_url, project.local_path],
                 capture_output=True,
                 timeout=300,
+                check=True,
             )
             await svc.update_status(project.id, "ready")
-
-        if new_commits > 0:
-            project.total_commits += new_commits
-            await db.commit()
 
     except Exception as exc:
         await svc.update_status(project.id, "error", str(exc))

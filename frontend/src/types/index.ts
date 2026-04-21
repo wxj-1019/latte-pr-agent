@@ -211,3 +211,47 @@ export interface ProjectStats {
   severity_distribution: Record<string, number>;
   category_distribution: Record<string, number>;
 }
+
+export interface ContributorInfo {
+  author_name: string;
+  author_email: string;
+  commit_count: number;
+  analyzed_commits: number;
+  total_additions: number;
+  total_deletions: number;
+  total_files_changed: number;
+  latest_commit: string | null;
+  findings: {
+    critical: number;
+    warning: number;
+    info: number;
+    total: number;
+  };
+  finding_density: number;
+  quality_score: number;
+  grade: string;
+}
+
+export interface ContributorDetail {
+  commits: Array<{
+    commit_hash: string;
+    message: string;
+    commit_ts: string | null;
+    additions: number;
+    deletions: number;
+    changed_files: number;
+    risk_level: string | null;
+    status: string;
+    findings_count: number;
+    findings: Array<{
+      id: number;
+      file_path: string;
+      line_number: number | null;
+      severity: string;
+      category: string;
+      description: string;
+      suggestion: string | null;
+    }>;
+  }>;
+  total: number;
+}

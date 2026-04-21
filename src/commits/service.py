@@ -16,12 +16,9 @@ class CommitService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_project_or_raise(self, project_id: int) -> ProjectRepo:
+    async def get_project(self, project_id: int) -> Optional[ProjectRepo]:
         result = await self.session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
-        project = result.scalar_one_or_none()
-        if not project:
-            raise ValueError(f"Project {project_id} not found")
-        return project
+        return result.scalar_one_or_none()
 
     async def save_commits(self, project_id: int, commits: List[CommitInfo]) -> int:
         saved = 0
@@ -165,3 +162,142 @@ class CommitService:
             "severity_distribution": severity_dist,
             "category_distribution": category_dist,
         }
+
+    async def get_contributor_analysis(self, project_id: int) -> dict:
+        commit_rows = (await self.session.execute(
+            select(
+                CommitAnalysis.author_name,
+                CommitAnalysis.author_email,
+                func.count(CommitAnalysis.id).label("commit_count"),
+                func.sum(CommitAnalysis.additions).label("total_additions"),
+                func.sum(CommitAnalysis.deletions).label("total_deletions"),
+                func.sum(CommitAnalysis.changed_files).label("total_files"),
+                func.max(CommitAnalysis.commit_ts).label("latest_commit"),
+            )
+            .where(CommitAnalysis.project_id == project_id)
+            .group_by(CommitAnalysis.author_name, CommitAnalysis.author_email)
+            .order_by(func.count(CommitAnalysis.id).desc())
+        )).all()
+
+        contributors = []
+        for row in commit_rows:
+            name, email, commits, adds, dels, files, latest = row
+            sev_rows = (await self.session.execute(
+                select(CommitFinding.severity, func.count())
+                .join(CommitFinding.analysis)
+                .where(
+                    CommitAnalysis.project_id == project_id,
+                    CommitAnalysis.author_name == name,
+                    CommitAnalysis.author_email == email,
+                )
+                .group_by(CommitFinding.severity)
+            )).all()
+            sev_map = {r[0]: r[1] for r in sev_rows}
+
+            critical_count = sev_map.get("critical", 0)
+            warning_count = sev_map.get("warning", 0)
+            info_count = sev_map.get("info", 0)
+            total_findings = critical_count + warning_count + info_count
+
+            penalty = critical_count * 15 + warning_count * 5 + info_count * 1
+            quality_score = max(0, 100 - penalty)
+
+            analyzed_commits = (await self.session.execute(
+                select(func.count()).where(
+                    CommitAnalysis.project_id == project_id,
+                    CommitAnalysis.author_name == name,
+                    CommitAnalysis.author_email == email,
+                    CommitAnalysis.status == "completed",
+                )
+            )).scalar() or 0
+
+            finding_density = round(total_findings / max(analyzed_commits, 1), 2) if analyzed_commits > 0 else 0.0
+
+            contributors.append({
+                "author_name": name or "Unknown",
+                "author_email": email or "",
+                "commit_count": commits,
+                "analyzed_commits": analyzed_commits,
+                "total_additions": int(adds or 0),
+                "total_deletions": int(dels or 0),
+                "total_files_changed": int(files or 0),
+                "latest_commit": latest.isoformat() if latest else None,
+                "findings": {
+                    "critical": critical_count,
+                    "warning": warning_count,
+                    "info": info_count,
+                    "total": total_findings,
+                },
+                "finding_density": finding_density,
+                "quality_score": quality_score,
+                "grade": self._score_to_grade(quality_score),
+            })
+
+        return {"contributors": contributors, "total": len(contributors)}
+
+    async def get_contributor_detail(self, project_id: int, author_email: str) -> dict:
+        base_q = select(CommitAnalysis).where(
+            CommitAnalysis.project_id == project_id,
+            CommitAnalysis.author_email == author_email,
+        ).order_by(CommitAnalysis.commit_ts.desc())
+
+        total = (await self.session.execute(
+            select(func.count()).select_from(CommitAnalysis).where(
+                CommitAnalysis.project_id == project_id,
+                CommitAnalysis.author_email == author_email,
+            )
+        )).scalar() or 0
+
+        commits_result = await self.session.execute(base_q.limit(50))
+        commits = list(commits_result.scalars().all())
+
+        # Batch load findings to avoid N+1 queries
+        commit_ids = [c.id for c in commits]
+        findings_map: dict = {}
+        if commit_ids:
+            findings_result = await self.session.execute(
+                select(CommitFinding).where(CommitFinding.commit_analysis_id.in_(commit_ids))
+            )
+            for f in findings_result.scalars().all():
+                findings_map.setdefault(f.commit_analysis_id, []).append(f)
+
+        commit_list = []
+        for c in commits:
+            findings = findings_map.get(c.id, [])
+            commit_list.append({
+                "commit_hash": c.commit_hash,
+                "message": c.message,
+                "commit_ts": c.commit_ts.isoformat() if c.commit_ts else None,
+                "additions": c.additions,
+                "deletions": c.deletions,
+                "changed_files": c.changed_files,
+                "risk_level": c.risk_level,
+                "status": c.status,
+                "findings_count": len(findings),
+                "findings": [
+                    {
+                        "id": f.id,
+                        "file_path": f.file_path,
+                        "line_number": f.line_number,
+                        "severity": f.severity,
+                        "category": f.category,
+                        "description": f.description,
+                        "suggestion": f.suggestion,
+                    }
+                    for f in findings
+                ],
+            })
+
+        return {"commits": commit_list, "total": total}
+
+    @staticmethod
+    def _score_to_grade(score: int) -> str:
+        if score >= 90:
+            return "A"
+        if score >= 75:
+            return "B"
+        if score >= 60:
+            return "C"
+        if score >= 40:
+            return "D"
+        return "F"

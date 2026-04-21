@@ -8,6 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import get_db
 from commits.service import CommitService
 
+
+class ProjectNotFoundException(HTTPException):
+    def __init__(self, project_id: int):
+        super().__init__(status_code=404, detail=f"Project {project_id} not found")
+
 router = APIRouter(prefix="/projects/{project_id}", tags=["commits"])
 logger = logging.getLogger(__name__)
 
@@ -20,7 +25,9 @@ async def scan_commits(
     db: AsyncSession = Depends(get_db),
 ):
     svc = CommitService(db)
-    project = await svc.get_project_or_raise(project_id)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
 
     if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
         raise HTTPException(status_code=400, detail="Project repository not cloned yet")
@@ -52,7 +59,9 @@ async def list_commits(
     db: AsyncSession = Depends(get_db),
 ):
     svc = CommitService(db)
-    await svc.get_project_or_raise(project_id)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
     return await svc.list_commits(project_id, page, page_size, risk_level)
 
 
@@ -104,12 +113,34 @@ async def list_findings(
     db: AsyncSession = Depends(get_db),
 ):
     svc = CommitService(db)
-    await svc.get_project_or_raise(project_id)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
     return await svc.get_project_findings(project_id, severity, page)
 
 
 @router.get("/stats")
 async def project_stats(project_id: int, db: AsyncSession = Depends(get_db)):
     svc = CommitService(db)
-    await svc.get_project_or_raise(project_id)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
     return await svc.get_project_stats(project_id)
+
+
+@router.get("/contributors")
+async def contributor_analysis(project_id: int, db: AsyncSession = Depends(get_db)):
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_contributor_analysis(project_id)
+
+
+@router.get("/contributors/{author_email:path}")
+async def contributor_detail(project_id: int, author_email: str, db: AsyncSession = Depends(get_db)):
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_contributor_detail(project_id, author_email)

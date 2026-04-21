@@ -49,12 +49,22 @@ export default function ProjectsPage() {
     loadProjects();
   }, [loadProjects]);
 
+  const extractRepoId = (url: string): string => {
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.replace(/^\/|\/$/g, "").split("/");
+      if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`.replace(/\.git$/, "");
+    } catch {}
+    return url;
+  };
+
   const handleAdd = async () => {
     if (!addForm.repo_url.trim()) return;
     try {
       setAddLoading(true);
       setError("");
-      await api.addProject(addForm);
+      const repo_id = extractRepoId(addForm.repo_url);
+      await api.addProject({ ...addForm, repo_id });
       setShowAdd(false);
       setAddForm({ platform: "github", repo_url: "", branch: "main" });
       await loadProjects();

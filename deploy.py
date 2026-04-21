@@ -9,7 +9,7 @@ stdin, stdout, stderr = ssh.exec_command(
     "cd /mnt/wxj/latte-pr-agent && docker compose logs webhook-server --tail=50 2>&1 | grep -E '500|ERROR|error|Traceback' -A3"
 )
 print("=== 500 errors ===")
-print(stdout.read().decode())
+print(stdout.read().decode())                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
 
 # Test all main endpoints
 endpoints = [
@@ -18,7 +18,7 @@ endpoints = [
     "GET /reviews/1",
     "GET /reviews/1/findings",
     "GET /settings",
-    "GET /stats/overview",
+    "GET /stats",
     "GET /repos",
 ]
 for ep in endpoints:

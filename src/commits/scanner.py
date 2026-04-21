@@ -56,7 +56,7 @@ class GitLogScanner:
                 continue
 
             commit_hash = parts[0]
-            parent_hash = parts[1] if len(parts) > 1 else ""
+            parent_hash = parts[1].split()[0] if len(parts) > 1 and parts[1] else ""
             author_name = parts[2]
             author_email = parts[3]
             message = parts[4]
@@ -72,17 +72,16 @@ class GitLogScanner:
                 if not stat_line:
                     i += 1
                     break
-                if "|" in stat_line and stat_line[0] not in ("-", " "):
-                    stat_parts = stat_line.split("\t")
-                    if len(stat_parts) == 3:
-                        try:
-                            a = stat_parts[0].strip()
-                            d = stat_parts[1].strip()
-                            additions += int(a) if a != "-" else 0
-                            deletions += int(d) if d != "-" else 0
-                            files.append(stat_parts[2].strip())
-                        except ValueError:
-                            pass
+                stat_parts = stat_line.split("\t")
+                if len(stat_parts) == 3:
+                    try:
+                        a = stat_parts[0].strip()
+                        d = stat_parts[1].strip()
+                        additions += int(a) if a != "-" else 0
+                        deletions += int(d) if d != "-" else 0
+                        files.append(stat_parts[2].strip())
+                    except ValueError:
+                        pass
                     i += 1
                 else:
                     break

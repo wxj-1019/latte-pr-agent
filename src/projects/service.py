@@ -62,7 +62,7 @@ class ProjectService:
         project = await self.get_project(project_id)
         if not project:
             return False
-        if project.local_path and os.path.isdir(project.local_path):
+        if project.local_path and isinstance(project.local_path, str) and os.path.isdir(project.local_path):
             import shutil
             shutil.rmtree(project.local_path, ignore_errors=True)
         await self.session.delete(project)

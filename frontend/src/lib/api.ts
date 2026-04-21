@@ -1,4 +1,4 @@
-import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats } from "@/types";
+import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
 import { csrfHeaders } from "./csrf";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -159,8 +159,8 @@ export const api = {
     return fetchJson<{ projects: ProjectRepo[] }>("/projects");
   },
 
-  addProject: async (body: { platform: string; repo_url: string; branch?: string }) => {
-    return fetchJson<{ project: ProjectRepo; message: string }>("/projects", {
+  addProject: async (body: { platform: string; repo_url: string; repo_id: string; branch?: string }) => {
+    return fetchJson<ProjectRepo>("/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -176,7 +176,7 @@ export const api = {
   },
 
   syncProject: async (id: number) => {
-    return fetchJson<{ message: string; pulled: number }>(`/projects/${id}/sync`, { method: "POST" });
+    return fetchJson<{ id: number; status: string; new_commits: number }>(`/projects/${id}/sync`, { method: "POST" });
   },
 
   scanCommits: async (projectId: number, maxCommits: number = 50) => {
@@ -207,6 +207,18 @@ export const api = {
     if (severity) params.set("severity", severity);
     return fetchJson<{ findings: Array<Record<string, unknown>>; total: number; page: number }>(
       `/projects/${projectId}/findings?${params.toString()}`
+    );
+  },
+
+  getContributors: async (projectId: number) => {
+    return fetchJson<{ contributors: ContributorInfo[]; total: number }>(
+      `/projects/${projectId}/contributors`
+    );
+  },
+
+  getContributorDetail: async (projectId: number, authorEmail: string) => {
+    return fetchJson<ContributorDetail>(
+      `/projects/${projectId}/contributors/${encodeURIComponent(authorEmail)}`
     );
   },
 };
