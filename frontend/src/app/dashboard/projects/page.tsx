@@ -54,7 +54,9 @@ export default function ProjectsPage() {
       const u = new URL(url);
       const parts = u.pathname.replace(/^\/|\/$/g, "").split("/");
       if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`.replace(/\.git$/, "");
-    } catch {}
+    } catch {
+      // URL parse failed, return original string as fallback
+    }
     return url;
   };
 

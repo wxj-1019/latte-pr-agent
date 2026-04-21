@@ -38,7 +38,8 @@ export default function DashboardPage() {
       setProjectsLoading(true);
       const res = await api.listProjects();
       setProjects(res.projects || []);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load projects:", err);
       setProjects([]);
     } finally {
       setProjectsLoading(false);
@@ -56,7 +57,8 @@ export default function DashboardPage() {
       setScanningId(projectId);
       await api.scanCommits(projectId, 100);
       await loadProjects();
-    } catch {
+    } catch (err) {
+      console.error("Quick scan failed:", err);
     } finally {
       setScanningId(null);
     }

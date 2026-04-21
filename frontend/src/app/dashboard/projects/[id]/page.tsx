@@ -112,7 +112,8 @@ export default function ProjectDetailPage() {
       try {
         const detail = await api.getContributorDetail(projectId, email);
         setContributorCommits((prev) => ({ ...prev, [email]: detail }));
-      } catch {
+      } catch (err) {
+        console.error("Failed to load contributor detail:", err);
         setContributorCommits((prev) => ({ ...prev, [email]: { commits: [], total: 0 } }));
       }
     }

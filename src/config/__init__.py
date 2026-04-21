@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     enable_reasoner_review: bool = False
     cors_origins: str = "*"
     admin_api_key: str = ""
+    repos_base_path: str = "/repos"
 
 
 settings = Settings()
