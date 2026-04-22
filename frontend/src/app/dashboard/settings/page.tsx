@@ -74,10 +74,6 @@ export default function SystemSettingsPage() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const { showToast } = useToast();
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   async function loadSettings() {
     setLoading(true);
     setError(null);
@@ -99,6 +95,11 @@ export default function SystemSettingsPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleChange(key: string, value: string) {
     setEditValues((prev) => ({ ...prev, [key]: value }));

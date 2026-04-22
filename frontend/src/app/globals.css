@@ -81,6 +81,11 @@
   --latte-chart-axis: rgba(245, 230, 211, 0.1);
   --latte-chart-tooltip-border: rgba(245, 230, 211, 0.1);
 
+  --latte-input-glass-bg: rgba(30, 26, 22, 0.6);
+  --latte-input-glass-border: rgba(245, 230, 211, 0.08);
+  --latte-input-glass-focus-bg: rgba(40, 35, 30, 0.7);
+  --latte-input-glass-focus-border: rgba(196, 167, 125, 0.4);
+
   --latte-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --latte-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
   --latte-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.5);
@@ -106,7 +111,7 @@ body {
   min-height: 100vh;
   background-color: var(--latte-bg-primary);
   color: var(--latte-text-primary);
-  font-family: var(--font-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 @layer components {

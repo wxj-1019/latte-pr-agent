@@ -62,7 +62,7 @@ export function AnalysisProgressPanel({ progress }: AnalysisProgressPanelProps) 
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.25 }}
       >
-        <GlassCard variant="status" status={status as any} className="p-4 mb-6">
+        <GlassCard variant="status" status={status as "running" | "completed" | "failed"} className="p-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className={statusColor}>
