@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ function CheckIcon({ status }: { status: string }) {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [platform, setPlatform] = useState<"github" | "gitlab">("github");
   const [repoUrl, setRepoUrl] = useState("");
@@ -750,7 +752,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() => (window.location.href = "/dashboard/analyze")}
+                  onClick={() => router.push("/dashboard/analyze")}
                 >
                   试用代码分析
                   <Sparkles size={14} />

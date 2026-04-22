@@ -13,7 +13,19 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    throw new Error(`API 错误: ${res.status} ${res.statusText}`);
+    let message = `API 错误: ${res.status} ${res.statusText}`;
+    try {
+      const errBody = await res.json();
+      if (errBody.detail) message = errBody.detail;
+      else if (errBody.message) message = errBody.message;
+    } catch {
+      // response is not JSON, keep default message
+    }
+    throw new Error(message);
+  }
+  const contentType = res.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    throw new Error(`API 返回了非 JSON 响应 (${contentType || "unknown"})`);
   }
   return res.json() as Promise<T>;
 }

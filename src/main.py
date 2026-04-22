@@ -4,10 +4,12 @@ import uuid
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
 from logging_config import setup_logging, request_id_var
@@ -51,6 +53,23 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """为每个请求注入 X-Request-ID。"""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        token = request_id_var.set(request_id)
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            request_id_var.reset(token)
+
+
+# CORS 必须最后添加，确保它在 middleware 栈的最外层，
+# 这样即使内部发生异常，CORS 头也能正确返回。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -58,18 +77,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 
-@app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-    token = request_id_var.set(request_id)
-    try:
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
-    finally:
-        request_id_var.reset(token)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局异常处理器：确保 500 错误返回结构化 JSON 和 CORS 头，方便前端调试。"""
+    logger.exception("Unhandled exception: %s", exc)
+    origin = request.headers.get("origin", "")
+    headers: dict[str, str] = {}
+    if origin in _cors_origins:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "message": str(exc)},
+        headers=headers,
+    )
 
 
 app.include_router(webhook_router)

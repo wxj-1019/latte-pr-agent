@@ -12,11 +12,11 @@ interface StatusBadgeProps {
 const statusConfig: Record<StatusType, { label: string; dotClass: string }> = {
   pending: {
     label: "待处理",
-    dotClass: "bg-amber-500 animate-pulse-slow",
+    dotClass: "bg-latte-warning animate-pulse-slow",
   },
   running: {
     label: "进行中",
-    dotClass: "bg-blue-500",
+    dotClass: "bg-latte-info",
   },
   completed: {
     label: "已完成",
@@ -45,7 +45,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       {status === "running" ? (
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-latte-info"></span>
         </span>
       ) : (
         <span className={cn("h-1.5 w-1.5 rounded-full", config.dotClass)} />

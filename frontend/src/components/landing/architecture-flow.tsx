@@ -66,7 +66,7 @@ export function ArchitectureFlow() {
           return (
             <motion.div
               key={node.id}
-              initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+              initial={{ opacity: 1, x: index % 2 === 0 ? -30 : 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.15 }}
@@ -113,7 +113,7 @@ export function ArchitectureFlow() {
 
       {/* Scale badge */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 1, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6, delay: 0.6 }}

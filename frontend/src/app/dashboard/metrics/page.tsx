@@ -5,6 +5,7 @@ import { useMetrics } from "@/hooks/use-metrics";
 import { GlassCard } from "@/components/ui/glass-card";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { CountUp } from "@/components/ui/count-up";
+import { api } from "@/lib/api";
 import {
   LineChart,
   Line,
@@ -17,7 +18,8 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, FolderGit2 } from "lucide-react";
+import Link from "next/link";
 
 const rangeOptions: Array<"7d" | "30d" | "90d"> = ["7d", "30d", "90d"];
 
@@ -30,13 +32,33 @@ const pieColors = [
   "var(--latte-critical)",
 ];
 
-
-
 export default function MetricsPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
-  const { metrics, chart, categoryDistribution, isLoading, error } = useMetrics(range, "default");
+  const [repos, setRepos] = useState<string[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [reposLoading, setReposLoading] = useState(true);
+
+  useEffect(() => {
+    api.getRepos()
+      .then((res) => {
+        const list = res.repos || [];
+        setRepos(list);
+        if (list.length > 0) {
+          setSelectedRepo(list[0]);
+        }
+      })
+      .catch(() => setRepos([]))
+      .finally(() => setReposLoading(false));
+  }, []);
+
+  const { metrics, chart, categoryDistribution, isLoading, error } = useMetrics(
+    range,
+    selectedRepo || undefined
+  );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const showEmpty = !reposLoading && repos.length === 0;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -45,7 +67,18 @@ export default function MetricsPage() {
           <h1 className="text-2xl font-display font-semibold tracking-tight text-latte-text-primary">
             指标
           </h1>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {repos.length > 0 && (
+              <select
+                value={selectedRepo}
+                onChange={(e) => setSelectedRepo(e.target.value)}
+                className="h-9 px-3 rounded-latte-md bg-latte-bg-tertiary text-sm text-latte-text-secondary border border-transparent focus:border-latte-gold/40 outline-none"
+              >
+                {repos.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            )}
             {rangeOptions.map((r) => (
               <button
                 key={r}
@@ -63,7 +96,23 @@ export default function MetricsPage() {
         </div>
       </FadeInUp>
 
-      {error ? (
+      {showEmpty ? (
+        <FadeInUp delay={0.1}>
+          <GlassCard className="p-12 text-center">
+            <FolderGit2 size={40} className="mx-auto mb-4 text-latte-gold opacity-50" />
+            <p className="text-lg font-medium text-latte-text-primary mb-2">暂无仓库数据</p>
+            <p className="text-sm text-latte-text-tertiary mb-6">
+              添加项目仓库后即可查看审查指标和趋势分析
+            </p>
+            <Link
+              href="/dashboard/projects"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-latte-lg bg-latte-gold/10 text-latte-gold text-sm font-medium hover:bg-latte-gold/15 transition-colors"
+            >
+              添加项目仓库
+            </Link>
+          </GlassCard>
+        </FadeInUp>
+      ) : error ? (
         <FadeInUp delay={0.1}>
           <div className="flex flex-col items-center justify-center py-12 text-latte-text-tertiary">
             <p className="text-lg font-medium">加载指标失败</p>

@@ -10,10 +10,10 @@ interface RealtimeIndicatorProps {
 
 export function RealtimeIndicator({ status, className, onClick }: RealtimeIndicatorProps) {
   const config = {
-    connecting: { label: "连接中", dotClass: "bg-amber-500 animate-pulse-slow" },
+    connecting: { label: "连接中", dotClass: "bg-latte-warning animate-pulse-slow" },
     connected: { label: "实时", dotClass: "bg-latte-success" },
     disconnected: { label: "离线", dotClass: "bg-latte-critical" },
-    reconnecting: { label: "重连中", dotClass: "bg-amber-500 animate-pulse-slow" },
+    reconnecting: { label: "重连中", dotClass: "bg-latte-warning animate-pulse-slow" },
   }[status];
 
   const isClickable = status !== "connected" && !!onClick;

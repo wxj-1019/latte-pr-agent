@@ -22,7 +22,7 @@ const specs = [
   { label: "数据库", value: "PostgreSQL 16 + pgvector", icon: Database },
   { label: "LLM 提供商", value: "DeepSeek, Claude, Qwen", icon: GitBranch },
   { label: "静态分析", value: "Semgrep", icon: Box },
-  { label: "测试覆盖", value: "72+ 自动化测试", icon: CheckCircle },
+  { label: "测试覆盖", value: "136+ 自动化测试", icon: CheckCircle },
 ];
 
 export default function HomePage() {

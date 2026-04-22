@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useStats } from "@/hooks/use-stats";
 import { GlassCard } from "@/components/ui/glass-card";
 import { FadeInUp } from "@/components/motion/fade-in-up";
@@ -26,6 +27,7 @@ import { api } from "@/lib/api";
 import type { ProjectRepo } from "@/types";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { stats, isLoading, error, mutate } = useStats();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTriggerDialog, setShowTriggerDialog] = useState(false);
@@ -128,7 +130,7 @@ export default function DashboardPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() => (window.location.href = "/dashboard/projects")}
+                  onClick={() => router.push("/dashboard/projects")}
                 >
                   添加项目仓库
                 </Button>
@@ -224,7 +226,7 @@ export default function DashboardPage() {
                           {project.status === "ready" ? (
                             <CheckCircle2 size={14} className="text-green-500 shrink-0" />
                           ) : project.status === "error" ? (
-                            <AlertCircle size={14} className="text-red-500 shrink-0" />
+                            <AlertCircle size={14} className="text-latte-critical shrink-0" />
                           ) : null}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-latte-text-tertiary">

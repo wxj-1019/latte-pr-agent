@@ -22,8 +22,8 @@ export function FadeInUp({ children, delay = 0, className }: FadeInUpProps) {
 
   return (
     <motion.div
-      initial={reducedMotion ? {} : { opacity: 0, y: 40, filter: "blur(8px)" }}
-      whileInView={reducedMotion ? {} : { opacity: 1, y: 0, filter: "blur(0px)" }}
+      initial={reducedMotion ? {} : { opacity: 1, y: 40 }}
+      whileInView={reducedMotion ? {} : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{
         duration: 0.8,

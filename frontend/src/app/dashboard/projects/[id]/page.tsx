@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import type { ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
 import {
   ArrowLeft,
@@ -25,27 +26,28 @@ import {
 } from "lucide-react";
 
 const riskColors: Record<string, string> = {
-  critical: "bg-red-100 text-red-700 border-red-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-green-100 text-green-700 border-green-200",
+  critical: "bg-latte-critical/10 text-latte-critical border-latte-critical/20",
+  high: "bg-latte-warning/10 text-latte-warning border-latte-warning/20",
+  medium: "bg-latte-gold/10 text-latte-gold border-latte-gold/20",
+  low: "bg-latte-success/10 text-latte-success border-latte-success/20",
 };
 
 const sevColors: Record<string, string> = {
-  critical: "text-red-600",
-  warning: "text-yellow-600",
-  info: "text-blue-600",
+  critical: "text-latte-critical",
+  warning: "text-latte-warning",
+  info: "text-latte-info",
 };
 
 const gradeColors: Record<string, string> = {
-  A: "bg-green-500",
-  B: "bg-blue-500",
-  C: "bg-yellow-500",
-  D: "bg-orange-500",
-  F: "bg-red-500",
+  A: "bg-latte-success",
+  B: "bg-latte-info",
+  C: "bg-latte-gold",
+  D: "bg-latte-warning",
+  F: "bg-latte-critical",
 };
 
 export default function ProjectDetailPage() {
+  const { showToast } = useToast();
   const params = useParams();
   const router = useRouter();
   const projectId = Number(params.id);
@@ -93,7 +95,7 @@ export default function ProjectDetailPage() {
       setScanLoading(true);
       setError("");
       const res = await api.scanCommits(projectId, 200);
-      alert(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
+      showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "扫描失败");
@@ -156,7 +158,7 @@ export default function ProjectDetailPage() {
         <button
           onClick={handleScan}
           disabled={project.status !== "ready" || scanLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-white rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-latte-bg-primary rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
         >
           {scanLoading ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
           扫描提交
@@ -164,7 +166,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-latte-critical/5 border border-latte-critical/20 rounded-lg text-latte-critical text-sm">
           <AlertCircle size={16} />
           {error}
         </div>
@@ -197,17 +199,17 @@ export default function ProjectDetailPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-4 bg-white border border-latte-border rounded-xl text-center">
+                <div className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl text-center">
                   <p className="text-2xl font-bold text-latte-text-primary">{contributors.length}</p>
                   <p className="text-xs text-latte-text-secondary mt-1">贡献者</p>
                 </div>
-                <div className="p-4 bg-white border border-latte-border rounded-xl text-center">
-                  <p className="text-2xl font-bold text-green-600">
+                <div className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl text-center">
+                  <p className="text-2xl font-bold text-latte-success">
                     {contributors.filter((c) => c.grade === "A" || c.grade === "B").length}
                   </p>
                   <p className="text-xs text-latte-text-secondary mt-1">高质量开发者</p>
                 </div>
-                <div className="p-4 bg-white border border-latte-border rounded-xl text-center">
+                <div className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl text-center">
                   <p className="text-2xl font-bold text-latte-text-primary">
                     {contributors.length > 0
                       ? Math.round(contributors.reduce((s, c) => s + c.quality_score, 0) / contributors.length)
@@ -215,8 +217,8 @@ export default function ProjectDetailPage() {
                   </p>
                   <p className="text-xs text-latte-text-secondary mt-1">平均质量分</p>
                 </div>
-                <div className="p-4 bg-white border border-latte-border rounded-xl text-center">
-                  <p className="text-2xl font-bold text-red-500">
+                <div className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl text-center">
+                  <p className="text-2xl font-bold text-latte-critical">
                     {contributors.reduce((s, c) => s + c.findings.critical, 0)}
                   </p>
                   <p className="text-xs text-latte-text-secondary mt-1">严重发现</p>
@@ -228,7 +230,7 @@ export default function ProjectDetailPage() {
                 const detailCommits = contributorCommits[contributor.author_email]?.commits || [];
 
                 return (
-                  <div key={contributor.author_email} className="bg-white border border-latte-border rounded-xl overflow-hidden">
+                  <div key={contributor.author_email} className="bg-latte-bg-secondary border border-latte-border rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleContributor(contributor.author_email)}
                       className="w-full flex items-center gap-4 p-5 hover:bg-latte-bg-tertiary/20 transition-colors text-left"
@@ -246,8 +248,8 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-xs text-latte-text-secondary">
                           <span>{contributor.commit_count} 提交</span>
-                          <span className="text-green-600">+{contributor.total_additions}</span>
-                          <span className="text-red-500">-{contributor.total_deletions}</span>
+                          <span className="text-latte-success">+{contributor.total_additions}</span>
+                          <span className="text-latte-critical">-{contributor.total_deletions}</span>
                           <span>{contributor.total_files_changed} 文件</span>
                           {contributor.findings.total > 0 && (
                             <span className="text-latte-text-secondary">
@@ -259,7 +261,7 @@ export default function ProjectDetailPage() {
 
                       <div className="flex items-center gap-4 shrink-0">
                         <div className="text-center">
-                          <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-white font-bold text-sm ${gradeColors[contributor.grade] || "bg-gray-400"}`}>
+                          <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-latte-bg-primary font-bold text-sm ${gradeColors[contributor.grade] || "bg-latte-text-muted"}`}>
                             {contributor.grade}
                           </div>
                           <p className="text-xs text-latte-text-secondary mt-1">{contributor.quality_score}分</p>
@@ -267,22 +269,22 @@ export default function ProjectDetailPage() {
 
                         <div className="flex gap-1.5">
                           {contributor.findings.critical > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-latte-critical/10 text-latte-critical">
                               {contributor.findings.critical} 严重
                             </span>
                           )}
                           {contributor.findings.warning > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-latte-warning/10 text-latte-warning">
                               {contributor.findings.warning} 警告
                             </span>
                           )}
                           {contributor.findings.info > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-latte-info/10 text-latte-info">
                               {contributor.findings.info} 信息
                             </span>
                           )}
                           {contributor.findings.total === 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-latte-success/10 text-latte-success">
                               无问题
                             </span>
                           )}
@@ -296,7 +298,7 @@ export default function ProjectDetailPage() {
                       <div className="border-t border-latte-border bg-latte-bg-primary/30">
                         <div className="p-5 space-y-3">
                           <div className="grid grid-cols-3 gap-3 mb-4">
-                            <div className="p-3 bg-white rounded-lg border border-latte-border">
+                            <div className="p-3 bg-latte-bg-secondary rounded-lg border border-latte-border">
                               <div className="flex items-center gap-1.5 text-xs text-latte-text-secondary mb-1">
                                 <Shield size={12} />
                                 代码质量
@@ -304,14 +306,14 @@ export default function ProjectDetailPage() {
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 h-2 bg-latte-bg-tertiary rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${contributor.quality_score >= 75 ? "bg-green-500" : contributor.quality_score >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
+                                    className={`h-full rounded-full ${contributor.quality_score >= 75 ? "bg-latte-success" : contributor.quality_score >= 50 ? "bg-latte-gold" : "bg-latte-critical"}`}
                                     style={{ width: `${contributor.quality_score}%` }}
                                   />
                                 </div>
                                 <span className="text-sm font-medium">{contributor.quality_score}</span>
                               </div>
                             </div>
-                            <div className="p-3 bg-white rounded-lg border border-latte-border">
+                            <div className="p-3 bg-latte-bg-secondary rounded-lg border border-latte-border">
                               <div className="flex items-center gap-1.5 text-xs text-latte-text-secondary mb-1">
                                 <TrendingUp size={12} />
                                 发现密度
@@ -321,7 +323,7 @@ export default function ProjectDetailPage() {
                                 <span className="text-xs font-normal text-latte-text-secondary ml-1">/ 提交</span>
                               </p>
                             </div>
-                            <div className="p-3 bg-white rounded-lg border border-latte-border">
+                            <div className="p-3 bg-latte-bg-secondary rounded-lg border border-latte-border">
                               <div className="flex items-center gap-1.5 text-xs text-latte-text-secondary mb-1">
                                 <BarChart3 size={12} />
                                 已分析
@@ -338,7 +340,7 @@ export default function ProjectDetailPage() {
                             <p className="text-xs text-latte-text-secondary py-4 text-center">加载中...</p>
                           ) : (
                             detailCommits.map((c) => (
-                              <div key={c.commit_hash} className="p-3 bg-white rounded-lg border border-latte-border">
+                              <div key={c.commit_hash} className="p-3 bg-latte-bg-secondary rounded-lg border border-latte-border">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
@@ -356,30 +358,30 @@ export default function ProjectDetailPage() {
                                     </div>
                                     <p className="text-sm text-latte-text-primary mt-1 truncate">{c.message}</p>
                                     <div className="flex items-center gap-3 mt-1 text-xs text-latte-text-secondary">
-                                      <span className="text-green-600">+{c.additions}</span>
-                                      <span className="text-red-500">-{c.deletions}</span>
+                                      <span className="text-latte-success">+{c.additions}</span>
+                                      <span className="text-latte-critical">-{c.deletions}</span>
                                       <span>{c.changed_files} 文件</span>
                                       {c.commit_ts != null && <span>{new Date(c.commit_ts).toLocaleString("zh-CN")}</span>}
                                     </div>
                                     {c.findings.length > 0 && (
-                                      <div className="mt-2 space-y-1">
-                                        {c.findings.map((f, fi) => (
-                                          <div key={fi} className="flex items-start gap-2 text-xs p-2 bg-latte-bg-tertiary rounded">
-                                            <span className={`shrink-0 font-medium ${sevColors[f.severity] || ""}`}>
-                                              [{f.severity}]
-                                            </span>
-                                            <div className="min-w-0">
-                                              <p className="text-latte-text-primary">{f.description}</p>
-                                              {f.file_path && (
-                                                <p className="text-latte-text-secondary mt-0.5">
-                                                  {f.file_path}{f.line_number ? `:${f.line_number}` : ""}
-                                                </p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
+                            <div className="mt-2 space-y-1">
+                              {c.findings.map((f, fi) => (
+                                <div key={fi} className="flex items-start gap-2 text-xs p-2 bg-latte-bg-tertiary rounded">
+                                  <span className={`shrink-0 font-medium ${sevColors[f.severity] || ""}`}>
+                                    [{f.severity}]
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-latte-text-primary">{f.description}</p>
+                                    {f.file_path && (
+                                      <p className="text-latte-text-secondary mt-0.5">
+                                        {f.file_path}{f.line_number ? `:${f.line_number}` : ""}
+                                      </p>
                                     )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                                   </div>
                                 </div>
                               </div>
@@ -398,7 +400,7 @@ export default function ProjectDetailPage() {
 
       {activeTab === "stats" && stats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-5 bg-white border border-latte-border rounded-xl">
+          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
             <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
               <GitCommitHorizontal size={16} />
               总提交数
@@ -406,14 +408,14 @@ export default function ProjectDetailPage() {
             <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_commits}</p>
             <p className="text-xs text-latte-text-secondary mt-1">已分析 {stats.analyzed_commits}</p>
           </div>
-          <div className="p-5 bg-white border border-latte-border rounded-xl">
+          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
             <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
               <AlertTriangle size={16} />
               发现总数
             </div>
             <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_findings}</p>
           </div>
-          <div className="p-5 bg-white border border-latte-border rounded-xl">
+          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
             <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
               <BarChart3 size={16} />
               严重程度分布
@@ -421,7 +423,7 @@ export default function ProjectDetailPage() {
             <div className="space-y-1">
               {Object.entries(stats.severity_distribution).map(([sev, count]) => (
                 <div key={sev} className="flex items-center justify-between text-sm">
-                  <span className={sevColors[sev] || "text-gray-600"}>{sev}</span>
+                  <span className={sevColors[sev] || "text-latte-text-muted"}>{sev}</span>
                   <span className="font-medium">{count}</span>
                 </div>
               ))}
@@ -431,7 +433,7 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           {Object.keys(stats.category_distribution).length > 0 && (
-            <div className="md:col-span-3 p-5 bg-white border border-latte-border rounded-xl">
+            <div className="md:col-span-3 p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
               <h3 className="text-sm text-latte-text-secondary mb-3">类别分布</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {Object.entries(stats.category_distribution).map(([cat, count]) => (
@@ -458,7 +460,7 @@ export default function ProjectDetailPage() {
             commits.map((c) => (
               <div
                 key={c.commit_hash}
-                className="p-4 bg-white border border-latte-border rounded-xl hover:shadow-sm transition-shadow"
+                className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -472,10 +474,10 @@ export default function ProjectDetailPage() {
                         </span>
                       )}
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        c.status === "completed" ? "bg-green-50 text-green-600" :
-                        c.status === "pending" ? "bg-yellow-50 text-yellow-600" :
-                        c.status === "analyzing" ? "bg-blue-50 text-blue-600" :
-                        "bg-red-50 text-red-600"
+                        c.status === "completed" ? "bg-latte-success/10 text-latte-success" :
+                        c.status === "pending" ? "bg-latte-gold/10 text-latte-gold" :
+                        c.status === "analyzing" ? "bg-latte-info/10 text-latte-info" :
+                        "bg-latte-critical/10 text-latte-critical"
                       }`}>
                         {c.status === "completed" ? "已分析" : c.status === "pending" ? "待分析" : c.status === "analyzing" ? "分析中" : "失败"}
                       </span>
@@ -490,8 +492,8 @@ export default function ProjectDetailPage() {
                         <Clock size={12} />
                         {new Date(c.commit_ts).toLocaleString("zh-CN")}
                       </span>
-                      <span className="text-green-600">+{c.additions}</span>
-                      <span className="text-red-500">-{c.deletions}</span>
+                      <span className="text-latte-success">+{c.additions}</span>
+                      <span className="text-latte-critical">-{c.deletions}</span>
                       <span className="flex items-center gap-1">
                         <FileCode size={12} />
                         {c.changed_files} 文件

@@ -57,6 +57,7 @@ Thumbs.db
 
 # Deploy scripts
 check_deploy.py
+server_deploy.py
 
 # Logs
 *.log

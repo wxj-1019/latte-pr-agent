@@ -53,7 +53,7 @@ export function BentoGrid() {
   return (
     <section className="py-24 px-6 max-w-7xl mx-auto">
       <motion.h2
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 1, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.8 }}
@@ -69,7 +69,7 @@ export function BentoGrid() {
           return (
             <motion.div
               key={feature.id}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 1, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: i * 0.08 }}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import type { ProjectRepo } from "@/types";
 import {
   FolderGit2,
@@ -18,13 +19,14 @@ import {
 } from "lucide-react";
 
 const statusConfig: Record<string, { color: string; label: string }> = {
-  pending: { color: "bg-yellow-100 text-yellow-700", label: "等待中" },
-  cloning: { color: "bg-blue-100 text-blue-700", label: "克隆中" },
-  ready: { color: "bg-green-100 text-green-700", label: "就绪" },
-  error: { color: "bg-red-100 text-red-700", label: "错误" },
+  pending: { color: "bg-latte-warning/10 text-latte-warning border-latte-warning/20", label: "等待中" },
+  cloning: { color: "bg-latte-info/10 text-latte-info border-latte-info/20", label: "克隆中" },
+  ready: { color: "bg-latte-success/10 text-latte-success border-latte-success/20", label: "就绪" },
+  error: { color: "bg-latte-critical/10 text-latte-critical border-latte-critical/20", label: "错误" },
 };
 
 export default function ProjectsPage() {
+  const { showToast } = useToast();
   const [projects, setProjects] = useState<ProjectRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -101,7 +103,7 @@ export default function ProjectsPage() {
       setScanLoading(id);
       setError("");
       const res = await api.scanCommits(id, 100);
-      alert(`扫描完成：共 ${res.scanned} 个提交，新增 ${res.saved} 条记录`);
+      showToast(`扫描完成：共 ${res.scanned} 个提交，新增 ${res.saved} 条记录`);
       await loadProjects();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "扫描失败");
@@ -127,7 +129,7 @@ export default function ProjectsPage() {
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-white rounded-lg hover:bg-latte-gold/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-latte-bg-primary rounded-lg hover:bg-latte-gold/90 transition-colors"
         >
           <Plus size={18} />
           添加项目
@@ -135,14 +137,14 @@ export default function ProjectsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-latte-critical/5 border border-latte-critical/20 rounded-lg text-latte-critical text-sm">
           <AlertCircle size={16} />
           {error}
         </div>
       )}
 
       {showAdd && (
-        <div className="p-5 bg-white border border-latte-border rounded-xl space-y-4">
+        <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl space-y-4">
           <h3 className="font-medium text-latte-text-primary">添加新项目</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -150,7 +152,7 @@ export default function ProjectsPage() {
               <select
                 value={addForm.platform}
                 onChange={(e) => setAddForm((f) => ({ ...f, platform: e.target.value }))}
-                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm bg-white"
+                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm bg-latte-bg-primary"
               >
                 <option value="github">GitHub</option>
                 <option value="gitlab">GitLab</option>
@@ -163,7 +165,7 @@ export default function ProjectsPage() {
                 value={addForm.repo_url}
                 onChange={(e) => setAddForm((f) => ({ ...f, repo_url: e.target.value }))}
                 placeholder="https://github.com/org/repo.git"
-                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm bg-latte-bg-primary text-latte-text-primary"
               />
             </div>
             <div>
@@ -173,7 +175,7 @@ export default function ProjectsPage() {
                 value={addForm.branch}
                 onChange={(e) => setAddForm((f) => ({ ...f, branch: e.target.value }))}
                 placeholder="main"
-                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-latte-border rounded-lg text-sm bg-latte-bg-primary text-latte-text-primary"
               />
             </div>
           </div>
@@ -181,7 +183,7 @@ export default function ProjectsPage() {
             <button
               onClick={handleAdd}
               disabled={addLoading || !addForm.repo_url.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-white rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-latte-bg-primary rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
             >
               {addLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               添加
@@ -209,7 +211,7 @@ export default function ProjectsPage() {
             return (
               <div
                 key={project.id}
-                className="p-5 bg-white border border-latte-border rounded-xl hover:shadow-sm transition-shadow"
+                className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -236,12 +238,12 @@ export default function ProjectsPage() {
                       <span>{project.total_findings} 发现</span>
                       <span className="flex items-center gap-1">
                         {project.status === "ready" ? (
-                          <CheckCircle2 size={14} className="text-green-500" />
+                          <CheckCircle2 size={14} className="text-latte-success" />
                         ) : project.status === "error" ? (
-                          <AlertCircle size={14} className="text-red-500" />
+                          <AlertCircle size={14} className="text-latte-critical" />
                         ) : null}
                         {project.error_message && (
-                          <span className="text-red-500 truncate max-w-xs">{project.error_message}</span>
+                          <span className="text-latte-critical truncate max-w-xs">{project.error_message}</span>
                         )}
                       </span>
                     </div>
@@ -270,7 +272,7 @@ export default function ProjectsPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(project.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm border border-latte-critical/30 text-latte-critical rounded-lg hover:bg-latte-critical/5 transition-colors"
                       title="删除项目"
                     >
                       <Trash2 size={14} />

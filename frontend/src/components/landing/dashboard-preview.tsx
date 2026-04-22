@@ -10,7 +10,7 @@ export function DashboardPreview() {
     <section className="py-24 px-6 overflow-hidden">
       <div className="max-w-7xl mx-auto text-center mb-14">
         <motion.h2
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 1, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
@@ -20,7 +20,7 @@ export function DashboardPreview() {
           每次审查，一目了然
         </motion.h2>
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.1 }}
@@ -31,7 +31,7 @@ export function DashboardPreview() {
       </div>
 
       <motion.div
-        initial={{ opacity: 0, rotateX: 15, y: 60 }}
+        initial={{ opacity: 1, rotateX: 15, y: 60 }}
         whileInView={{ opacity: 1, rotateX: 5, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}

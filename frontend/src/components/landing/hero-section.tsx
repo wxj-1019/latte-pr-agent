@@ -62,7 +62,7 @@ export function HeroSection() {
 
       <div className="relative z-10 text-center max-w-5xl px-6">
         <motion.h1
-          initial={reducedMotion ? {} : { opacity: 0, y: 40 }}
+          initial={reducedMotion ? {} : { opacity: 1, y: 40 }}
           animate={reducedMotion ? {} : { opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           className="font-display font-bold tracking-tight text-latte-text-primary"
@@ -74,7 +74,7 @@ export function HeroSection() {
         </motion.h1>
 
         <motion.p
-          initial={reducedMotion ? {} : { opacity: 0, y: 30 }}
+          initial={reducedMotion ? {} : { opacity: 1, y: 30 }}
           animate={reducedMotion ? {} : { opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="text-lg md:text-xl text-latte-text-secondary max-w-3xl mx-auto mt-6 mb-10 leading-relaxed"
@@ -84,7 +84,7 @@ export function HeroSection() {
         </motion.p>
 
         <motion.div
-          initial={reducedMotion ? {} : { opacity: 0, y: 20 }}
+          initial={reducedMotion ? {} : { opacity: 1, y: 20 }}
           animate={reducedMotion ? {} : { opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="flex items-center justify-center gap-4"

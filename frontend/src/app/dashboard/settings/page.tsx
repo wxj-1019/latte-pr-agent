@@ -153,9 +153,13 @@ export default function SystemSettingsPage() {
     }
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    showToast("已复制到剪贴板");
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("已复制到剪贴板");
+    } catch {
+      showToast("复制失败，请手动复制", "error");
+    }
   }
 
   if (loading) {
@@ -338,7 +342,7 @@ function WebhookTestResultCard({
                 ? "bg-latte-success/10 text-latte-success"
                 : check.status === "error"
                 ? "bg-latte-critical/10 text-latte-critical"
-                : "bg-blue-500/10 text-blue-400"
+                : "bg-latte-info/10 text-latte-info"
             }`}
           >
             <span className="mt-0.5">
