@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     risk_level      VARCHAR(10),
     trigger_type    VARCHAR(30),
     review_mode     VARCHAR(20) DEFAULT 'incremental',
+    prompt_version  VARCHAR(50),
     diff_stats      JSONB,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     completed_at    TIMESTAMPTZ,
