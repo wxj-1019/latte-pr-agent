@@ -34,25 +34,10 @@ async def lifespan(app: FastAPI):
     logger.info("Latte PR Agent shutting down")
 
 
-_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-
-if "*" in _cors_origins:
-    if settings.app_env == "production":
-        raise RuntimeError(
-            "CORS_ORIGINS cannot be '*' in production when allow_credentials=True. "
-            "Set CORS_ORIGINS to an explicit domain whitelist."
-        )
-    logger.warning("CORS_ORIGINS='*' with credentials; expanding to common dev origins")
-    _cors_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
-
-_docs_url = "/docs" if settings.app_env != "production" else None
-_redoc_url = "/redoc" if settings.app_env != "production" else None
-_openapi_url = "/openapi.json" if settings.app_env != "production" else None
+_cors_origins = settings.get_cors_origins()
+_docs_url = settings.get_docs_urls()["docs_url"]
+_redoc_url = settings.get_docs_urls()["redoc_url"]
+_openapi_url = settings.get_docs_urls()["openapi_url"]
 
 app = FastAPI(
     title="Latte PR Agent - AI 代码审查系统",

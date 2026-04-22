@@ -1,4 +1,4 @@
-from pydantic import SecretStr
+from pydantic import field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,47 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     admin_api_key: str = ""
     repos_base_path: str = "/repos"
+
+    @field_validator("app_env", mode="before")
+    @classmethod
+    def normalize_env(cls, v):
+        if isinstance(v, str):
+            return v.lower().strip()
+        return v
+
+    def get_cors_origins(self) -> list[str]:
+        """根据环境自动推断 CORS origins。
+
+        - 生产环境：必须显式配置，不能为 * 或空
+        - 开发环境：未配置时自动展开为常见本地端口
+        """
+        raw = self.cors_origins.strip()
+        if raw and raw != "*":
+            return [o.strip() for o in raw.split(",") if o.strip()]
+
+        if self.app_env == "production":
+            raise RuntimeError(
+                "生产环境必须显式配置 CORS_ORIGINS，"
+                "例如：CORS_ORIGINS=https://your-domain.com"
+            )
+
+        # 开发环境默认值
+        return [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+
+    def get_docs_urls(self) -> dict:
+        """根据环境返回 API 文档配置。"""
+        if self.app_env == "production":
+            return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+        return {
+            "docs_url": "/docs",
+            "redoc_url": "/redoc",
+            "openapi_url": "/openapi.json",
+        }
 
 
 settings = Settings()
