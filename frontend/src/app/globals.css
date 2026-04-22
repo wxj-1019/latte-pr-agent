@@ -32,6 +32,8 @@
   --latte-info: #9A8B7A;
   --latte-info-bg: rgba(154, 139, 122, 0.12);
 
+  --latte-border: rgba(245, 230, 211, 0.06);
+
   --latte-severity-info: #9A8B7A;
   --latte-severity-warning: #B85C38;
   --latte-severity-critical: #8B3A3A;

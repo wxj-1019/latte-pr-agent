@@ -53,12 +53,39 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
+class ColoredFormatter(logging.Formatter):
+    """ANSI color formatter for console logs."""
+
+    _COLORS = {
+        "DEBUG": "\033[36m",      # cyan
+        "INFO": "\033[32m",       # green
+        "WARNING": "\033[33m",    # yellow
+        "ERROR": "\033[31m",      # red
+        "CRITICAL": "\033[1;35m", # bold magenta
+    }
+    _RESET = "\033[0m"
+    _DIM = "\033[2m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        color = self._COLORS.get(record.levelname, self._RESET)
+        # Colorize level name
+        record.levelname_colored = f"{color}{record.levelname}{self._RESET}"
+        # Dim the logger name
+        record.name_dimmed = f"{self._DIM}{record.name}{self._RESET}"
+        return super().format(record)
+
+
 def setup_logging(log_level: str = "INFO") -> None:
     """Configure root logger with consistent formatting and security filters."""
     level = getattr(logging, log_level.upper(), logging.INFO)
 
-    formatter = logging.Formatter(
+    plain_formatter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)s] [req:%(request_id)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    colored_formatter = ColoredFormatter(
+        fmt="%(asctime)s [%(levelname_colored)s] [req:%(request_id)s] %(name_dimmed)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
@@ -69,13 +96,17 @@ def setup_logging(log_level: str = "INFO") -> None:
     # If handlers already exist (e.g. pytest caplog, uvicorn), augment them.
     if not root_logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(formatter)
+        handler.setFormatter(colored_formatter)
         handler.addFilter(RequestIdFilter())
         handler.addFilter(SensitiveDataFilter())
         root_logger.addHandler(handler)
     else:
         for handler in root_logger.handlers:
-            handler.setFormatter(formatter)
+            # Use colored formatter for TTY, plain for non-TTY (e.g. file logs)
+            if hasattr(handler, "stream") and hasattr(handler.stream, "isatty") and handler.stream.isatty():
+                handler.setFormatter(colored_formatter)
+            else:
+                handler.setFormatter(plain_formatter)
             if not any(isinstance(f, RequestIdFilter) for f in handler.filters):
                 handler.addFilter(RequestIdFilter())
             if not any(isinstance(f, SensitiveDataFilter) for f in handler.filters):

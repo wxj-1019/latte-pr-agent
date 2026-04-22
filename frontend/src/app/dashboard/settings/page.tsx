@@ -71,6 +71,7 @@ export default function SystemSettingsPage() {
   const [changedKeys, setChangedKeys] = useState<Set<string>>(new Set());
   const [testingWebhook, setTestingWebhook] = useState<"github" | "gitlab" | null>(null);
   const [webhookResults, setWebhookResults] = useState<Record<string, WebhookTestResult>>({});
+  const [adminKeyInput, setAdminKeyInput] = useState("");
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -89,7 +90,11 @@ export default function SystemSettingsPage() {
       });
       setEditValues(initValues);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载设置失败");
+      const msg = err instanceof Error ? err.message : "加载设置失败";
+      setError(msg);
+      if (msg.includes("403") || msg.includes("Invalid admin API key")) {
+        showToast("需要 Admin API Key 才能访问系统设置", "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -172,14 +177,45 @@ export default function SystemSettingsPage() {
   }
 
   if (error) {
+    const isForbidden = error.includes("403") || error.includes("Invalid admin API key");
     return (
       <div className="max-w-3xl mx-auto flex flex-col items-center justify-center py-20 text-latte-text-tertiary">
         <XCircle size={40} className="mb-4 text-latte-critical" />
         <p className="text-lg font-medium">加载设置失败</p>
         <p className="text-sm mt-1">{error}</p>
-        <Button variant="secondary" size="sm" className="mt-4" onClick={loadSettings}>
-          重试
-        </Button>
+        {isForbidden && (
+          <div className="mt-4 w-full max-w-sm space-y-3">
+            <p className="text-xs text-latte-text-muted">
+              后端已启用 Admin API Key 保护。请在下方输入密钥，验证通过后会保存在本地浏览器中。
+            </p>
+            <Input
+              type="password"
+              placeholder="输入 Admin API Key"
+              value={adminKeyInput}
+              onChange={(e) => setAdminKeyInput(e.target.value)}
+              className="w-full"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (adminKeyInput.trim()) {
+                  localStorage.setItem("latte_admin_api_key", adminKeyInput.trim());
+                  showToast("API Key 已保存，正在重试...");
+                  loadSettings();
+                }
+              }}
+            >
+              验证并继续
+            </Button>
+          </div>
+        )}
+        {!isForbidden && (
+          <Button variant="secondary" size="sm" className="mt-4" onClick={loadSettings}>
+            重试
+          </Button>
+        )}
       </div>
     );
   }

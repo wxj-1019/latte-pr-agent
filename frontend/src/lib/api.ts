@@ -3,6 +3,13 @@ import { csrfHeaders } from "./csrf";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
+function getAdminApiKey(): string {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("latte_admin_api_key") || "";
+  }
+  return "";
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const isMutating = !!options?.method && options.method !== "GET" && options.method !== "HEAD";
   const res = await fetch(`${baseUrl}${url}`, {
@@ -127,13 +134,15 @@ export const api = {
   },
 
   getSystemSettings: async () => {
-    return fetchJson<{ categories: Record<string, Array<{ key: string; has_value: boolean; value?: string | null; description: string }>> }>("/settings");
+    return fetchJson<{ categories: Record<string, Array<{ key: string; has_value: boolean; value?: string | null; description: string }>> }>("/settings", {
+      headers: { "X-API-Key": getAdminApiKey() },
+    });
   },
 
   batchUpdateSystemSettings: async (settingsList: Array<{ key: string; value: string }>) => {
     return fetchJson<{ results: Array<{ key: string; status: string; message?: string }> }>("/settings", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-API-Key": getAdminApiKey() },
       body: JSON.stringify({ settings: settingsList }),
     });
   },
@@ -146,7 +155,7 @@ export const api = {
       webhook_secret: string;
     }>("/settings/test-webhook", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-API-Key": getAdminApiKey() },
       body: JSON.stringify({ platform }),
     });
   },
@@ -192,7 +201,7 @@ export const api = {
   },
 
   scanCommits: async (projectId: number, maxCommits: number = 50) => {
-    return fetchJson<{ project_id: number; scanned: number; saved: number }>(
+    return fetchJson<{ project_id: number; status?: string; operation?: string; scanned?: number; saved?: number }>(
       `/projects/${projectId}/scan?max_commits=${maxCommits}`,
       { method: "POST" }
     );

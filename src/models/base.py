@@ -14,7 +14,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 
 async_engine = create_async_engine(
     settings.database_url.get_secret_value(),
-    echo=settings.app_env == "development",
+    echo=False,
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
@@ -27,7 +27,7 @@ def recreate_engine():
     global async_engine, AsyncSessionLocal
     async_engine = create_async_engine(
         settings.database_url.get_secret_value(),
-        echo=settings.app_env == "development",
+        echo=False,
         pool_size=10,
         max_overflow=20,
         pool_pre_ping=True,

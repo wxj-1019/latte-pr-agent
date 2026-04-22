@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint, Integer, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+from utils.timezone import beijing_now
 
 
 class ProjectRepo(Base):
@@ -24,10 +25,10 @@ class ProjectRepo(Base):
     total_commits: Mapped[int] = mapped_column(default=0)
     total_findings: Mapped[int] = mapped_column(default=0)
     config_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
     updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=beijing_now,
+        onupdate=beijing_now,
     )
 
     commits: Mapped[List["CommitAnalysis"]] = relationship(

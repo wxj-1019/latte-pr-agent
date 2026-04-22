@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Optional
 
 
@@ -9,7 +10,7 @@ class CommitInfo:
     author_name: str
     author_email: str
     message: str
-    timestamp: str
+    timestamp: datetime
     additions: int = 0
     deletions: int = 0
     changed_files: int = 0

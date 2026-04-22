@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import List
 
@@ -40,12 +42,21 @@ class SemgrepAnalyzer:
 
         proc = None
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+            if sys.platform == "win32":
+                loop = asyncio.get_running_loop()
+                def _run_semgrep() -> subprocess.CompletedProcess:
+                    return subprocess.run(cmd, capture_output=True, timeout=120)
+                result = await loop.run_in_executor(None, _run_semgrep)
+                stdout = result.stdout
+                proc_returncode = result.returncode
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+                proc_returncode = proc.returncode
         except asyncio.TimeoutError:
             if proc is not None:
                 try:
@@ -65,7 +76,7 @@ class SemgrepAnalyzer:
             logger.exception("Semgrep execution failed: %s", exc)
             return []
 
-        if proc.returncode not in [0, 1]:
+        if proc_returncode not in [0, 1]:
             return []
 
         try:

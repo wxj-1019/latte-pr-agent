@@ -25,6 +25,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    volumes:
+      - ./repos:/app/repos
     restart: unless-stopped
     logging:
       driver: "json-file"

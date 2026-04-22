@@ -1,6 +1,9 @@
+import asyncio
 import logging
 import os
 import subprocess
+import sys
+import time
 
 from celery import Celery
 
@@ -69,25 +72,94 @@ async def _do_clone(project_id: int) -> None:
     from models.base import async_engine
     from models.project_repo import ProjectRepo
     from sqlalchemy import select
+    from commits.scanner import GitLogScanner
+    from commits.service import CommitService
+    from projects.progress import AnalysisProgressTracker
 
     AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
         project = result.scalar_one_or_none()
         if not project:
+            logger.warning("Clone task: project %s not found", project_id)
             return
+
+        await AnalysisProgressTracker.start(project_id, "clone")
+        logger.info("Starting clone for project %s: %s -> %s", project_id, project.repo_url, project.local_path)
 
         try:
             os.makedirs(os.path.dirname(project.local_path), exist_ok=True)
-            subprocess.run(
-                ["git", "clone", "--branch", project.branch, project.repo_url, project.local_path],
-                capture_output=True,
-                text=True,
-                timeout=300,
+            if os.path.isdir(os.path.join(project.local_path, ".git")):
+                logger.info("Repo already exists at %s, skipping clone", project.local_path)
+                await AnalysisProgressTracker.update(
+                    project_id, step="skip_clone", progress=50, total=100,
+                    message="仓库已存在，跳过克隆",
+                )
+            else:
+                await AnalysisProgressTracker.update(
+                    project_id, step="cloning", progress=20, total=100,
+                    message="正在克隆仓库...",
+                )
+                t0 = time.monotonic()
+                if sys.platform == "win32":
+                    loop = asyncio.get_running_loop()
+                    def _clone() -> subprocess.CompletedProcess:
+                        return subprocess.run(
+                            ["git", "clone", "--branch", project.branch, project.repo_url, project.local_path],
+                            capture_output=True,
+                            timeout=300,
+                        )
+                    proc = await loop.run_in_executor(None, _clone)
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"git clone failed: {proc.stderr.decode('utf-8', errors='replace')}")
+                else:
+                    proc = await asyncio.create_subprocess_exec(
+                        "git", "clone", "--branch", project.branch, project.repo_url, project.local_path,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"git clone failed: {stderr.decode('utf-8', errors='replace')}")
+                elapsed = time.monotonic() - t0
+                logger.info("Clone succeeded for project %s in %.2fs", project_id, elapsed)
+                await AnalysisProgressTracker.update(
+                    project_id, step="clone_done", progress=60, total=100,
+                    message=f"克隆完成，耗时 {elapsed:.1f}s",
+                )
+
+            # 克隆成功后自动扫描提交
+            await AnalysisProgressTracker.update(
+                project_id, step="scanning", progress=70, total=100,
+                message="开始扫描提交...",
             )
+            scanner = GitLogScanner(project.local_path)
+            commits = await scanner.get_commit_list(branch=project.branch, max_count=50)
+            logger.info("Project %s: scanned %s commits", project_id, len(commits))
+            await AnalysisProgressTracker.update(
+                project_id, step="saving", progress=85, total=100,
+                message=f"扫描完成，正在保存 {len(commits)} 条提交...",
+            )
+
+            commit_svc = CommitService(session)
+            saved = await commit_svc.save_commits(project_id, commits)
+            logger.info("Project %s: saved %s new commits", project_id, saved)
+
+            if commits:
+                project.last_analyzed_sha = commits[0].hash
+                project.total_commits = saved
+
             project.status = "ready"
             await session.commit()
+            logger.info("Project %s: clone and scan completed", project_id)
+
+            await AnalysisProgressTracker.complete(
+                project_id,
+                result={"scanned": len(commits), "saved": saved},
+            )
         except Exception as exc:
+            logger.exception("Clone failed for project %s: %s", project_id, exc)
+            await AnalysisProgressTracker.fail(project_id, str(exc))
             project.status = "error"
             project.error_message = str(exc)
             await session.commit()

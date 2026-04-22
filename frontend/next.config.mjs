@@ -16,8 +16,12 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
 
-  // Output standalone build for Docker
-  output: 'standalone',
+  // Output standalone build for Docker (production only)
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
+
+  // Ensure clean builds and consistent output directory
+  distDir: '.next',
+  cleanDistDir: true,
 
   // Image optimization
   images: {
@@ -27,6 +31,9 @@ const nextConfig = {
 
   // Enable compression
   compress: true,
+
+  // Explicitly disable source maps in production to avoid 404s for missing .map files
+  productionBrowserSourceMaps: false,
 
   experimental: {
     missingSuspenseWithCSRBailout: false,
@@ -61,6 +68,10 @@ const nextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000; img-src 'self' data:; font-src 'self';",
           },
         ],
       },

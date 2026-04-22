@@ -24,12 +24,33 @@ class DependencyGraphBuilder:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def build(self, repo_path: str, repo_id: str, org_id: str = "default") -> None:
-        """扫描整个仓库并写入 file_dependencies 表。"""
+    async def build(self, repo_path: str, repo_id: str, org_id: str = "default", force: bool = False) -> None:
+        """扫描整个仓库并写入 file_dependencies 表。
+
+        如果该仓库已存在依赖数据且 force=False，则跳过重建以节省性能。
+        """
+        from sqlalchemy import select, func
+        from models import FileDependency
+
+        if not force:
+            existing = await self.session.execute(
+                select(func.count()).select_from(FileDependency).where(
+                    FileDependency.repo_id == repo_id,
+                    FileDependency.org_id == org_id,
+                )
+            )
+            if existing.scalar():
+                return
+
         repo_root = Path(repo_path).resolve()
         deps: Set[Tuple[str, str]] = set()
 
+        skip_dirs = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".next", ".pytest_cache", "target"}
+
         for file_path in repo_root.rglob("*"):
+            # 跳过常见非代码目录
+            if any(part in skip_dirs for part in file_path.parts):
+                continue
             if not file_path.is_file():
                 continue
             lang = EXTENSION_TO_LANG.get(file_path.suffix)
@@ -56,7 +77,7 @@ class DependencyGraphBuilder:
                     target_rel = str(Path(target).relative_to(repo_root)).replace("\\", "/")
                     deps.add((rel_file, target_rel))
 
-        # 清空旧数据（同一仓库）
+        # 清空旧数据（同一仓库）——仅在真正需要重建时执行
         await self.session.execute(
             delete(FileDependency).where(
                 FileDependency.repo_id == repo_id,

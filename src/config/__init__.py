@@ -1,10 +1,19 @@
+import os
+
 from pydantic import field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_env = os.getenv("APP_ENV", "development").lower()
+_env_override = f".env.{_env}" if os.path.exists(f".env.{_env}") else None
+
+_env_files = [".env"]
+if _env_override:
+    _env_files.append(_env_override)
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_env_files,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -38,7 +47,7 @@ class Settings(BaseSettings):
     enable_reasoner_review: bool = False
     cors_origins: str = "*"
     admin_api_key: str = ""
-    repos_base_path: str = "/repos"
+    repos_base_path: str = "./repos"
 
     @field_validator("app_env", mode="before")
     @classmethod

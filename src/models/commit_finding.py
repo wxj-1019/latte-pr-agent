@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+from utils.timezone import beijing_now
 
 
 class CommitFinding(Base):
@@ -23,6 +24,6 @@ class CommitFinding(Base):
     confidence: Mapped[float] = mapped_column(default=0.5)
     evidence: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=beijing_now)
 
     analysis: Mapped["CommitAnalysis"] = relationship(back_populates="findings")

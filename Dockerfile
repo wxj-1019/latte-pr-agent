@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY pyproject.toml .
+RUN pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.12-slim
 
@@ -24,7 +24,7 @@ COPY --from=builder /install /usr/local
 COPY src/ ./src/
 COPY sql/ ./sql/
 
-RUN touch .secret_key && chown appuser:appuser .secret_key
+RUN mkdir -p /app/repos && chown -R appuser:appuser /app
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1

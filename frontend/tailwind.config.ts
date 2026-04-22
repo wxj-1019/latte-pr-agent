@@ -31,6 +31,7 @@ const config: Config = {
           warning: "var(--latte-warning)",
           critical: "var(--latte-critical)",
           info: "var(--latte-info)",
+          border: "var(--latte-border)",
         },
       },
       fontFamily: {

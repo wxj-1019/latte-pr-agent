@@ -201,3 +201,21 @@ CREATE INDEX IF NOT EXISTS idx_commit_analyses_project ON commit_analyses(projec
 CREATE INDEX IF NOT EXISTS idx_commit_analyses_hash ON commit_analyses(project_id, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_commit_findings_analysis ON commit_findings(commit_analysis_id);
 CREATE INDEX IF NOT EXISTS idx_commit_findings_severity ON commit_findings(severity);
+
+-- 9. Prompt 实验版本表
+CREATE TABLE IF NOT EXISTS prompt_experiments (
+    version         VARCHAR(50) PRIMARY KEY,
+    prompt_text     TEXT NOT NULL,
+    metadata_json   JSONB,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. Prompt 实验分配表
+CREATE TABLE IF NOT EXISTS prompt_experiment_assignments (
+    id              BIGSERIAL PRIMARY KEY,
+    repo_id         VARCHAR(100) NOT NULL,
+    experiment_name VARCHAR(50) NOT NULL DEFAULT 'default',
+    version         VARCHAR(50) NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(repo_id, experiment_name)
+);

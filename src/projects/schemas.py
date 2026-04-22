@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -42,8 +43,8 @@ class ProjectResponse(BaseModel):
     last_analyzed_sha: Optional[str] = None
     total_commits: int = 0
     total_findings: int = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class ProjectListResponse(BaseModel):

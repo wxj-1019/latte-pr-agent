@@ -127,6 +127,23 @@ export interface ReviewUpdate {
   findings_count?: number;
 }
 
+export interface AnalysisProgress {
+  project_id: number;
+  operation: "clone" | "sync" | "scan";
+  status: "running" | "completed" | "failed";
+  step: string;
+  progress: number;
+  total: number;
+  message: string;
+  result?: {
+    scanned?: number;
+    saved?: number;
+    new_commits?: number;
+  };
+  error?: string;
+  timestamp: string;
+}
+
 export interface DashboardStats {
   total_reviews: number;
   pending_reviews: number;

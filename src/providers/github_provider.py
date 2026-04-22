@@ -17,15 +17,28 @@ class GitHubProvider(GitProvider):
         self.token = token
         self.repo_name = repo
         self.pr_number = pr_number
-        self.client = Github(token)
-        self.repo: Repository = self.client.get_repo(repo)
-        self.pr: PullRequest = self.repo.get_pull(pr_number)
+        self._client = Github(token)
+        self._repo: Optional[Repository] = None
+        self._pr: Optional[PullRequest] = None
+
+    async def _get_repo(self) -> Repository:
+        if self._repo is None:
+            self._repo = await asyncio.to_thread(self._client.get_repo, self.repo_name)
+        return self._repo
+
+    async def _get_pr(self) -> PullRequest:
+        if self._pr is None:
+            repo = await self._get_repo()
+            self._pr = await asyncio.to_thread(repo.get_pull, self.pr_number)
+        return self._pr
 
     async def publish_review_comment(self, file: str, line: int, comment: str) -> None:
         try:
-            self.pr.create_review_comment(
+            pr = await self._get_pr()
+            await asyncio.to_thread(
+                pr.create_review_comment,
                 body=comment,
-                commit_id=self.pr.head.sha,
+                commit_id=pr.head.sha,
                 path=file,
                 line=line,
             )
@@ -37,9 +50,11 @@ class GitHubProvider(GitProvider):
     ) -> None:
         body = f"```suggestion\n{suggestion}\n```"
         try:
-            self.pr.create_review_comment(
+            pr = await self._get_pr()
+            await asyncio.to_thread(
+                pr.create_review_comment,
                 body=body,
-                commit_id=self.pr.head.sha,
+                commit_id=pr.head.sha,
                 path=file,
                 line=line,
             )
@@ -49,9 +64,13 @@ class GitHubProvider(GitProvider):
     async def set_status_check(
         self, status: str, description: str, context: str = "ai-code-review"
     ) -> None:
-        state = status
+        valid_states = {"pending", "success", "failure", "error"}
+        state = status if status in valid_states else "pending"
         try:
-            self.repo.get_commit(self.pr.head.sha).create_status(
+            pr = await self._get_pr()
+            commit = await asyncio.to_thread(self._repo.get_commit, pr.head.sha)
+            await asyncio.to_thread(
+                commit.create_status,
                 state=state,
                 description=description,
                 context=context,
@@ -82,11 +101,18 @@ class GitHubProvider(GitProvider):
         return ""
 
     async def get_pr_info(self) -> dict:
+        pr = await self._get_pr()
+        number = await asyncio.to_thread(lambda: pr.number)
+        title = await asyncio.to_thread(lambda: pr.title)
+        author = await asyncio.to_thread(lambda: pr.user.login if pr.user else None)
+        head_sha = await asyncio.to_thread(lambda: pr.head.sha)
+        base_ref = await asyncio.to_thread(lambda: pr.base.ref)
+        head_ref = await asyncio.to_thread(lambda: pr.head.ref)
         return {
-            "number": self.pr.number,
-            "title": self.pr.title,
-            "author": self.pr.user.login if self.pr.user else None,
-            "head_sha": self.pr.head.sha,
-            "base_branch": self.pr.base.ref,
-            "head_branch": self.pr.head.ref,
+            "number": number,
+            "title": title,
+            "author": author,
+            "head_sha": head_sha,
+            "base_branch": base_ref,
+            "head_branch": head_ref,
         }

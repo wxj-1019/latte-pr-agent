@@ -82,16 +82,18 @@ app.add_middleware(RequestIdMiddleware)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理器：确保 500 错误返回结构化 JSON 和 CORS 头，方便前端调试。"""
+    """全局异常处理器：确保 500 错误返回结构化 JSON 和 CORS 头。"""
     logger.exception("Unhandled exception: %s", exc)
     origin = request.headers.get("origin", "")
     headers: dict[str, str] = {}
     if origin in _cors_origins:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
+    # 生产环境不暴露内部错误详情
+    message = str(exc) if settings.app_env != "production" else "An unexpected error occurred"
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "message": str(exc)},
+        content={"detail": "Internal Server Error", "message": message},
         headers=headers,
     )
 
@@ -108,8 +110,31 @@ app.include_router(commits_router)
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict:
-    return {"status": "ok", "env": settings.app_env}
+async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
+    health = {"status": "ok", "env": settings.app_env, "checks": {}}
+
+    # Database check
+    try:
+        await db.execute(select(1))
+        health["checks"]["database"] = "ok"
+    except Exception as exc:
+        logger.warning("Health check database failed: %s", exc)
+        health["checks"]["database"] = "error"
+        health["status"] = "degraded"
+
+    # Redis check (async)
+    try:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.from_url(settings.redis_url.get_secret_value(), socket_connect_timeout=2)
+        await redis_client.ping()
+        await redis_client.aclose()
+        health["checks"]["redis"] = "ok"
+    except Exception as exc:
+        logger.warning("Health check redis failed: %s", exc)
+        health["checks"]["redis"] = "error"
+        health["status"] = "degraded"
+
+    return health
 
 
 @app.get("/repos", tags=["repos"])

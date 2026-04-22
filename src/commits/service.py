@@ -1,5 +1,7 @@
+import asyncio
 import logging
-from typing import List, Optional
+import time
+from typing import Awaitable, Callable, List, Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,8 @@ from models.project_repo import ProjectRepo
 
 logger = logging.getLogger(__name__)
 
+ProgressCallback = Optional[Callable[[str, int, int], Awaitable[None]]]
+
 
 class CommitService:
     def __init__(self, session: AsyncSession):
@@ -20,9 +24,19 @@ class CommitService:
         result = await self.session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
         return result.scalar_one_or_none()
 
-    async def save_commits(self, project_id: int, commits: List[CommitInfo]) -> int:
+    async def save_commits(
+        self,
+        project_id: int,
+        commits: List[CommitInfo],
+        progress_callback: ProgressCallback = None,
+    ) -> int:
+        t0 = time.monotonic()
         saved = 0
-        for ci in commits:
+        skipped = 0
+        total = len(commits)
+        report_interval = max(1, total // 10) if total > 0 else 1
+
+        for idx, ci in enumerate(commits):
             result = await self.session.execute(
                 select(CommitAnalysis).where(
                     CommitAnalysis.project_id == project_id,
@@ -30,6 +44,7 @@ class CommitService:
                 )
             )
             if result.scalar_one_or_none():
+                skipped += 1
                 continue
 
             ca = CommitAnalysis(
@@ -47,7 +62,16 @@ class CommitService:
             )
             self.session.add(ca)
             saved += 1
+
+            if progress_callback and (idx + 1) % report_interval == 0:
+                await progress_callback("saving_commits", idx + 1, total)
+
         await self.session.commit()
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Saved %d new commits for project %s (skipped %d duplicates, total %d, %.2fs)",
+            saved, project_id, skipped, total, elapsed,
+        )
         return saved
 
     async def list_commits(

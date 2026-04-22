@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
-import type { ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
+import type { ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail, AnalysisProgress } from "@/types";
 import {
   ArrowLeft,
   Loader2,
@@ -23,7 +23,9 @@ import {
   ChevronUp,
   TrendingUp,
   Shield,
+  RefreshCw,
 } from "lucide-react";
+import { AnalysisProgressPanel } from "@/components/dashboard/analysis-progress";
 
 const riskColors: Record<string, string> = {
   critical: "bg-latte-critical/10 text-latte-critical border-latte-critical/20",
@@ -60,10 +62,13 @@ export default function ProjectDetailPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [scanLoading, setScanLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"commits" | "contributors" | "stats">("contributors");
   const [error, setError] = useState("");
   const [expandedContributor, setExpandedContributor] = useState<string | null>(null);
   const [contributorCommits, setContributorCommits] = useState<Record<string, ContributorDetail>>({});
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -90,17 +95,89 @@ export default function ProjectDetailPage() {
     load();
   }, [load]);
 
+  const closeSSE = useCallback(() => {
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
+  }, []);
+
+  const connectSSE = useCallback(() => {
+    closeSSE();
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    const url = `${baseUrl}/projects/${projectId}/stream`;
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as AnalysisProgress;
+        setAnalysisProgress(data);
+        if (data.status === "completed") {
+          showToast(`${data.message}：扫描 ${data.result?.scanned ?? 0} 条，新增 ${data.result?.saved ?? data.result?.new_commits ?? 0} 条`);
+          closeSSE();
+          load();
+          setScanLoading(false);
+          setSyncLoading(false);
+        } else if (data.status === "failed") {
+          showToast(`分析失败：${data.error || data.message}`, "error");
+          closeSSE();
+          setScanLoading(false);
+          setSyncLoading(false);
+        }
+      } catch {
+        // ignore malformed events
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      esRef.current = null;
+    };
+  }, [projectId, closeSSE, load, showToast]);
+
+  useEffect(() => {
+    return () => {
+      closeSSE();
+    };
+  }, [closeSSE]);
+
   const handleScan = async () => {
     try {
       setScanLoading(true);
       setError("");
+      setAnalysisProgress(null);
       const res = await api.scanCommits(projectId, 200);
-      showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
-      await load();
+      if (res.status === "started") {
+        connectSSE();
+      } else {
+        // fallback for old sync behavior
+        showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
+        await load();
+        setScanLoading(false);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "扫描失败");
-    } finally {
       setScanLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      setSyncLoading(true);
+      setError("");
+      setAnalysisProgress(null);
+      const res = await api.syncProject(projectId);
+      if (res.status === "syncing") {
+        connectSSE();
+      } else {
+        showToast(`同步完成：${res.status}，新增 ${res.new_commits} 个提交`);
+        await load();
+        setSyncLoading(false);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "同步失败");
+      setSyncLoading(false);
     }
   };
 
@@ -156,6 +233,14 @@ export default function ProjectDetailPage() {
           </p>
         </div>
         <button
+          onClick={handleSync}
+          disabled={syncLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-latte-info text-latte-bg-primary rounded-lg hover:bg-latte-info/90 disabled:opacity-50 transition-colors text-sm"
+        >
+          {syncLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+          同步仓库
+        </button>
+        <button
           onClick={handleScan}
           disabled={project.status !== "ready" || scanLoading}
           className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-latte-bg-primary rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
@@ -164,6 +249,8 @@ export default function ProjectDetailPage() {
           扫描提交
         </button>
       </div>
+
+      <AnalysisProgressPanel progress={analysisProgress} />
 
       {error && (
         <div className="flex items-center gap-2 p-3 bg-latte-critical/5 border border-latte-critical/20 rounded-lg text-latte-critical text-sm">

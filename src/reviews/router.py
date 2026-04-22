@@ -356,26 +356,41 @@ async def fetch_pull_requests(
 
     try:
         if req.platform == "github":
-            from github import Github
+            try:
+                from github import Github
+            except ModuleNotFoundError as mod_err:
+                logger.error("PyGithub is not installed: %s", mod_err)
+                raise HTTPException(status_code=500, detail="GitHub 功能依赖缺失，请联系管理员安装 PyGithub")
+
             client = Github(token)
             repo = client.get_repo(req.repo_id)
             pulls = repo.get_pulls(state="open", sort="updated", direction="desc")
             pr_list = []
-            for pr in pulls[:30]:
-                pr_list.append({
-                    "number": pr.number,
-                    "title": pr.title,
-                    "author": pr.user.login if pr.user else "",
-                    "head_branch": pr.head.ref,
-                    "base_branch": pr.base.ref,
-                    "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
-                    "additions": pr.additions,
-                    "deletions": pr.deletions,
-                    "changed_files": pr.changed_files,
-                })
+            for i, pr in enumerate(pulls):
+                if i >= 30:
+                    break
+                try:
+                    pr_list.append({
+                        "number": pr.number,
+                        "title": pr.title,
+                        "author": pr.user.login if pr.user else "",
+                        "head_branch": pr.head.ref,
+                        "base_branch": pr.base.ref,
+                        "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
+                        "additions": pr.additions,
+                        "deletions": pr.deletions,
+                        "changed_files": pr.changed_files,
+                    })
+                except Exception as item_err:
+                    logger.warning("Failed to parse PR item #%d: %s", i, item_err)
             return {"pulls": pr_list, "total": pulls.totalCount if hasattr(pulls, 'totalCount') else len(pr_list)}
         elif req.platform == "gitlab":
-            import gitlab
+            try:
+                import gitlab
+            except ModuleNotFoundError as mod_err:
+                logger.error("python-gitlab is not installed: %s", mod_err)
+                raise HTTPException(status_code=500, detail="GitLab 功能依赖缺失，请联系管理员安装 python-gitlab")
+
             gitlab_url = await resolve_setting(db, "gitlab_url", settings.gitlab_url)
             gl = gitlab.Gitlab(gitlab_url, private_token=token)
             project = gl.projects.get(req.repo_id)
@@ -394,9 +409,21 @@ async def fetch_pull_requests(
                     "changed_files": 0,
                 })
             return {"pulls": pr_list, "total": len(pr_list)}
+    except HTTPException:
+        raise
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         logger.exception("Failed to fetch PRs for %s", req.repo_id)
-        raise HTTPException(status_code=500, detail=f"获取 PR 列表失败: {exc}")
+        # Provide a more actionable error message for common failures
+        detail = f"获取 PR 列表失败: {exc}"
+        if "Bad credentials" in str(exc) or "401" in str(exc):
+            detail = "GitHub/GitLab Token 无效或已过期（401），请在系统设置中更新 Token"
+        elif "404" in str(exc) or "Not Found" in str(exc):
+            detail = f"仓库 {req.repo_id} 不存在或无法访问（404），请检查仓库名称是否正确"
+        elif "Connection" in str(exc) or "Timeout" in str(exc):
+            detail = "连接 GitHub/GitLab 超时，请检查网络或稍后重试"
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.post("/trigger")

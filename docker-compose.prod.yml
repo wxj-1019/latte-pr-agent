@@ -21,7 +21,7 @@ services:
       - QWEN_API_KEY=${QWEN_API_KEY}
       - APP_ENV=production
       - LOG_LEVEL=INFO
-      - CORS_ORIGINS=http://49.234.190.85,http://49.234.190.85:8003,http://49.234.190.85:3000,http://localhost,http://localhost:8003,http://localhost:3000
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://localhost:8003,http://localhost:3000}
       - MAX_CONCURRENT_REVIEWS=50
       - ENABLE_REASONER_REVIEW=${ENABLE_REASONER_REVIEW:-false}
     depends_on:
@@ -29,6 +29,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./repos:/app/repos
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -68,6 +70,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./repos:/app/repos
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -123,8 +127,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-}"
     environment:
-      - NEXT_PUBLIC_API_URL=
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     restart: unless-stopped
     deploy:
       resources:

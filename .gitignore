@@ -40,6 +40,10 @@ htmlcov/
 
 # Environment variables
 .env
+.env.development
+.env.production
+.env.test
+.env.local
 
 # Encryption key
 .secret_key

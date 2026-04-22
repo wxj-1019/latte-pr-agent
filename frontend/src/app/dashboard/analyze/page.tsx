@@ -47,14 +47,17 @@ function ShikiEditor({
 
   useEffect(() => {
     let mounted = true;
-    codeToHtml(code, {
-      lang: language,
-      theme: "github-dark",
-    }).then((html) => {
-      if (mounted) setHighlighted(html);
-    });
+    const timer = setTimeout(() => {
+      codeToHtml(code, {
+        lang: language,
+        theme: "github-dark",
+      }).then((html) => {
+        if (mounted) setHighlighted(html);
+      });
+    }, 300);
     return () => {
       mounted = false;
+      clearTimeout(timer);
     };
   }, [code, language]);
 
