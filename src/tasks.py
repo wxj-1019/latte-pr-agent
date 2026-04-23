@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -100,6 +101,12 @@ async def _do_clone(project_id: int) -> None:
                     project_id, step="cloning", progress=20, total=100,
                     message="正在克隆仓库...",
                 )
+                # 清理已存在但非 git 仓库的残留目录
+                if project.local_path and os.path.exists(project.local_path):
+                    if os.path.isdir(project.local_path):
+                        shutil.rmtree(project.local_path)
+                    else:
+                        os.remove(project.local_path)
                 t0 = time.monotonic()
                 if sys.platform == "win32":
                     loop = asyncio.get_running_loop()

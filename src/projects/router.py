@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -167,6 +168,12 @@ async def _do_sync(
                 project_id, step="cloning", progress=20, total=100,
                 message="本地仓库不存在，正在 clone...",
             )
+            # 如果目标路径已存在但不是 git 仓库（如上次 clone 中断留下的残目录），先清理
+            if local_path and os.path.exists(local_path):
+                if os.path.isdir(local_path):
+                    shutil.rmtree(local_path)
+                else:
+                    os.remove(local_path)
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             await _git_cmd(
                 os.path.dirname(local_path) or ".",

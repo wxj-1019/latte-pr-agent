@@ -29,7 +29,7 @@ class ProjectService:
         if existing:
             return existing
 
-        repos_base = getattr(settings, "repos_base_path", "/repos")
+        repos_base = settings.repos_base_path
         local_path = os.path.join(repos_base, org_id, repo_id.replace("/", "_"))
 
         project = ProjectRepo(
