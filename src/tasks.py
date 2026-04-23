@@ -88,7 +88,7 @@ async def _do_clone(project_id: int) -> None:
         logger.info("Starting clone for project %s: %s -> %s", project_id, project.repo_url, project.local_path)
 
         try:
-            os.makedirs(os.path.dirname(project.local_path), exist_ok=True)
+            os.makedirs(os.path.dirname(project.local_path) if project.local_path else "/tmp/repos", exist_ok=True)
             if os.path.isdir(os.path.join(project.local_path, ".git")):
                 logger.info("Repo already exists at %s, skipping clone", project.local_path)
                 await AnalysisProgressTracker.update(
@@ -105,7 +105,7 @@ async def _do_clone(project_id: int) -> None:
                     loop = asyncio.get_running_loop()
                     def _clone() -> subprocess.CompletedProcess:
                         return subprocess.run(
-                            ["git", "clone", "--branch", project.branch, project.repo_url, project.local_path],
+                            ["git", "clone", project.repo_url, project.local_path],
                             capture_output=True,
                             timeout=300,
                         )
@@ -114,13 +114,35 @@ async def _do_clone(project_id: int) -> None:
                         raise RuntimeError(f"git clone failed: {proc.stderr.decode('utf-8', errors='replace')}")
                 else:
                     proc = await asyncio.create_subprocess_exec(
-                        "git", "clone", "--branch", project.branch, project.repo_url, project.local_path,
+                        "git", "clone", project.repo_url, project.local_path,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
                     )
                     stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
                     if proc.returncode != 0:
                         raise RuntimeError(f"git clone failed: {stderr.decode('utf-8', errors='replace')}")
+
+                def _detect_branch() -> str:
+                    r = subprocess.run(
+                        ["git", "-C", project.local_path, "rev-parse", "--abbrev-ref", "HEAD"],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    return r.stdout.strip() if r.returncode == 0 else "main"
+
+                if sys.platform == "win32":
+                    detected_branch = await loop.run_in_executor(None, _detect_branch)
+                else:
+                    bp = await asyncio.create_subprocess_exec(
+                        "git", "-C", project.local_path, "rev-parse", "--abbrev-ref", "HEAD",
+                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                    )
+                    bo, _ = await asyncio.wait_for(bp.communicate(), timeout=10)
+                    detected_branch = bo.decode().strip() if bp.returncode == 0 else "main"
+
+                if detected_branch and detected_branch != project.branch:
+                    logger.info("Detected default branch '%s' (configured: '%s'), updating", detected_branch, project.branch)
+                    project.branch = detected_branch
+
                 elapsed = time.monotonic() - t0
                 logger.info("Clone succeeded for project %s in %.2fs", project_id, elapsed)
                 await AnalysisProgressTracker.update(

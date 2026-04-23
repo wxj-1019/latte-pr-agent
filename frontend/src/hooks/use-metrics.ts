@@ -10,7 +10,7 @@ export function useMetrics(range: "7d" | "30d" | "90d", repoId?: string) {
     chart: MetricsDataPoint[];
     category_distribution?: Record<string, number>;
   }>(
-    repoId ? [`/feedback/metrics/${repoId}`, range] : null,
+    typeof window === "undefined" ? null : (repoId ? [`/feedback/metrics/${repoId}`, range] : null),
     () => api.getMetrics(range, repoId || "default")
   );
 

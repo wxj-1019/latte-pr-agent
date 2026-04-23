@@ -12,7 +12,7 @@ interface UseReviewsOptions {
 }
 
 export function useReviews(options?: UseReviewsOptions) {
-  const key = ["/api/reviews", options?.status, options?.repo, options?.risk, options?.page];
+  const key = typeof window === "undefined" ? null : ["/api/reviews", options?.status, options?.repo, options?.risk, options?.page];
   const { data, error, isLoading, mutate } = useSWR<{ data: Review[]; total: number; page: number; page_size: number }>(
     key,
     () => api.getReviews(options),
@@ -32,7 +32,7 @@ export function useReviews(options?: UseReviewsOptions) {
 
 export function useReviewDetail(id: number) {
   const { data, error, isLoading, mutate } = useSWR<Review>(
-    id ? `/api/reviews/${id}` : null,
+    typeof window === "undefined" || !id ? null : `/api/reviews/${id}`,
     () => api.getReviewDetail(id)
   );
 
@@ -46,7 +46,7 @@ export function useReviewDetail(id: number) {
 
 export function useReviewFindings(reviewId: number) {
   const { data, error, isLoading, mutate } = useSWR<ReviewFinding[]>(
-    reviewId ? `/api/reviews/${reviewId}/findings` : null,
+    typeof window === "undefined" || !reviewId ? null : `/api/reviews/${reviewId}/findings`,
     () => api.getReviewFindings(reviewId)
   );
 
