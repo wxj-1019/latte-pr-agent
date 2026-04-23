@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -170,9 +170,28 @@ async def _do_sync(
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             await _git_cmd(
                 os.path.dirname(local_path) or ".",
-                ["clone", "--branch", branch, repo_url, local_path],
+                ["clone", repo_url, local_path],
                 timeout=300,
             )
+            detected = await _git_cmd(
+                local_path,
+                ["rev-parse", "--abbrev-ref", "HEAD"],
+                timeout=10,
+            )
+            detected_branch = detected.strip()
+            if detected_branch and detected_branch != branch:
+                logger.info(
+                    "Project %s: detected default branch '%s' (was '%s')",
+                    project_id, detected_branch, branch,
+                )
+                branch = detected_branch
+                async with AsyncSessionLocal() as session:
+                    proj = (await session.execute(
+                        select(ProjectRepo).where(ProjectRepo.id == project_id)
+                    )).scalar_one_or_none()
+                    if proj:
+                        proj.branch = detected_branch
+                        await session.commit()
             await AnalysisProgressTracker.update(
                 project_id, step="clone_done", progress=60, total=100,
                 message="克隆完成",
