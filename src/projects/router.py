@@ -169,15 +169,16 @@ async def _do_sync(
                 message="本地仓库不存在，正在 clone...",
             )
             # 如果目标路径已存在但不是 git 仓库（如上次 clone 中断留下的残目录），先清理
-            if local_path and os.path.exists(local_path):
-                if os.path.isdir(local_path):
-                    shutil.rmtree(local_path)
+            abs_local_path = os.path.abspath(local_path)
+            if local_path and os.path.exists(abs_local_path):
+                if os.path.isdir(abs_local_path):
+                    shutil.rmtree(abs_local_path)
                 else:
-                    os.remove(local_path)
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    os.remove(abs_local_path)
+            os.makedirs(os.path.dirname(abs_local_path), exist_ok=True)
             await _git_cmd(
-                os.path.dirname(local_path) or ".",
-                ["clone", repo_url, local_path],
+                os.path.dirname(abs_local_path),
+                ["clone", repo_url, os.path.basename(abs_local_path)],
                 timeout=300,
             )
             detected = await _git_cmd(

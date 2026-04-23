@@ -90,8 +90,9 @@ async def _do_clone(project_id: int) -> None:
 
         try:
             os.makedirs(os.path.dirname(project.local_path) if project.local_path else "/tmp/repos", exist_ok=True)
-            if os.path.isdir(os.path.join(project.local_path, ".git")):
-                logger.info("Repo already exists at %s, skipping clone", project.local_path)
+            abs_local_path = os.path.abspath(project.local_path) if project.local_path else ""
+            if abs_local_path and os.path.isdir(os.path.join(abs_local_path, ".git")):
+                logger.info("Repo already exists at %s, skipping clone", abs_local_path)
                 await AnalysisProgressTracker.update(
                     project_id, step="skip_clone", progress=50, total=100,
                     message="仓库已存在，跳过克隆",
@@ -102,28 +103,33 @@ async def _do_clone(project_id: int) -> None:
                     message="正在克隆仓库...",
                 )
                 # 清理已存在但非 git 仓库的残留目录
-                if project.local_path and os.path.exists(project.local_path):
-                    if os.path.isdir(project.local_path):
-                        shutil.rmtree(project.local_path)
+                if abs_local_path and os.path.exists(abs_local_path):
+                    if os.path.isdir(abs_local_path):
+                        shutil.rmtree(abs_local_path)
                     else:
-                        os.remove(project.local_path)
+                        os.remove(abs_local_path)
                 t0 = time.monotonic()
+                clone_cwd = os.path.dirname(abs_local_path) or "."
+                clone_target = os.path.basename(abs_local_path)
+                os.makedirs(clone_cwd, exist_ok=True)
                 if sys.platform == "win32":
                     loop = asyncio.get_running_loop()
                     def _clone() -> subprocess.CompletedProcess:
                         return subprocess.run(
-                            ["git", "clone", project.repo_url, project.local_path],
+                            ["git", "clone", project.repo_url, clone_target],
                             capture_output=True,
                             timeout=300,
+                            cwd=clone_cwd,
                         )
                     proc = await loop.run_in_executor(None, _clone)
                     if proc.returncode != 0:
                         raise RuntimeError(f"git clone failed: {proc.stderr.decode('utf-8', errors='replace')}")
                 else:
                     proc = await asyncio.create_subprocess_exec(
-                        "git", "clone", project.repo_url, project.local_path,
+                        "git", "clone", project.repo_url, clone_target,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
+                        cwd=clone_cwd,
                     )
                     stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
                     if proc.returncode != 0:
@@ -131,7 +137,7 @@ async def _do_clone(project_id: int) -> None:
 
                 def _detect_branch() -> str:
                     r = subprocess.run(
-                        ["git", "-C", project.local_path, "rev-parse", "--abbrev-ref", "HEAD"],
+                        ["git", "-C", abs_local_path, "rev-parse", "--abbrev-ref", "HEAD"],
                         capture_output=True, text=True, timeout=10,
                     )
                     return r.stdout.strip() if r.returncode == 0 else "main"
@@ -140,7 +146,7 @@ async def _do_clone(project_id: int) -> None:
                     detected_branch = await loop.run_in_executor(None, _detect_branch)
                 else:
                     bp = await asyncio.create_subprocess_exec(
-                        "git", "-C", project.local_path, "rev-parse", "--abbrev-ref", "HEAD",
+                        "git", "-C", abs_local_path, "rev-parse", "--abbrev-ref", "HEAD",
                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                     )
                     bo, _ = await asyncio.wait_for(bp.communicate(), timeout=10)
