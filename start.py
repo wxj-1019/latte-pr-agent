@@ -59,6 +59,7 @@ def main():
             host=args.host,
             port=args.port,
             reload=True,
+            reload_excludes=["repos/*", "*/repos/*"],
             log_level="debug",
         )
 
