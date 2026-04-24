@@ -225,7 +225,7 @@ export default function SystemSettingsPage() {
           </div>
         )}
         {!isForbidden && (
-          <Button variant="secondary" size="sm" className="mt-4" onClick={loadSettings}>
+          <Button variant="secondary" size="sm" className="mt-4" onClick={() => loadSettings()}>
             重试
           </Button>
         )}

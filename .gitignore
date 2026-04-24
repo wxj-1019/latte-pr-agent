@@ -69,6 +69,7 @@ server_deploy.py
 # Cloned repositories (analysis artifacts)
 repos/
 .pylibs/
+redis/
 
 # Temporary scripts
 _*.py

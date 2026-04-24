@@ -40,14 +40,12 @@ class VerifyCheckResult(BaseModel):
 @router.get("/{repo_id:path}")
 async def get_config(repo_id: str, db: AsyncSession = Depends(get_db)):
     service = ProjectConfigService(db)
-    config = await service.get_config(platform="github", repo_id=repo_id)
-    if not config:
-        return {
-            "repo_id": repo_id,
-            "platform": "github",
-            "config_json": {},
-        }
-    return {**config, "repo_id": repo_id}
+    config_json = await service.get_config(platform="github", repo_id=repo_id)
+    return {
+        "repo_id": repo_id,
+        "platform": "github",
+        "config_json": config_json or {},
+    }
 
 
 @router.put("/{repo_id:path}")

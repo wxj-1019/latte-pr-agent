@@ -242,4 +242,18 @@ export const api = {
       `/projects/${projectId}/contributors/${encodeURIComponent(authorEmail)}`
     );
   },
+
+  analyzeCommit: async (projectId: number, commitHash: string) => {
+    return fetchJson<{ commit_hash: string; status: string; message?: string }>(
+      `/projects/${projectId}/commits/${commitHash}/analyze`,
+      { method: "POST" }
+    );
+  },
+
+  analyzeProject: async (projectId: number, maxCommits: number = 20) => {
+    return fetchJson<{ project_id: number; status: string; operation: string }>(
+      `/projects/${projectId}/analyze?max_commits=${maxCommits}`,
+      { method: "POST" }
+    );
+  },
 };

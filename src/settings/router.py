@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 async def _require_admin_key(api_key: str = Security(api_key_header)) -> None:
     expected = settings.admin_api_key
-    if expected and api_key != expected:
+    if not expected:
+        return
+    if not api_key or not secrets.compare_digest(api_key, expected):
         raise HTTPException(status_code=403, detail="Invalid admin API key")
 
 
