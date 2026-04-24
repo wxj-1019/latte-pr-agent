@@ -14,6 +14,7 @@ class PromptExperiment(Base):
     version: Mapped[str] = mapped_column(String(50), primary_key=True)
     prompt_text: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[Optional[dict]] = mapped_column(nullable=True)
+    repo_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(default=beijing_now)
 
 

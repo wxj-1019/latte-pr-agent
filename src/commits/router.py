@@ -257,11 +257,15 @@ async def _do_analyze_commit(
     from commits.scanner import GitLogScanner
     from llm.router import ResilientReviewRouter
     from config import settings
+    from services.settings_service import apply_db_settings
 
     AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
 
     try:
         async with AsyncSessionLocal() as session:
+            await apply_db_settings(session)
+            await session.commit()
+
             svc = CommitService(session)
             commit = await svc.get_commit(project_id, commit_hash)
             if not commit:
@@ -275,7 +279,20 @@ async def _do_analyze_commit(
             commit.diff_content = diff_content
             await session.commit()
 
-        system_prompt = (
+        from prompts.registry import PromptRegistry
+        from models.project_repo import ProjectRepo
+        from sqlalchemy import select
+
+        project_prompt = None
+        async with AsyncSessionLocal() as session:
+            registry = PromptRegistry(session)
+            await registry.load_from_db()
+            project_result = await session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
+            project = project_result.scalar_one_or_none()
+            if project:
+                project_prompt = await registry.get_project_prompt_text(project.repo_id)
+
+        system_prompt = project_prompt or (
             "你是一位资深的代码审查专家。请分析提供的代码变更（diff），并以 JSON 对象格式返回发现的问题列表。\n\n"
             "要求的 JSON 格式：\n"
             '{"issues": [{"file": "path/to/file", "line": 42, "severity": "critical|warning|info", '

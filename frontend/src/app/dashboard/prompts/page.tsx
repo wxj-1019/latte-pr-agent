@@ -9,7 +9,7 @@ import { FadeInUp } from "@/components/motion/fade-in-up";
 import { usePrompts } from "@/hooks/use-prompts";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
-import { Check, FlaskConical, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, FlaskConical, Loader2, ChevronDown, ChevronUp, GitBranch } from "lucide-react";
 
 interface TestState {
   loading: boolean;
@@ -295,11 +295,25 @@ export default function PromptsPage() {
                                 基线
                               </Badge>
                             )}
+                            {prompt.repo_id && (
+                              <Badge variant="warning" dot>
+                                项目专属
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-4 mt-2 text-sm text-latte-text-tertiary">
                             <span>用于 {prompt.repo_count} 个仓库</span>
                             <span>·</span>
                             <span>准确率 {Math.round((prompt.accuracy || 0) * 100)}%</span>
+                            {prompt.repo_id && (
+                              <>
+                                <span>·</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <GitBranch size={14} />
+                                  {prompt.repo_id}
+                                </span>
+                              </>
+                            )}
                             {prompt.ab_ratio !== undefined && (
                               <>
                                 <span>·</span>

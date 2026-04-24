@@ -100,3 +100,26 @@ async def optimize_prompt(
         min_samples=req.min_samples,
     )
     return result
+
+
+@router.post("/generate-for-project/{project_id}")
+async def generate_project_prompt(
+    project_id: int,
+    force: bool = False,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    from models.project_repo import ProjectRepo
+    from sqlalchemy import select
+    from prompts.project_prompt_generator import ProjectPromptGenerator
+
+    result = await db.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    generator = ProjectPromptGenerator(db)
+    version = await generator.generate(project, force=force)
+    if not version:
+        # 可能是不满足进化条件而跳过
+        return {"message": "已是最新版本，无需重新生成", "version": None}
+    return {"message": "已生成", "version": version}

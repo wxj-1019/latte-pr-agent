@@ -231,6 +231,14 @@ async def _do_sync(
                     project.status = "ready"
                     await session.commit()
 
+                # 同步后自适应进化项目专属 Prompt（失败不影响主流程）
+                try:
+                    from prompts.project_prompt_generator import ProjectPromptGenerator
+                    gen = ProjectPromptGenerator(session)
+                    await gen.generate(project, force=False)
+                except Exception as exc:
+                    logger.warning("Project %s: auto prompt generation failed on sync: %s", project_id, exc)
+
             new_commits = saved
 
         await AnalysisProgressTracker.complete(

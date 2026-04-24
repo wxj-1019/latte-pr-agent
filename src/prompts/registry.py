@@ -64,6 +64,22 @@ class PromptRegistry:
         pv = self._versions.get(version)
         return pv.text if pv else self._versions["v1"].text
 
+    async def get_project_prompt_text(self, repo_id: str) -> Optional[str]:
+        """获取指定项目的最新专属 Prompt 文本。"""
+        if not self.session:
+            return None
+        from models import PromptExperiment
+        from sqlalchemy import desc
+
+        result = await self.session.execute(
+            select(PromptExperiment)
+            .where(PromptExperiment.repo_id == repo_id)
+            .order_by(desc(PromptExperiment.created_at), desc(PromptExperiment.version))
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row.prompt_text if row else None
+
     def list_versions(self) -> List[str]:
         return list(self._versions.keys())
 
@@ -99,6 +115,7 @@ class PromptRegistry:
                 "accuracy": 0.88 if version == "v1" else (0.91 if version != "v1" else 0.88),
                 "repo_count": repo_counts.get(version, 0),
                 "content": pv.text[:200] if pv.text else "",
+                "repo_id": db_row.repo_id if db_row else None,
                 "created_at": created_at,
             })
         return enriched

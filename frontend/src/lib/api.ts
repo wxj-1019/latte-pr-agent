@@ -1,4 +1,4 @@
-import { Review, ReviewFinding, PromptVersion, ReviewMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
+import { Review, ReviewFinding, PromptVersion, ReviewMetrics, CombinedMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
 import { csrfHeaders } from "./csrf";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -63,6 +63,12 @@ export const api = {
     );
   },
 
+  getCombinedMetrics: async (range: "7d" | "30d" | "90d", repoId: string) => {
+    return fetchJson<CombinedMetrics>(
+      `/stats/metrics?repo_id=${encodeURIComponent(repoId)}&range=${range}`
+    );
+  },
+
   getPromptVersions: async () => {
     return fetchJson<PromptVersion[]>("/prompts/versions");
   },
@@ -80,6 +86,12 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+    });
+  },
+
+  generateProjectPrompt: async (projectId: number) => {
+    return fetchJson<{ message: string; version: string }>(`/prompts/generate-for-project/${projectId}`, {
+      method: "POST",
     });
   },
 
@@ -144,6 +156,14 @@ export const api = {
       method: "PUT",
       headers: { "Content-Type": "application/json", "X-API-Key": getAdminApiKey() },
       body: JSON.stringify({ settings: settingsList }),
+    });
+  },
+
+  revealSettings: async (keys: string[]) => {
+    return fetchJson<{ values: Record<string, string> }>("/settings/reveal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": getAdminApiKey() },
+      body: JSON.stringify({ keys }),
     });
   },
 

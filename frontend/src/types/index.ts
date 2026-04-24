@@ -104,6 +104,7 @@ export interface PromptVersion {
   repo_count: number;
   content?: string;
   metadata?: Record<string, unknown>;
+  repo_id?: string;
   created_at: string;
 }
 
@@ -114,10 +115,46 @@ export interface ReviewMetrics {
   avg_confidence: number;
 }
 
+export interface CombinedMetrics {
+  repo_id: string;
+  metrics: {
+    total_reviews: number;
+    total_pr_findings: number;
+    total_commit_findings: number;
+    total_findings: number;
+    false_positive_rate: number;
+    avg_confidence: number;
+  };
+  commit: {
+    project_id?: number;
+    total_commits?: number;
+    analyzed_commits?: number;
+    total_findings?: number;
+    severity_distribution?: Record<string, number>;
+  };
+  chart: MetricsDataPoint[];
+  severity_distribution: Record<string, number>;
+  category_distribution: Record<string, number>;
+  contributors: ContributorStat[];
+  code_changes: {
+    additions: number;
+    deletions: number;
+    files: number;
+  };
+}
+
 export interface MetricsDataPoint {
   date: string;
   reviews: number;
-  findings: number;
+  pr_findings: number;
+  analyses: number;
+  commit_findings: number;
+}
+
+export interface ContributorStat {
+  author: string;
+  finding_count: number;
+  commit_count: number;
 }
 
 export interface ReviewUpdate {
@@ -227,6 +264,12 @@ export interface ProjectStats {
   total_findings: number;
   severity_distribution: Record<string, number>;
   category_distribution: Record<string, number>;
+  risk_distribution: Record<string, number>;
+  code_changes: {
+    additions: number;
+    deletions: number;
+    files: number;
+  };
 }
 
 export interface ContributorInfo {

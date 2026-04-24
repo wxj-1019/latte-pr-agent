@@ -188,6 +188,14 @@ async def _do_clone(project_id: int) -> None:
             await session.commit()
             logger.info("Project %s: clone and scan completed", project_id)
 
+            # 自适应进化项目专属 Prompt（失败不影响主流程）
+            try:
+                from prompts.project_prompt_generator import ProjectPromptGenerator
+                gen = ProjectPromptGenerator(session)
+                await gen.generate(project, force=False)
+            except Exception as exc:
+                logger.warning("Project %s: auto prompt generation failed: %s", project_id, exc)
+
             await AnalysisProgressTracker.complete(
                 project_id,
                 result={"scanned": len(commits), "saved": saved},
