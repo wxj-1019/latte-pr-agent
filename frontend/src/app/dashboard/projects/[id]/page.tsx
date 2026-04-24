@@ -122,11 +122,13 @@ export default function ProjectDetailPage() {
           load();
           setScanLoading(false);
           setSyncLoading(false);
+          setAnalyzeLoading(false);
         } else if (data.status === "failed") {
           showToast(`分析失败：${data.error || data.message}`, "error");
           closeSSE();
           setScanLoading(false);
           setSyncLoading(false);
+          setAnalyzeLoading(false);
         }
       } catch {
         // ignore malformed events
@@ -191,15 +193,17 @@ export default function ProjectDetailPage() {
       setAnalysisProgress(null);
       connectSSE();
       const res = await api.analyzeProject(projectId, 20);
-      if (res.status !== "started") {
+      if (res.status === "started") {
+        showToast("分析已启动，后台运行中...");
+      } else {
         showToast(`分析已启动`);
         closeSSE();
-        setAnalyzeLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "分析失败");
-      setAnalyzeLoading(false);
       closeSSE();
+    } finally {
+      setAnalyzeLoading(false);
     }
   };
 
