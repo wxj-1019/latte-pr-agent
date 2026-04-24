@@ -24,6 +24,7 @@ from settings.router import router as settings_router
 from projects.router import router as projects_router
 from commits.router import router as commits_router
 from models import get_db, Review
+from models.project_repo import ProjectRepo
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +140,17 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
 
 @app.get("/repos", tags=["repos"])
 async def list_repos(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
+    review_result = await db.execute(
         select(Review.repo_id).where(Review.platform != "direct").distinct()
     )
-    repos = [row[0] for row in result.all() if row[0]]
-    return {"repos": repos}
+    project_result = await db.execute(
+        select(ProjectRepo.repo_id).distinct()
+    )
+    repos = set()
+    for row in review_result.all():
+        if row[0]:
+            repos.add(row[0])
+    for row in project_result.all():
+        if row[0]:
+            repos.add(row[0])
+    return {"repos": sorted(repos)}

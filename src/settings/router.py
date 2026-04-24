@@ -102,6 +102,26 @@ async def update_single_setting(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class RevealRequest(BaseModel):
+    keys: list[str]
+
+
+@router.post("/reveal")
+async def reveal_settings(
+    body: RevealRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Security(_require_admin_key),
+):
+    from services.settings_service import get_setting_value
+    result = {}
+    for key in body.keys:
+        if key not in SETTINGS_SCHEMA:
+            continue
+        value = await get_setting_value(db, key)
+        result[key] = value or ""
+    return {"values": result}
+
+
 class TestWebhookRequest(BaseModel):
     platform: str
 

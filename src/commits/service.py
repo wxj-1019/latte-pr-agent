@@ -179,18 +179,46 @@ class CommitService:
         )
         category_dist = {row[0]: row[1] for row in cat_result.all()}
 
+        # Risk level distribution from commits
+        risk_result = await self.session.execute(
+            select(CommitAnalysis.risk_level, func.count())
+            .where(CommitAnalysis.project_id == project_id, CommitAnalysis.risk_level.isnot(None))
+            .group_by(CommitAnalysis.risk_level)
+        )
+        risk_dist = {row[0]: row[1] for row in risk_result.all()}
+
+        # Code changes stats
+        changes_result = await self.session.execute(
+            select(
+                func.coalesce(func.sum(CommitAnalysis.additions), 0),
+                func.coalesce(func.sum(CommitAnalysis.deletions), 0),
+                func.coalesce(func.sum(CommitAnalysis.changed_files), 0),
+            )
+            .where(CommitAnalysis.project_id == project_id)
+        )
+        changes_row = changes_result.one_or_none()
+        additions = int(changes_row[0]) if changes_row else 0
+        deletions = int(changes_row[1]) if changes_row else 0
+        files_changed = int(changes_row[2]) if changes_row else 0
+
         return {
             "total_commits": commits_total,
             "analyzed_commits": analyzed,
             "total_findings": findings_total,
             "severity_distribution": severity_dist,
             "category_distribution": category_dist,
+            "risk_distribution": risk_dist,
+            "code_changes": {
+                "additions": additions,
+                "deletions": deletions,
+                "files": files_changed,
+            },
         }
 
     async def get_contributor_analysis(self, project_id: int) -> dict:
+        # Group by email only; use the most frequent name for display
         commit_rows = (await self.session.execute(
             select(
-                CommitAnalysis.author_name,
                 CommitAnalysis.author_email,
                 func.count(CommitAnalysis.id).label("commit_count"),
                 func.sum(CommitAnalysis.additions).label("total_additions"),
@@ -199,19 +227,31 @@ class CommitService:
                 func.max(CommitAnalysis.commit_ts).label("latest_commit"),
             )
             .where(CommitAnalysis.project_id == project_id)
-            .group_by(CommitAnalysis.author_name, CommitAnalysis.author_email)
+            .group_by(CommitAnalysis.author_email)
             .order_by(func.count(CommitAnalysis.id).desc())
         )).all()
 
         contributors = []
         for row in commit_rows:
-            name, email, commits, adds, dels, files, latest = row
+            email, commits, adds, dels, files, latest = row
+            # Pick the most frequent name for this email
+            name_result = await self.session.execute(
+                select(CommitAnalysis.author_name)
+                .where(
+                    CommitAnalysis.project_id == project_id,
+                    CommitAnalysis.author_email == email,
+                )
+                .group_by(CommitAnalysis.author_name)
+                .order_by(func.count(CommitAnalysis.id).desc())
+                .limit(1)
+            )
+            name = name_result.scalar_one_or_none() or "Unknown"
+
             sev_rows = (await self.session.execute(
                 select(CommitFinding.severity, func.count())
                 .join(CommitFinding.analysis)
                 .where(
                     CommitAnalysis.project_id == project_id,
-                    CommitAnalysis.author_name == name,
                     CommitAnalysis.author_email == email,
                 )
                 .group_by(CommitFinding.severity)
@@ -229,7 +269,6 @@ class CommitService:
             analyzed_commits = (await self.session.execute(
                 select(func.count()).where(
                     CommitAnalysis.project_id == project_id,
-                    CommitAnalysis.author_name == name,
                     CommitAnalysis.author_email == email,
                     CommitAnalysis.status == "completed",
                 )
@@ -238,7 +277,7 @@ class CommitService:
             finding_density = round(total_findings / max(analyzed_commits, 1), 2) if analyzed_commits > 0 else 0.0
 
             contributors.append({
-                "author_name": name or "Unknown",
+                "author_name": name,
                 "author_email": email or "",
                 "commit_count": commits,
                 "analyzed_commits": analyzed_commits,

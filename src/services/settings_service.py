@@ -148,13 +148,20 @@ async def get_effective_settings(db: AsyncSession) -> dict:
 
 
 async def apply_db_settings(db: AsyncSession) -> None:
-    """Apply database overrides to the global settings object.
+    """Apply database overrides to the global settings object and os.environ.
 
     Safe for Celery workers (separate processes).  When running inside
     the FastAPI process via BackgroundTasks, multiple concurrent tasks
     may briefly see each other's tokens, but the window is small and
     the impact is limited to the review pipeline.
+
+    Both `settings.*` and `os.environ` are updated so that code reading
+    from either source picks up the correct value.  The env var is only
+    overwritten when a real database value exists — placeholder values
+    from .env are never propagated.
     """
+    import os
+
     from pydantic import SecretStr
     from config import settings
 
@@ -165,5 +172,6 @@ async def apply_db_settings(db: AsyncSession) -> None:
         if key in ("github_token", "gitlab_token", "deepseek_api_key",
                    "anthropic_api_key", "openai_api_key", "qwen_api_key"):
             setattr(settings, key, SecretStr(value))
+            os.environ[key.upper()] = value
         else:
             setattr(settings, key, value)

@@ -269,6 +269,11 @@ async def analyze_code(request: Request, req: AnalyzeRequest, db: AsyncSession =
             f.write(req.content)
 
     try:
+        # Ensure DB-stored API keys are loaded before building LLM router
+        from services.settings_service import apply_db_settings
+        await apply_db_settings(db)
+        await db.commit()
+
         # Build router & engine
         llm_router = ResilientReviewRouter(config={
             "primary_model": "deepseek-chat",

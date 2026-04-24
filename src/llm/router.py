@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Dict, Optional
 
-from openai import RateLimitError, APITimeoutError
+from openai import AuthenticationError, RateLimitError, APITimeoutError
 
 from llm.base import LLMProvider
 from llm.deepseek import DeepSeekProvider
@@ -16,7 +16,7 @@ class ReviewRouter:
     """审查路由：根据配置和 PR 规模选择模型"""
 
     def __init__(self, config: Dict, providers: Optional[Dict[str, LLMProvider]] = None):
-        self.providers: Dict[str, LLMProvider] = providers or {
+        self.providers: Dict[str, LLMProvider] = providers if providers is not None else {
             "deepseek": DeepSeekProvider(),
             "anthropic": AnthropicProvider(),
             "qwen": QwenProvider(),
@@ -129,6 +129,8 @@ class ResilientReviewRouter(ReviewRouter):
                 try:
                     logger.info("Trying model %s, attempt %s", model, attempt + 1)
                     return await provider.review(prompt, model, system_prompt)
+                except AuthenticationError:
+                    raise  # 认证错误不重试、不降级，直接抛出
                 except RateLimitError:
                     await asyncio.sleep(2 ** attempt)
                 except APITimeoutError:
