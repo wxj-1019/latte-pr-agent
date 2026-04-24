@@ -65,3 +65,13 @@ server_deploy.py
 
 # Logs
 *.log
+
+# Cloned repositories (analysis artifacts)
+repos/
+.pylibs/
+
+# Temporary scripts
+_*.py
+_*.sh
+deploy_on_server.sh
+quick_start.sh
