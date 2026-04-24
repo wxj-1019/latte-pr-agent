@@ -138,6 +138,9 @@ export default function ProjectDetailPage() {
     es.onerror = () => {
       es.close();
       esRef.current = null;
+      setScanLoading(false);
+      setSyncLoading(false);
+      setAnalyzeLoading(false);
     };
   }, [projectId, closeSSE, load, showToast]);
 
@@ -159,10 +162,10 @@ export default function ProjectDetailPage() {
         // fallback for old sync behavior
         showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
         await load();
-        setScanLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "扫描失败");
+    } finally {
       setScanLoading(false);
     }
   };
@@ -178,10 +181,10 @@ export default function ProjectDetailPage() {
       } else {
         showToast(`同步完成：${res.status}，新增 ${res.new_commits} 个提交`);
         await load();
-        setSyncLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "同步失败");
+    } finally {
       setSyncLoading(false);
     }
   };
