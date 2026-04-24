@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Shield,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { AnalysisProgressPanel } from "@/components/dashboard/analysis-progress";
 
@@ -63,6 +64,8 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [scanLoading, setScanLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [commitAnalyzing, setCommitAnalyzing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"commits" | "contributors" | "stats">("contributors");
   const [error, setError] = useState("");
   const [expandedContributor, setExpandedContributor] = useState<string | null>(null);
@@ -181,6 +184,54 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleAnalyzeProject = async () => {
+    try {
+      setAnalyzeLoading(true);
+      setError("");
+      setAnalysisProgress(null);
+      connectSSE();
+      const res = await api.analyzeProject(projectId, 20);
+      if (res.status !== "started") {
+        showToast(`分析已启动`);
+        closeSSE();
+        setAnalyzeLoading(false);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "分析失败");
+      setAnalyzeLoading(false);
+      closeSSE();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("确定删除该项目及其所有分析数据？此操作不可恢复。")) return;
+    try {
+      await api.deleteProject(projectId);
+      showToast("项目已删除");
+      router.push("/dashboard/projects");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "删除失败");
+    }
+  };
+
+  const handleAnalyzeCommit = async (commitHash: string) => {
+    try {
+      setCommitAnalyzing(commitHash);
+      setError("");
+      const res = await api.analyzeCommit(projectId, commitHash);
+      if (res.status === "started") {
+        showToast(`正在分析 ${commitHash.slice(0, 8)}...`);
+        setTimeout(() => load(), 3000);
+      } else if (res.status === "analyzing") {
+        showToast(res.message || "该提交已在分析中", "error");
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "分析失败");
+    } finally {
+      setCommitAnalyzing(null);
+    }
+  };
+
   const toggleContributor = async (email: string) => {
     if (expandedContributor === email) {
       setExpandedContributor(null);
@@ -247,6 +298,22 @@ export default function ProjectDetailPage() {
         >
           {scanLoading ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
           扫描提交
+        </button>
+        <button
+          onClick={handleAnalyzeProject}
+          disabled={analyzeLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-latte-success text-latte-bg-primary rounded-lg hover:bg-latte-success/90 disabled:opacity-50 transition-colors text-sm"
+        >
+          {analyzeLoading ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
+          AI 整体分析
+        </button>
+        <button
+          onClick={handleDelete}
+          className="flex items-center gap-2 px-4 py-2 border border-latte-critical/30 text-latte-critical rounded-lg hover:bg-latte-critical/5 transition-colors text-sm"
+          title="删除项目"
+        >
+          <Trash2 size={16} />
+          删除
         </button>
       </div>
 
@@ -586,6 +653,28 @@ export default function ProjectDetailPage() {
                         {c.changed_files} 文件
                       </span>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {c.status !== "completed" && c.status !== "analyzing" && (
+                      <button
+                        onClick={() => handleAnalyzeCommit(c.commit_hash)}
+                        disabled={commitAnalyzing === c.commit_hash}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-latte-success/10 text-latte-success rounded-lg hover:bg-latte-success/20 disabled:opacity-50 transition-colors text-xs font-medium"
+                      >
+                        {commitAnalyzing === c.commit_hash ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Shield size={12} />
+                        )}
+                        AI 分析
+                      </button>
+                    )}
+                    {c.status === "analyzing" && (
+                      <span className="flex items-center gap-1 text-xs text-latte-info">
+                        <Loader2 size={12} className="animate-spin" />
+                        分析中...
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
