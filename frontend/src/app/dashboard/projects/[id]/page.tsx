@@ -12,7 +12,6 @@ import {
   GitCommitHorizontal,
   Search as SearchIcon,
   BarChart3,
-  AlertTriangle,
   FileCode,
   User,
   Clock,
@@ -25,19 +24,16 @@ import {
   Shield,
   RefreshCw,
   Trash2,
-  Activity,
   Zap,
-  FileCode2,
   GitPullRequest,
-  PieChart as PieChartIcon,
 } from "lucide-react";
 import { AnalysisProgressPanel } from "@/components/dashboard/analysis-progress";
+import { LiquidGauge } from "@/components/ui/liquid-gauge";
+import { NebulaChart } from "@/components/ui/nebula-chart";
 import {
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -60,12 +56,6 @@ const chartColors = [
   "var(--latte-warning)",
   "var(--latte-critical)",
 ];
-
-const severityBarColors: Record<string, string> = {
-  critical: "var(--latte-critical)",
-  warning: "var(--latte-warning)",
-  info: "var(--latte-info)",
-};
 
 const riskBarColors: Record<string, string> = {
   critical: "var(--latte-critical)",
@@ -600,164 +590,60 @@ export default function ProjectDetailPage() {
 
       {activeTab === "stats" && stats && (
         <div className="space-y-5">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-10">
-                <GitCommitHorizontal size={48} className="text-latte-gold" />
-              </div>
-              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-                <GitCommitHorizontal size={16} className="text-latte-gold" />
-                总提交数
-              </div>
-              <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_commits}</p>
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-xs text-latte-text-secondary mb-1">
-                  <span>分析覆盖率</span>
-                  <span>{stats.total_commits > 0 ? Math.round((stats.analyzed_commits / stats.total_commits) * 100) : 0}%</span>
-                </div>
-                <div className="h-1.5 bg-latte-bg-tertiary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-latte-gold rounded-full transition-all"
-                    style={{ width: `${stats.total_commits > 0 ? (stats.analyzed_commits / stats.total_commits) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-10">
-                <AlertTriangle size={48} className="text-latte-rose" />
-              </div>
-              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-                <AlertTriangle size={16} className="text-latte-rose" />
-                发现总数
-              </div>
-              <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_findings}</p>
-              <p className="text-xs text-latte-text-secondary mt-3">
-                平均每提交 {(stats.total_findings / Math.max(stats.analyzed_commits, 1)).toFixed(2)} 个问题
-              </p>
-            </div>
-
-            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-10">
-                <FileCode2 size={48} className="text-latte-info" />
-              </div>
-              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-                <FileCode2 size={16} className="text-latte-info" />
-                代码变更
-              </div>
-              <p className="text-3xl font-semibold text-latte-text-primary">
-                {((stats.code_changes?.additions ?? 0) + (stats.code_changes?.deletions ?? 0)).toLocaleString()}
-              </p>
-              <div className="flex items-center gap-3 mt-3 text-xs">
-                <span className="text-latte-success">+{(stats.code_changes?.additions ?? 0).toLocaleString()}</span>
-                <span className="text-latte-critical">-{(stats.code_changes?.deletions ?? 0).toLocaleString()}</span>
-                <span className="text-latte-text-secondary">{(stats.code_changes?.files ?? 0).toLocaleString()} 文件</span>
-              </div>
-            </div>
-
-            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-10">
-                <Shield size={48} className="text-latte-success" />
-              </div>
-              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-                <Shield size={16} className="text-latte-success" />
-                已分析提交
-              </div>
-              <p className="text-3xl font-semibold text-latte-text-primary">{stats.analyzed_commits}</p>
-              <p className="text-xs text-latte-text-secondary mt-3">
-                {stats.total_commits - stats.analyzed_commits} 个待分析
-              </p>
+          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
+              <LiquidGauge
+                value={stats.analyzed_commits}
+                max={Math.max(stats.total_commits, 1)}
+                label="分析覆盖率"
+                sublabel={`${stats.analyzed_commits} / ${stats.total_commits}`}
+                color="var(--latte-gold)"
+                size={130}
+              />
+              <LiquidGauge
+                value={stats.total_findings}
+                max={Math.max(stats.total_findings * 1.5, 50)}
+                label="发现项总数"
+                sublabel={`密度 ${(stats.total_findings / Math.max(stats.analyzed_commits, 1)).toFixed(1)}`}
+                color="var(--latte-rose)"
+                size={130}
+              />
+              <LiquidGauge
+                value={(stats.code_changes?.additions ?? 0) + (stats.code_changes?.deletions ?? 0)}
+                max={Math.max(((stats.code_changes?.additions ?? 0) + (stats.code_changes?.deletions ?? 0)) * 1.3, 1000)}
+                label="代码变更"
+                sublabel={`${stats.code_changes?.files ?? 0} 文件`}
+                color="var(--latte-info)"
+                size={130}
+              />
+              <LiquidGauge
+                value={Object.values(stats.risk_distribution ?? {}).reduce((a, b) => a + b, 0) > 0
+                  ? Math.round(((stats.risk_distribution?.high ?? 0) + (stats.risk_distribution?.critical ?? 0)) / Math.max(Object.values(stats.risk_distribution ?? {}).reduce((a, b) => a + b, 0), 1) * 100)
+                  : 0}
+                max={100}
+                label="高风险占比"
+                sublabel="high + critical"
+                color="var(--latte-warning)"
+                size={130}
+              />
             </div>
           </div>
 
           {/* Charts row 1 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Category Distribution - Donut Chart */}
             <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <div className="flex items-center gap-2 mb-4">
-                <PieChartIcon size={16} className="text-latte-gold" />
-                <h3 className="text-sm font-medium text-latte-text-primary">类别分布</h3>
-              </div>
-              <div className="h-64">
-                {Object.keys(stats.category_distribution).length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={Object.entries(stats.category_distribution).map(([name, value]) => ({ name, value }))}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {Object.entries(stats.category_distribution).map((_entry, index) => (
-                          <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--latte-bg-secondary)",
-                          border: "1px solid var(--latte-chart-tooltip-border)",
-                          borderRadius: "12px",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
-                    <BarChart3 size={36} className="opacity-30 mb-2" />
-                    <p className="text-sm">暂无类别数据</p>
-                  </div>
-                )}
-              </div>
+              <NebulaChart
+                data={stats.category_distribution ?? {}}
+                title="发现项类别星云"
+                height={280}
+              />
             </div>
-
-            {/* Severity Distribution - Horizontal Bar */}
             <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity size={16} className="text-latte-rose" />
-                <h3 className="text-sm font-medium text-latte-text-primary">严重程度分布</h3>
-              </div>
-              <div className="h-64">
-                {Object.keys(stats.severity_distribution).length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={Object.entries(stats.severity_distribution).map(([name, value]) => ({
-                        name: name === "critical" ? "严重" : name === "warning" ? "警告" : name === "info" ? "提示" : name,
-                        value,
-                        key: name,
-                      }))}
-                      layout="vertical"
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--latte-chart-grid)" horizontal={false} />
-                      <XAxis type="number" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
-                      <YAxis dataKey="name" type="category" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} width={50} />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--latte-bg-secondary)",
-                          border: "1px solid var(--latte-chart-tooltip-border)",
-                          borderRadius: "12px",
-                        }}
-                      />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                        {Object.entries(stats.severity_distribution).map(([key], index) => (
-                          <Cell key={key} fill={severityBarColors[key] || chartColors[index % chartColors.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
-                    <Activity size={36} className="opacity-30 mb-2" />
-                    <p className="text-sm">暂无严重级别数据</p>
-                  </div>
-                )}
-              </div>
+              <NebulaChart
+                data={stats.severity_distribution ?? {}}
+                title="严重级别星云"
+                height={280}
+              />
             </div>
           </div>
 

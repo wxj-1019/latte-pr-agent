@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useMetrics } from "@/hooks/use-metrics";
 import { GlassCard } from "@/components/ui/glass-card";
 import { FadeInUp } from "@/components/motion/fade-in-up";
-import { CountUp } from "@/components/ui/count-up";
+import { LiquidGauge } from "@/components/ui/liquid-gauge";
+import { NebulaChart } from "@/components/ui/nebula-chart";
 import { api } from "@/lib/api";
 import type { ProjectRepo } from "@/types";
 import {
@@ -15,41 +16,17 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
   Legend,
 } from "recharts";
 import {
-  BarChart3,
   FolderGit2,
-  GitCommit,
-  FileCode2,
   Users,
-  AlertTriangle,
-  ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 
 const rangeOptions: Array<"7d" | "30d" | "90d"> = ["7d", "30d", "90d"];
 
-const pieColors = [
-  "var(--latte-gold)",
-  "var(--latte-rose)",
-  "var(--latte-success)",
-  "var(--latte-info)",
-  "var(--latte-warning)",
-  "var(--latte-critical)",
-];
 
-const severityColors: Record<string, string> = {
-  critical: "var(--latte-critical)",
-  warning: "var(--latte-warning)",
-  info: "var(--latte-info)",
-  unknown: "var(--latte-text-tertiary)",
-};
 
 
 
@@ -80,7 +57,6 @@ export default function MetricsPage() {
     categoryDistribution,
     severityDistribution,
     contributors,
-    codeChanges,
     isLoading,
     error,
   } = useMetrics(range, selectedRepo || undefined);
@@ -98,20 +74,7 @@ export default function MetricsPage() {
     }),
   }));
 
-  const severityData = severityDistribution
-    ? Object.entries(severityDistribution).map(([name, value]) => ({
-        name:
-          name === "critical"
-            ? "严重"
-            : name === "warning"
-              ? "警告"
-              : name === "info"
-                ? "提示"
-                : name,
-        value,
-        key: name,
-      }))
-    : [];
+
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -175,65 +138,50 @@ export default function MetricsPage() {
           </div>
         </FadeInUp>
       ) : isLoading || !metrics ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
+            <div key={i} className="h-48 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
           ))}
         </div>
       ) : (
         <>
           <FadeInUp delay={0.1}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <GlassCard className="p-6" variant="elevated">
-                <div className="flex items-center gap-2 mb-2">
-                  <GitCommit size={16} className="text-latte-gold" />
-                  <p className="text-sm text-latte-text-tertiary">Commit 分析总数</p>
-                </div>
-                <p className="text-3xl font-display font-semibold text-latte-text-primary mt-1">
-                  <CountUp value={commit?.analyzed_commits ?? 0} />
-                </p>
-                <p className="text-xs text-latte-text-tertiary mt-1">
-                  共 {commit?.total_commits ?? 0} 个 commits
-                </p>
-              </GlassCard>
-              <GlassCard className="p-6" variant="elevated">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle size={16} className="text-latte-rose" />
-                  <p className="text-sm text-latte-text-tertiary">发现项总数</p>
-                </div>
-                <p className="text-3xl font-display font-semibold text-latte-text-primary mt-1">
-                  <CountUp value={metrics.total_findings} />
-                </p>
-                <p className="text-xs text-latte-text-tertiary mt-1">
-                  PR {metrics.total_pr_findings} + Commit {metrics.total_commit_findings}
-                </p>
-              </GlassCard>
-              <GlassCard className="p-6" variant="elevated">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileCode2 size={16} className="text-latte-info" />
-                  <p className="text-sm text-latte-text-tertiary">代码变更</p>
-                </div>
-                <p className="text-3xl font-display font-semibold text-latte-text-primary mt-1">
-                  <CountUp value={(codeChanges?.additions ?? 0) + (codeChanges?.deletions ?? 0)} />
-                </p>
-                <p className="text-xs text-latte-text-tertiary mt-1">
-                  +{codeChanges?.additions ?? 0} / -{codeChanges?.deletions ?? 0} ·{" "}
-                  {codeChanges?.files ?? 0} 文件
-                </p>
-              </GlassCard>
-              <GlassCard className="p-6" variant="elevated">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShieldAlert size={16} className="text-latte-warning" />
-                  <p className="text-sm text-latte-text-tertiary">误报率</p>
-                </div>
-                <p className="text-3xl font-display font-semibold text-latte-text-primary mt-1">
-                  <CountUp value={Math.round(metrics.false_positive_rate * 100)} suffix="%" />
-                </p>
-                <p className="text-xs text-latte-text-tertiary mt-1">
-                  平均置信度 {(metrics.avg_confidence * 100).toFixed(0)}%
-                </p>
-              </GlassCard>
-            </div>
+            <GlassCard className="p-6" variant="elevated">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
+                <LiquidGauge
+                  value={commit?.analyzed_commits ?? 0}
+                  max={Math.max(commit?.total_commits ?? 1, 1)}
+                  label="分析覆盖率"
+                  sublabel={`${commit?.analyzed_commits ?? 0} / ${commit?.total_commits ?? 0}`}
+                  color="var(--latte-gold)"
+                  size={130}
+                />
+                <LiquidGauge
+                  value={metrics.total_findings}
+                  max={Math.max(metrics.total_findings * 1.5, 50)}
+                  label="发现项总数"
+                  sublabel={`Commit ${metrics.total_commit_findings}`}
+                  color="var(--latte-rose)"
+                  size={130}
+                />
+                <LiquidGauge
+                  value={Math.round((metrics.avg_confidence || 0) * 100)}
+                  max={100}
+                  label="平均置信度"
+                  sublabel="AI 评估"
+                  color="var(--latte-info)"
+                  size={130}
+                />
+                <LiquidGauge
+                  value={Math.round(metrics.false_positive_rate * 100)}
+                  max={100}
+                  label="误报率"
+                  sublabel="越低越好"
+                  color="var(--latte-warning)"
+                  size={130}
+                />
+              </div>
+            </GlassCard>
           </FadeInUp>
 
           <FadeInUp delay={0.15}>
@@ -318,113 +266,21 @@ export default function MetricsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <FadeInUp delay={0.2}>
               <GlassCard className="p-6">
-                <h3 className="text-lg font-medium text-latte-text-primary mb-4">
-                  按类别分布的发现项
-                </h3>
-                <div className="h-64 w-full">
-                  {mounted ? (
-                    categoryDistribution && Object.keys(categoryDistribution).length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={Object.entries(categoryDistribution).map(
-                              ([name, value]) => ({ name, value })
-                            )}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            label={({ name, percent }) =>
-                              `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                            }
-                            labelLine={false}
-                          >
-                            {Object.entries(categoryDistribution).map((_entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={pieColors[index % pieColors.length]}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
-                              background: "var(--latte-bg-secondary)",
-                              border: "1px solid var(--latte-chart-tooltip-border)",
-                              borderRadius: "12px",
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
-                        <BarChart3 size={40} className="opacity-30 mb-3" />
-                        <p className="text-sm">暂无分类数据</p>
-                        <p className="text-xs mt-1 opacity-60">完成审查后将自动更新</p>
-                      </div>
-                    )
-                  ) : null}
-                </div>
+                <NebulaChart
+                  data={categoryDistribution ?? {}}
+                  title="发现项类别星云"
+                  height={280}
+                />
               </GlassCard>
             </FadeInUp>
 
             <FadeInUp delay={0.25}>
               <GlassCard className="p-6">
-                <h3 className="text-lg font-medium text-latte-text-primary mb-4">
-                  严重级别分布
-                </h3>
-                <div className="h-64 w-full">
-                  {mounted ? (
-                    severityData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={severityData} layout="vertical">
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="var(--latte-chart-grid)"
-                            horizontal={false}
-                          />
-                          <XAxis
-                            type="number"
-                            stroke="var(--latte-text-tertiary)"
-                            tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }}
-                            axisLine={{ stroke: "var(--latte-chart-axis)" }}
-                          />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            stroke="var(--latte-text-tertiary)"
-                            tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }}
-                            axisLine={{ stroke: "var(--latte-chart-axis)" }}
-                            width={50}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              background: "var(--latte-bg-secondary)",
-                              border: "1px solid var(--latte-chart-tooltip-border)",
-                              borderRadius: "12px",
-                            }}
-                            labelStyle={{ color: "var(--latte-text-primary)" }}
-                            itemStyle={{ color: "var(--latte-text-secondary)" }}
-                          />
-                          <Bar dataKey="value" name="数量" radius={[0, 4, 4, 0]}>
-                            {severityData.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={severityColors[entry.key] || pieColors[index % pieColors.length]}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
-                        <BarChart3 size={40} className="opacity-30 mb-3" />
-                        <p className="text-sm">暂无严重级别数据</p>
-                        <p className="text-xs mt-1 opacity-60">完成审查后将自动更新</p>
-                      </div>
-                    )
-                  ) : null}
-                </div>
+                <NebulaChart
+                  data={severityDistribution ?? {}}
+                  title="严重级别星云"
+                  height={280}
+                />
               </GlassCard>
             </FadeInUp>
           </div>
