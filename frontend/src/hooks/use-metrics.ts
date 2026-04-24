@@ -2,22 +2,28 @@
 
 import useSWR from "swr";
 import { api } from "@/lib/api";
-import type { ReviewMetrics, MetricsDataPoint } from "@/types";
+import type { CombinedMetrics, MetricsDataPoint } from "@/types";
 
 export function useMetrics(range: "7d" | "30d" | "90d", repoId?: string) {
-  const { data, error, isLoading } = useSWR<{
-    metrics: ReviewMetrics;
-    chart: MetricsDataPoint[];
-    category_distribution?: Record<string, number>;
-  }>(
-    typeof window === "undefined" ? null : (repoId ? [`/feedback/metrics/${repoId}`, range] : null),
-    () => api.getMetrics(range, repoId || "default")
+  const key = repoId ? `stats/metrics/${repoId}/${range}` : null;
+
+  const { data, error, isLoading } = useSWR<CombinedMetrics>(
+    key,
+    () => api.getCombinedMetrics(range, repoId || "default"),
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30_000,
+    }
   );
 
   return {
     metrics: data?.metrics,
-    chart: data?.chart ?? [],
+    commit: data?.commit,
+    chart: (data?.chart ?? []) as MetricsDataPoint[],
     categoryDistribution: data?.category_distribution,
+    severityDistribution: data?.severity_distribution,
+    contributors: data?.contributors ?? [],
+    codeChanges: data?.code_changes,
     isLoading,
     error,
   };

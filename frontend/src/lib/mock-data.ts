@@ -175,13 +175,13 @@ export const mockMetrics: ReviewMetrics = {
 };
 
 export const mockMetricsChart: MetricsDataPoint[] = [
-  { date: "04-10", reviews: 12, findings: 28 },
-  { date: "04-11", reviews: 18, findings: 42 },
-  { date: "04-12", reviews: 15, findings: 35 },
-  { date: "04-13", reviews: 22, findings: 51 },
-  { date: "04-14", reviews: 19, findings: 38 },
-  { date: "04-15", reviews: 24, findings: 56 },
-  { date: "04-16", reviews: 20, findings: 48 },
+  { date: "04-10", reviews: 12, pr_findings: 28, analyses: 8, commit_findings: 15 },
+  { date: "04-11", reviews: 18, pr_findings: 42, analyses: 12, commit_findings: 22 },
+  { date: "04-12", reviews: 15, pr_findings: 35, analyses: 10, commit_findings: 18 },
+  { date: "04-13", reviews: 22, pr_findings: 51, analyses: 15, commit_findings: 28 },
+  { date: "04-14", reviews: 19, pr_findings: 38, analyses: 11, commit_findings: 20 },
+  { date: "04-15", reviews: 24, pr_findings: 56, analyses: 16, commit_findings: 32 },
+  { date: "04-16", reviews: 20, pr_findings: 48, analyses: 14, commit_findings: 26 },
 ];
 
 export const mockPromptVersions: PromptVersion[] = [

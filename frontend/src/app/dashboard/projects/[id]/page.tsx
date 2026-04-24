@@ -25,14 +25,53 @@ import {
   Shield,
   RefreshCw,
   Trash2,
+  Activity,
+  Zap,
+  FileCode2,
+  GitPullRequest,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { AnalysisProgressPanel } from "@/components/dashboard/analysis-progress";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 const riskColors: Record<string, string> = {
   critical: "bg-latte-critical/10 text-latte-critical border-latte-critical/20",
   high: "bg-latte-warning/10 text-latte-warning border-latte-warning/20",
   medium: "bg-latte-gold/10 text-latte-gold border-latte-gold/20",
   low: "bg-latte-success/10 text-latte-success border-latte-success/20",
+};
+
+const chartColors = [
+  "var(--latte-gold)",
+  "var(--latte-rose)",
+  "var(--latte-success)",
+  "var(--latte-info)",
+  "var(--latte-warning)",
+  "var(--latte-critical)",
+];
+
+const severityBarColors: Record<string, string> = {
+  critical: "var(--latte-critical)",
+  warning: "var(--latte-warning)",
+  info: "var(--latte-info)",
+};
+
+const riskBarColors: Record<string, string> = {
+  critical: "var(--latte-critical)",
+  high: "var(--latte-warning)",
+  medium: "var(--latte-gold)",
+  low: "var(--latte-success)",
 };
 
 const sevColors: Record<string, string> = {
@@ -560,52 +599,282 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === "stats" && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-            <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-              <GitCommitHorizontal size={16} />
-              总提交数
-            </div>
-            <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_commits}</p>
-            <p className="text-xs text-latte-text-secondary mt-1">已分析 {stats.analyzed_commits}</p>
-          </div>
-          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-            <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-              <AlertTriangle size={16} />
-              发现总数
-            </div>
-            <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_findings}</p>
-          </div>
-          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-            <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
-              <BarChart3 size={16} />
-              严重程度分布
-            </div>
-            <div className="space-y-1">
-              {Object.entries(stats.severity_distribution).map(([sev, count]) => (
-                <div key={sev} className="flex items-center justify-between text-sm">
-                  <span className={sevColors[sev] || "text-latte-text-muted"}>{sev}</span>
-                  <span className="font-medium">{count}</span>
+        <div className="space-y-5">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <GitCommitHorizontal size={48} className="text-latte-gold" />
+              </div>
+              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
+                <GitCommitHorizontal size={16} className="text-latte-gold" />
+                总提交数
+              </div>
+              <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_commits}</p>
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-latte-text-secondary mb-1">
+                  <span>分析覆盖率</span>
+                  <span>{stats.total_commits > 0 ? Math.round((stats.analyzed_commits / stats.total_commits) * 100) : 0}%</span>
                 </div>
-              ))}
-              {Object.keys(stats.severity_distribution).length === 0 && (
-                <p className="text-xs text-latte-text-secondary">暂无数据</p>
-              )}
-            </div>
-          </div>
-          {Object.keys(stats.category_distribution).length > 0 && (
-            <div className="md:col-span-3 p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <h3 className="text-sm text-latte-text-secondary mb-3">类别分布</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {Object.entries(stats.category_distribution).map(([cat, count]) => (
-                  <div key={cat} className="flex items-center justify-between p-3 bg-latte-bg-tertiary rounded-lg">
-                    <span className="text-sm truncate">{cat}</span>
-                    <span className="text-sm font-medium ml-2">{count}</span>
-                  </div>
-                ))}
+                <div className="h-1.5 bg-latte-bg-tertiary rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-latte-gold rounded-full transition-all"
+                    style={{ width: `${stats.total_commits > 0 ? (stats.analyzed_commits / stats.total_commits) * 100 : 0}%` }}
+                  />
+                </div>
               </div>
             </div>
-          )}
+
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <AlertTriangle size={48} className="text-latte-rose" />
+              </div>
+              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
+                <AlertTriangle size={16} className="text-latte-rose" />
+                发现总数
+              </div>
+              <p className="text-3xl font-semibold text-latte-text-primary">{stats.total_findings}</p>
+              <p className="text-xs text-latte-text-secondary mt-3">
+                平均每提交 {(stats.total_findings / Math.max(stats.analyzed_commits, 1)).toFixed(2)} 个问题
+              </p>
+            </div>
+
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <FileCode2 size={48} className="text-latte-info" />
+              </div>
+              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
+                <FileCode2 size={16} className="text-latte-info" />
+                代码变更
+              </div>
+              <p className="text-3xl font-semibold text-latte-text-primary">
+                {((stats.code_changes?.additions ?? 0) + (stats.code_changes?.deletions ?? 0)).toLocaleString()}
+              </p>
+              <div className="flex items-center gap-3 mt-3 text-xs">
+                <span className="text-latte-success">+{(stats.code_changes?.additions ?? 0).toLocaleString()}</span>
+                <span className="text-latte-critical">-{(stats.code_changes?.deletions ?? 0).toLocaleString()}</span>
+                <span className="text-latte-text-secondary">{(stats.code_changes?.files ?? 0).toLocaleString()} 文件</span>
+              </div>
+            </div>
+
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Shield size={48} className="text-latte-success" />
+              </div>
+              <div className="flex items-center gap-2 text-latte-text-secondary text-sm mb-2">
+                <Shield size={16} className="text-latte-success" />
+                已分析提交
+              </div>
+              <p className="text-3xl font-semibold text-latte-text-primary">{stats.analyzed_commits}</p>
+              <p className="text-xs text-latte-text-secondary mt-3">
+                {stats.total_commits - stats.analyzed_commits} 个待分析
+              </p>
+            </div>
+          </div>
+
+          {/* Charts row 1 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Category Distribution - Donut Chart */}
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <PieChartIcon size={16} className="text-latte-gold" />
+                <h3 className="text-sm font-medium text-latte-text-primary">类别分布</h3>
+              </div>
+              <div className="h-64">
+                {Object.keys(stats.category_distribution).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={Object.entries(stats.category_distribution).map(([name, value]) => ({ name, value }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {Object.entries(stats.category_distribution).map((_entry, index) => (
+                          <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--latte-bg-secondary)",
+                          border: "1px solid var(--latte-chart-tooltip-border)",
+                          borderRadius: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
+                    <BarChart3 size={36} className="opacity-30 mb-2" />
+                    <p className="text-sm">暂无类别数据</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Severity Distribution - Horizontal Bar */}
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity size={16} className="text-latte-rose" />
+                <h3 className="text-sm font-medium text-latte-text-primary">严重程度分布</h3>
+              </div>
+              <div className="h-64">
+                {Object.keys(stats.severity_distribution).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={Object.entries(stats.severity_distribution).map(([name, value]) => ({
+                        name: name === "critical" ? "严重" : name === "warning" ? "警告" : name === "info" ? "提示" : name,
+                        value,
+                        key: name,
+                      }))}
+                      layout="vertical"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--latte-chart-grid)" horizontal={false} />
+                      <XAxis type="number" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
+                      <YAxis dataKey="name" type="category" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} width={50} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--latte-bg-secondary)",
+                          border: "1px solid var(--latte-chart-tooltip-border)",
+                          borderRadius: "12px",
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                        {Object.entries(stats.severity_distribution).map(([key], index) => (
+                          <Cell key={key} fill={severityBarColors[key] || chartColors[index % chartColors.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
+                    <Activity size={36} className="opacity-30 mb-2" />
+                    <p className="text-sm">暂无严重级别数据</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Charts row 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Risk Level Distribution */}
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap size={16} className="text-latte-warning" />
+                <h3 className="text-sm font-medium text-latte-text-primary">风险级别分布</h3>
+              </div>
+              <div className="h-64">
+                {Object.keys(stats.risk_distribution ?? {}).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={Object.entries(stats.risk_distribution ?? {}).map(([name, value]) => ({
+                        name: name === "critical" ? "严重" : name === "high" ? "高" : name === "medium" ? "中" : name === "low" ? "低" : name,
+                        value,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--latte-chart-grid)" vertical={false} />
+                      <XAxis dataKey="name" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
+                      <YAxis stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--latte-bg-secondary)",
+                          border: "1px solid var(--latte-chart-tooltip-border)",
+                          borderRadius: "12px",
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {Object.entries(stats.risk_distribution ?? {}).map(([key], index) => (
+                          <Cell key={key} fill={riskBarColors[key] || chartColors[index % chartColors.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
+                    <Zap size={36} className="opacity-30 mb-2" />
+                    <p className="text-sm">暂无风险级别数据</p>
+                    <p className="text-xs mt-1 opacity-60">分析提交后将自动更新</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Code Changes Visual */}
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <GitPullRequest size={16} className="text-latte-info" />
+                <h3 className="text-sm font-medium text-latte-text-primary">代码变更概览</h3>
+              </div>
+              <div className="space-y-5">
+                {/* Additions */}
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <span className="text-latte-success flex items-center gap-1.5">
+                      <TrendingUp size={14} />
+                      新增行数
+                    </span>
+                    <span className="font-semibold text-latte-success">+{(stats.code_changes?.additions ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="h-2.5 bg-latte-bg-tertiary rounded-full overflow-hidden">
+                    <div className="h-full bg-latte-success rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+                {/* Deletions */}
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <span className="text-latte-critical flex items-center gap-1.5">
+                      <TrendingUp size={14} className="rotate-180" />
+                      删除行数
+                    </span>
+                    <span className="font-semibold text-latte-critical">-{(stats.code_changes?.deletions ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="h-2.5 bg-latte-bg-tertiary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-latte-critical rounded-full"
+                      style={{
+                        width: `${Math.min(100, ((stats.code_changes?.deletions ?? 0) / Math.max(stats.code_changes?.additions ?? 1, 1)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Files */}
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <span className="text-latte-info flex items-center gap-1.5">
+                      <FileCode size={14} />
+                      涉及文件
+                    </span>
+                    <span className="font-semibold text-latte-text-primary">{(stats.code_changes?.files ?? 0).toLocaleString()}</span>
+                  </div>
+                  <div className="h-2.5 bg-latte-bg-tertiary rounded-full overflow-hidden">
+                    <div className="h-full bg-latte-info rounded-full" style={{ width: "60%" }} />
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="pt-3 border-t border-latte-border grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-lg font-semibold text-latte-success">+{(stats.code_changes?.additions ?? 0).toLocaleString()}</p>
+                    <p className="text-xs text-latte-text-secondary">新增</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-latte-critical">-{(stats.code_changes?.deletions ?? 0).toLocaleString()}</p>
+                    <p className="text-xs text-latte-text-secondary">删除</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-latte-text-primary">{(stats.code_changes?.files ?? 0).toLocaleString()}</p>
+                    <p className="text-xs text-latte-text-secondary">文件</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

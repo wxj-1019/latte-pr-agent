@@ -119,7 +119,26 @@ export default function SystemSettingsPage() {
   }
 
   function toggleShow(key: string) {
-    setShowValues((prev) => ({ ...prev, [key]: !prev[key] }));
+    const nextVisible = !showValues[key];
+    if (nextVisible) {
+      revealSecret(key);
+    } else {
+      setShowValues((prev) => ({ ...prev, [key]: false }));
+      if (!changedKeys.has(key)) {
+        setEditValues((prev) => ({ ...prev, [key]: "" }));
+      }
+    }
+  }
+
+  async function revealSecret(key: string) {
+    try {
+      const res = await api.revealSettings([key]);
+      const value = res.values[key] || "";
+      setEditValues((prev) => ({ ...prev, [key]: value }));
+      setShowValues((prev) => ({ ...prev, [key]: true }));
+    } catch {
+      showToast("获取密钥失败，请检查 Admin API Key", "error");
+    }
   }
 
   async function handleSave() {
@@ -288,7 +307,7 @@ export default function SystemSettingsPage() {
                 const hasChanged = changedKeys.has(item.key);
                 const rawValue = editValues[item.key] ?? "";
                 const currentValue =
-                  isSecret && item.has_value && !hasChanged && !rawValue
+                  isSecret && item.has_value && !hasChanged && !showValues[item.key]
                     ? "••••••"
                     : rawValue;
 
