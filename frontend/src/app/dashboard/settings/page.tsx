@@ -74,7 +74,7 @@ export default function SystemSettingsPage() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const { showToast } = useToast();
 
-  async function loadSettings() {
+  async function loadSettings(preserveEditing: boolean = false) {
     setLoading(true);
     setError(null);
     try {
@@ -84,7 +84,19 @@ export default function SystemSettingsPage() {
       Object.values(data.categories as SettingsCategories).flat().forEach((item) => {
         initValues[item.key] = item.value || "";
       });
-      setEditValues(initValues);
+      if (preserveEditing) {
+        setEditValues((prev) => {
+          const merged = { ...initValues };
+          changedKeys.forEach((key) => {
+            if (prev[key] !== undefined) {
+              merged[key] = prev[key];
+            }
+          });
+          return merged;
+        });
+      } else {
+        setEditValues(initValues);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "加载设置失败";
       setError(msg);

@@ -95,7 +95,7 @@ export const api = {
     return fetchJson<object>(`/configs/${repoId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ config_json: body }),
     });
   },
 
