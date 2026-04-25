@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+const rangeLabels: Record<string, string> = { "7d": "近 7 天", "30d": "近 30 天", "90d": "近 90 天" };
 const rangeOptions: Array<"7d" | "30d" | "90d"> = ["7d", "30d", "90d"];
 
 
@@ -107,7 +108,7 @@ export default function MetricsPage() {
                     : "text-latte-text-tertiary hover:text-latte-text-primary hover:bg-latte-bg-tertiary"
                 }`}
               >
-                {r}
+                {rangeLabels[r] || r}
               </button>
             ))}
           </div>

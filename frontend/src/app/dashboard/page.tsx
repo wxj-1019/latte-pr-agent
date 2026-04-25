@@ -7,6 +7,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CountUp } from "@/components/ui/count-up";
+import { useToast } from "@/components/ui/toast";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 import { ManualTriggerDialog } from "@/components/dashboard/manual-trigger-dialog";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectRepo[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [scanningId, setScanningId] = useState<number | null>(null);
+  const { showToast } = useToast();
 
   const loadProjects = useCallback(async () => {
     try {
@@ -60,7 +62,7 @@ export default function DashboardPage() {
       await api.scanCommits(projectId, 100);
       await loadProjects();
     } catch (err) {
-      console.error("Quick scan failed:", err);
+      showToast("扫描失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setScanningId(null);
     }

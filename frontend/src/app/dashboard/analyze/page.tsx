@@ -215,10 +215,10 @@ export default function AnalyzePage() {
                     }
                     dot
                   >
-                    {data.risk_level}
+                    {({ low: "低风险", medium: "中风险", high: "高风险", critical: "严重" } as Record<string, string>)[data.risk_level] || data.risk_level}
                   </Badge>
                   <span className="text-sm text-latte-text-secondary">
-                    {data.findings.length} finding{data.findings.length !== 1 ? "s" : ""}
+                    {data.findings.length} 个发现
                   </span>
                 </div>
               </div>

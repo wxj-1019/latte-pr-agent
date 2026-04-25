@@ -60,7 +60,6 @@ export function Header() {
           className="relative p-2 rounded-latte-md text-latte-text-tertiary hover:text-latte-text-primary hover:bg-latte-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-latte-critical" />
         </button>
         <div className="h-8 w-8 rounded-full bg-latte-gold/20 border border-latte-gold/30 flex items-center justify-center text-latte-gold">
           <User size={14} strokeWidth={2} />
