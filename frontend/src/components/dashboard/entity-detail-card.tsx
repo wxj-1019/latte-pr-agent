@@ -49,6 +49,7 @@ export default function EntityDetailCard({ entity, incoming, outgoing, onClose }
         <div className="flex items-center gap-2 min-w-0">
           {typeIcons[entity.type] || <FileCode size={14} />}
           <h4 className="font-semibold text-sm text-latte-text-primary truncate">{entity.name}</h4>
+          <span className="text-xs text-latte-text-secondary px-1.5 py-0.5 rounded bg-latte-bg-secondary">{typeLabels[entity.type] || entity.type}</span>
         </div>
         <button
           onClick={onClose}

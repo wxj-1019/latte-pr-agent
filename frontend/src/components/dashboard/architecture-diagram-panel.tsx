@@ -63,8 +63,9 @@ export default function ArchitectureDiagramPanel({ projectId }: { projectId: num
     render();
     return () => {
       cancelled = true;
-      if (mermaidRef.current) {
-        mermaidRef.current.innerHTML = "";
+      const el = mermaidRef.current;
+      if (el) {
+        el.innerHTML = "";
       }
     };
   }, [mermaidCode, projectId]);

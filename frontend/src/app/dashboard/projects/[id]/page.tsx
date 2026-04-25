@@ -72,14 +72,6 @@ export default function ProjectDetailPage() {
   const [commits, setCommits] = useState<CommitAnalysis[]>([]);
   const [contributors, setContributors] = useState<ContributorInfo[]>([]);
   const [total, setTotal] = useState(0);
-
-  if (isNaN(projectId)) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-latte-text-secondary">无效的项目 ID</p>
-      </div>
-    );
-  }
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [scanLoading, setScanLoading] = useState(false);
@@ -93,7 +85,16 @@ export default function ProjectDetailPage() {
   const [expandedContributor, setExpandedContributor] = useState<string | null>(null);
   const [contributorCommits, setContributorCommits] = useState<Record<string, ContributorDetail>>({});
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
-  const [codeComplexity, setCodeComplexity] = useState<any>(null);
+  const [codeComplexity, setCodeComplexity] = useState<{
+    total_entities: number;
+    total_functions: number;
+    total_classes: number;
+    god_class_count: number;
+    god_classes: Array<{ name: string; incoming: number }>;
+    cycle_dependencies: number;
+    isolated_functions: number;
+    isolated_ratio: number;
+  } | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
@@ -178,6 +179,14 @@ export default function ProjectDetailPage() {
       closeSSE();
     };
   }, [closeSSE]);
+
+  if (isNaN(projectId)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-latte-text-secondary">无效的项目 ID</p>
+      </div>
+    );
+  }
 
   const handleScan = async () => {
     try {
@@ -856,7 +865,7 @@ export default function ProjectDetailPage() {
                 <div className="mt-3">
                   <p className="text-xs text-latte-text-secondary mb-1.5">上帝类 Top</p>
                   <div className="flex flex-wrap gap-2">
-                    {codeComplexity.god_classes.map((g: any) => (
+                    {codeComplexity.god_classes.map((g) => (
                       <span key={g.name} className="text-[11px] px-2 py-1 rounded bg-latte-bg-tertiary border border-latte-border text-latte-text-secondary">
                         {g.name} ({g.incoming})
                       </span>

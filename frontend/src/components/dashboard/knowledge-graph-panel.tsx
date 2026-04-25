@@ -350,7 +350,11 @@ export default function KnowledgeGraphPanel({ projectId }: { projectId: number }
 
   // Interaction
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [nodeDetail, setNodeDetail] = useState<any>(null);
+  const [nodeDetail, setNodeDetail] = useState<{
+    entity: { id: number; name: string; type: string; file: string; signature: string; start_line: number; end_line: number; meta: Record<string, unknown> } | null;
+    incoming: Array<{ relation_id: number; relation_type: string; source_entity: { id: number; name: string; type: string; file: string }; meta: Record<string, unknown> }>;
+    outgoing: Array<{ relation_id: number; relation_type: string; target_entity: { id: number; name: string; type: string; file: string }; meta: Record<string, unknown> }>;
+  } | null>(null);
   const [pathMode, setPathMode] = useState(false);
   const [pathNodes, setPathNodes] = useState<string[]>([]);
   const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
