@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import get_db
@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 @router.post("/scan")
 async def scan_commits(
     project_id: int,
-    background_tasks: BackgroundTasks,
     max_commits: int = Query(default=50, ge=1, le=500),
     since: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -36,9 +35,8 @@ async def scan_commits(
     if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
         raise HTTPException(status_code=400, detail="Project repository not cloned yet")
 
-    background_tasks.add_task(
-        _do_scan, project_id, project.local_path, project.branch, max_commits, since, project.last_analyzed_sha
-    )
+    from tasks import scan_commits_task
+    scan_commits_task.delay(project_id, project.local_path, project.branch, max_commits, since, project.last_analyzed_sha)
     return {"project_id": project_id, "status": "started", "operation": "scan"}
 
 
@@ -356,7 +354,6 @@ async def contributor_detail(project_id: int, author_email: str, db: AsyncSessio
 async def analyze_commit(
     project_id: int,
     commit_hash: str,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     svc = CommitService(db)
@@ -374,10 +371,8 @@ async def analyze_commit(
     commit.status = "analyzing"
     await db.commit()
 
-    background_tasks.add_task(
-        _do_analyze_commit,
-        project_id, commit_hash, project.local_path,
-    )
+    from tasks import analyze_commit_task
+    analyze_commit_task.delay(project_id, commit_hash, project.local_path)
     return {"commit_hash": commit_hash, "status": "started"}
 
 
@@ -559,7 +554,6 @@ async def _do_analyze_commit(
 @router.post("/analyze")
 async def analyze_all_commits(
     project_id: int,
-    background_tasks: BackgroundTasks,
     max_commits: int = Query(default=0, ge=0, le=10000),
     db: AsyncSession = Depends(get_db),
 ):
@@ -571,9 +565,8 @@ async def analyze_all_commits(
     if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
         raise HTTPException(status_code=400, detail="Project repository not cloned yet")
 
-    background_tasks.add_task(
-        _do_analyze_all, project_id, project.local_path, max_commits
-    )
+    from tasks import analyze_commits_task
+    analyze_commits_task.delay(project_id, project.local_path, max_commits)
     return {"project_id": project_id, "status": "started", "operation": "analyze"}
 
 

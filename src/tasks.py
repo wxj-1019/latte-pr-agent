@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+from typing import Optional
 
 from celery import Celery
 from celery.signals import worker_init
@@ -72,6 +73,66 @@ def clone_project_task(self, project_id: int) -> None:
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(_do_clone(project_id))
+    finally:
+        loop.close()
+
+
+@celery_app.task(bind=True, max_retries=1)
+def sync_project_task(self, project_id: int, local_path: str, branch: str, repo_url: str) -> None:
+    import asyncio
+    from models.base import recreate_engine
+
+    recreate_engine()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        from projects.router import _do_sync
+        loop.run_until_complete(_do_sync(project_id, local_path, branch, repo_url))
+    finally:
+        loop.close()
+
+
+@celery_app.task(bind=True, max_retries=1)
+def scan_commits_task(self, project_id: int, local_path: str, branch: str, max_commits: int, since: Optional[str], after_sha: Optional[str]) -> None:
+    import asyncio
+    from models.base import recreate_engine
+
+    recreate_engine()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        from commits.router import _do_scan
+        loop.run_until_complete(_do_scan(project_id, local_path, branch, max_commits, since, after_sha))
+    finally:
+        loop.close()
+
+
+@celery_app.task(bind=True, max_retries=1)
+def analyze_commits_task(self, project_id: int, local_path: str, max_commits: int) -> None:
+    import asyncio
+    from models.base import recreate_engine
+
+    recreate_engine()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        from commits.router import _do_analyze_all
+        loop.run_until_complete(_do_analyze_all(project_id, local_path, max_commits))
+    finally:
+        loop.close()
+
+
+@celery_app.task(bind=True, max_retries=1)
+def analyze_commit_task(self, project_id: int, commit_hash: str, local_path: str) -> None:
+    import asyncio
+    from models.base import recreate_engine
+
+    recreate_engine()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        from commits.router import _do_analyze_commit
+        loop.run_until_complete(_do_analyze_commit(project_id, commit_hash, local_path))
     finally:
         loop.close()
 

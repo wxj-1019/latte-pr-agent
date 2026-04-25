@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 @router.post("", response_model=ProjectResponse, status_code=201)
 async def add_project(
     body: AddProjectRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     if body.platform not in ("github", "gitlab"):
@@ -41,8 +40,8 @@ async def add_project(
         logger.exception("Failed to add project %s/%s", body.platform, body.repo_id)
         raise HTTPException(status_code=500, detail=f"添加项目失败: {exc}")
     if project.status == "cloning":
-        from tasks import _do_clone
-        background_tasks.add_task(_do_clone, project.id)
+        from tasks import clone_project_task
+        clone_project_task.delay(project.id)
     return project
 
 
@@ -105,7 +104,6 @@ async def _git_cmd(cwd: str, args: list[str], timeout: int = 60) -> str:
 @router.post("/{project_id}/sync", response_model=SyncResponse)
 async def sync_project(
     project_id: int,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     svc = ProjectService(db)
@@ -113,9 +111,8 @@ async def sync_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    background_tasks.add_task(
-        _do_sync, project_id, project.local_path, project.branch, project.repo_url
-    )
+    from tasks import sync_project_task
+    sync_project_task.delay(project_id, project.local_path, project.branch, project.repo_url)
     return SyncResponse(id=project.id, status="syncing", new_commits=0)
 
 
