@@ -33,6 +33,7 @@ class GraphRAGRetriever:
         depth: int = 2,
         top_k: int = 10,
         org_id: str = "default",
+        skip_vector_search: bool = False,
     ) -> List[Dict]:
         """检索与查询和变更文件相关的代码上下文。
 
@@ -41,16 +42,20 @@ class GraphRAGRetriever:
         2. 变更感知：从变更文件获取直接影响实体（种子）
         3. 图扩展：从种子出发，沿边遍历 depth 层
         4. 去重排序
+
+        Args:
+            skip_vector_search: 为 True 时跳过向量搜索（当 changed_files 已提供精准种子时适用，可避免 Embedding API 超时）
         """
         changed_files = changed_files or []
         seed_ids: List[int] = []
 
-        # Step 1: 向量检索种子实体
-        try:
-            vector_seeds = await self._vector_search(repo_id, query, top_k=5, org_id=org_id)
-            seed_ids.extend(vector_seeds)
-        except Exception as exc:
-            logger.warning("GraphRAG vector search failed: %s", exc)
+        # Step 1: 向量检索种子实体（仅当未禁用且 changed_files 为空时执行）
+        if not skip_vector_search:
+            try:
+                vector_seeds = await self._vector_search(repo_id, query, top_k=5, org_id=org_id)
+                seed_ids.extend(vector_seeds)
+            except Exception as exc:
+                logger.warning("GraphRAG vector search failed: %s", exc)
 
         # Step 2: 从变更文件获取种子实体
         if changed_files:

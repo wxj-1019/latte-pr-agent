@@ -448,12 +448,14 @@ async def _do_analyze_commit(
                 changed_files = _extract_changed_files_from_diff(diff_content)
                 async with AsyncSessionLocal() as session:
                     retriever = GraphRAGRetriever(session)
+                    # 当 changed_files 非空时跳过向量搜索，避免 Embedding API 超时
                     rag_results = await retriever.retrieve(
                         repo_id=project_repo_id,
                         query=f"分析 commit {commit_hash} 的代码变更影响",
                         changed_files=changed_files,
                         depth=2,
                         top_k=8,
+                        skip_vector_search=bool(changed_files),
                     )
                     if rag_results:
                         rag_lines = ["【相关代码上下文（GraphRAG 检索）】"]

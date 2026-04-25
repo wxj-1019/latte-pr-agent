@@ -15,12 +15,14 @@ class EmbeddingClient:
         base_url: str | None = None,
         model: str = "text-embedding-3-small",
         dimensions: int = 1536,
+        timeout: float = 30.0,
     ):
         self.model = model
         self.dimensions = dimensions
         self.client = AsyncOpenAI(
             api_key=api_key or settings.openai_api_key.get_secret_value() or os.getenv("OPENAI_API_KEY"),
             base_url=base_url,
+            timeout=timeout,
         )
 
     async def embed(self, text: str) -> List[float]:
