@@ -18,14 +18,36 @@ class StatsService:
         self.session = session
 
     async def get_dashboard_summary(self) -> Dict:
-        total_reviews = await self._count_reviews()
-        pending_reviews = await self._count_reviews_by_status("pending")
-        running_reviews = await self._count_reviews_by_status("running")
-        completed_reviews = await self._count_reviews_by_status("completed")
-        failed_reviews = await self._count_reviews_by_status("failed")
-        skipped_reviews = await self._count_reviews_by_status("skipped")
-        high_risk_count = await self._count_high_risk()
-        total_findings_today = await self._count_findings_today()
+        # PR review 统计
+        pr_total = await self._count_reviews()
+        pr_pending = await self._count_reviews_by_status("pending")
+        pr_running = await self._count_reviews_by_status("running")
+        pr_completed = await self._count_reviews_by_status("completed")
+        pr_failed = await self._count_reviews_by_status("failed")
+        pr_skipped = await self._count_reviews_by_status("skipped")
+        pr_high_risk = await self._count_high_risk()
+        pr_findings_today = await self._count_findings_today()
+
+        # Commit analysis 统计
+        ca_total = await self._count_commit_analyses()
+        ca_pending = await self._count_commit_analyses_by_status("pending")
+        ca_running = await self._count_commit_analyses_by_status("running")
+        ca_completed = await self._count_commit_analyses_by_status("completed")
+        ca_failed = await self._count_commit_analyses_by_status("failed")
+        ca_skipped = 0  # CommitAnalysis 没有 skipped 状态
+        ca_high_risk = await self._count_commit_high_risk()
+        ca_findings_today = await self._count_commit_findings_today()
+
+        # 合并统计
+        total_reviews = pr_total + ca_total
+        pending_reviews = pr_pending + ca_pending
+        running_reviews = pr_running + ca_running
+        completed_reviews = pr_completed + ca_completed
+        failed_reviews = pr_failed + ca_failed
+        skipped_reviews = pr_skipped + ca_skipped
+        high_risk_count = pr_high_risk + ca_high_risk
+        total_findings_today = pr_findings_today + ca_findings_today
+
         recent_reviews = await self._recent_reviews(limit=5)
 
         return {
@@ -469,6 +491,33 @@ class StatsService:
         today = get_beijing_start_of_day()
         result = await self.session.execute(
             select(func.count()).select_from(RF).where(RF.created_at >= today)
+        )
+        return result.scalar() or 0
+
+    # ── Commit analysis dashboard helpers ──
+
+    async def _count_commit_analyses(self) -> int:
+        result = await self.session.execute(select(func.count()).select_from(CommitAnalysis))
+        return result.scalar() or 0
+
+    async def _count_commit_analyses_by_status(self, status: str) -> int:
+        result = await self.session.execute(
+            select(func.count()).select_from(CommitAnalysis).where(CommitAnalysis.status == status)
+        )
+        return result.scalar() or 0
+
+    async def _count_commit_high_risk(self) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(CommitAnalysis)
+            .where(CommitAnalysis.risk_level.in_(["high", "critical"]))
+        )
+        return result.scalar() or 0
+
+    async def _count_commit_findings_today(self) -> int:
+        today = get_beijing_start_of_day()
+        result = await self.session.execute(
+            select(func.count()).select_from(CommitFinding).where(CommitFinding.created_at >= today)
         )
         return result.scalar() or 0
 

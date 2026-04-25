@@ -5,11 +5,13 @@ import stat
 import sys
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from models.project_repo import ProjectRepo
+from models.commit_analysis import CommitAnalysis
+from models.commit_finding import CommitFinding
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +74,51 @@ class ProjectService:
             .where(ProjectRepo.org_id == org_id)
             .order_by(ProjectRepo.updated_at.desc())
         )
-        return list(result.scalars().all())
+        projects = list(result.scalars().all())
+
+        # 动态刷新每个项目的 commit/finding 统计（避免静态字段与实际数据不一致）
+        if projects:
+            project_ids = [p.id for p in projects]
+
+            commit_counts = await self.session.execute(
+                select(CommitAnalysis.project_id, func.count(CommitAnalysis.id))
+                .where(CommitAnalysis.project_id.in_(project_ids))
+                .group_by(CommitAnalysis.project_id)
+            )
+            commit_map = {pid: cnt for pid, cnt in commit_counts.all()}
+
+            finding_counts = await self.session.execute(
+                select(CommitAnalysis.project_id, func.count(CommitFinding.id))
+                .join(CommitFinding, CommitFinding.commit_analysis_id == CommitAnalysis.id)
+                .where(CommitAnalysis.project_id.in_(project_ids))
+                .group_by(CommitAnalysis.project_id)
+            )
+            finding_map = {pid: cnt for pid, cnt in finding_counts.all()}
+
+            for p in projects:
+                # 先 expunge 再修改，避免 ORM 脏跟踪导致意外 flush 覆盖数据库
+                self.session.expunge(p)
+                p.total_commits = commit_map.get(p.id, 0)
+                p.total_findings = finding_map.get(p.id, 0)
+
+        return projects
 
     async def get_project(self, project_id: int) -> Optional[ProjectRepo]:
         result = await self.session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
-        return result.scalar_one_or_none()
+        project = result.scalar_one_or_none()
+        if project:
+            commit_count = await self.session.execute(
+                select(func.count(CommitAnalysis.id)).where(CommitAnalysis.project_id == project_id)
+            )
+            project.total_commits = commit_count.scalar() or 0
+
+            finding_count = await self.session.execute(
+                select(func.count(CommitFinding.id))
+                .join(CommitFinding.analysis)
+                .where(CommitAnalysis.project_id == project_id)
+            )
+            project.total_findings = finding_count.scalar() or 0
+        return project
 
     async def delete_project(self, project_id: int) -> bool:
         project = await self.get_project(project_id)

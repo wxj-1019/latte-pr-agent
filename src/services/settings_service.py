@@ -19,6 +19,7 @@ SETTINGS_SCHEMA = {
     "anthropic_api_key": {"category": "llm", "description": "Anthropic API Key", "secret": True},
     "openai_api_key": {"category": "llm", "description": "OpenAI API Key", "secret": True},
     "qwen_api_key": {"category": "llm", "description": "Qwen API Key", "secret": True},
+    "repos_base_path": {"category": "storage", "description": "项目仓库本地存储路径（绝对路径，留空使用 ~/.latte-pr-agent/repos/）", "secret": False},
 }
 
 
@@ -40,6 +41,7 @@ def _env_values() -> dict:
         "anthropic_api_key": _get(settings.anthropic_api_key),
         "openai_api_key": _get(settings.openai_api_key),
         "qwen_api_key": _get(settings.qwen_api_key),
+        "repos_base_path": getattr(settings, "repos_base_path", ""),
     }
 
 
@@ -64,7 +66,7 @@ async def get_all_settings(db: AsyncSession) -> dict:
 
     settings_map = {}
     for row in rows:
-        schema = SETTINGS_SCHEMA.get(row.key, {"secret": True})
+        schema = SETTINGS_SCHEMA.get(row.key, {"secret": True, "category": row.category or "general", "description": row.description or row.key})
         is_secret = schema.get("secret", True)
         db_has_value = bool(row.encrypted_value)
         env_val = env_values.get(row.key, "")

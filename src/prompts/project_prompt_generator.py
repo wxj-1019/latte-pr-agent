@@ -13,6 +13,8 @@ from llm import DeepSeekProvider
 from models.commit_finding import CommitFinding
 from models.commit_analysis import CommitAnalysis
 from models.prompt_experiment import PromptExperiment
+from models.code_entity import CodeEntity
+from models.code_relationship import CodeRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +90,7 @@ class ProjectPromptGenerator:
         current_fingerprint = self._compute_fingerprint(features)
 
         # 3. 获取上一次生成的项目 Prompt 及其指纹
-        last_prompt, last_metadata = await self._get_last_project_prompt(project_id)
+        last_prompt, last_metadata = await self._get_last_project_prompt(repo_id)
 
         # 4. 自适应进化判断
         if not force and last_prompt is not None:
@@ -108,7 +110,7 @@ class ProjectPromptGenerator:
 
         # 5. 构建结构化基础 Prompt
         base_prompt = self._build_structured_prompt(
-            features["static"], features["config"], features["historical"]
+            features["static"], features["config"], features["historical"], features.get("graph", {})
         )
 
         # 6. 可选：用 LLM 润色增强
@@ -121,7 +123,7 @@ class ProjectPromptGenerator:
             prompt_text = base_prompt
 
         # 7. 保存新版本
-        version = await self._next_version(project_id)
+        version = await self._next_version(project_id, repo_id)
         metadata = {
             "generated_for": "commit_analysis",
             "project_id": project_id,
@@ -130,12 +132,13 @@ class ProjectPromptGenerator:
             "feature_fingerprint": current_fingerprint,
             "generation_mode": "structured+llm_refinement" if prompt_text != base_prompt else "structured_fallback",
             "focus_areas": ["logic", "functionality", "regression_risk", "data_consistency"],
+            "graph": features.get("graph", {}),
             **features["static"],
             **features["config"],
             **features["historical"],
         }
 
-        await self.registry.save_version(version, prompt_text, metadata)
+        await self.registry.save_version(version, prompt_text, metadata, repo_id=repo_id)
         logger.info(
             "Generated project prompt for %s: version=%s fingerprint=%s length=%d",
             project_id, version, current_fingerprint[:8], len(prompt_text)
@@ -170,6 +173,14 @@ class ProjectPromptGenerator:
         except Exception as exc:
             logger.warning("Failed to collect historical findings: %s", exc)
 
+        try:
+            features["graph"] = await self._collect_graph_features(
+                project.repo_id, getattr(project, "org_id", "default")
+            )
+        except Exception as exc:
+            logger.warning("Failed to collect graph features: %s", exc)
+            features["graph"] = {}
+
         return features
 
     def _compute_fingerprint(self, features: Dict) -> str:
@@ -192,6 +203,27 @@ class ProjectPromptGenerator:
             for k, v in sorted(hist_cats.items(), key=lambda x: -x[1])[:3]
         ]
 
+        # code_context 关键特征（使用顶层目录结构，避免单个文件变化导致指纹抖动）
+        code_ctx = static.get("code_context", {}) or {}
+        api_patterns_sig = sorted(set(code_ctx.get("api_patterns", [])))[:8]
+        sample_files_sig = sorted(s["file"] for s in code_ctx.get("code_samples", []))[:6]
+        style_sig = f"{code_ctx.get('import_style') or ''}|{code_ctx.get('naming_convention') or ''}"
+        # tree 只取顶层目录名（不含文件），稳定且能反映架构变化
+        tree_lines = code_ctx.get("directory_tree", [])
+        tree_sig = sorted(
+            line.strip().rstrip("/")
+            for line in tree_lines[:20]
+            if line.strip() and not line.strip().startswith(".") and line.strip().endswith("/")
+        )[:10]
+
+        graph = features.get("graph", {})
+        graph_sig = {
+            "entity_types": sorted(graph.get("entity_type_counts", {}).keys()),
+            "relation_types": sorted(graph.get("relation_type_counts", {}).keys()),
+            "top_entity": graph.get("top_entities", [{}])[0].get("name", "") if graph.get("top_entities") else "",
+            "layer_count": len(graph.get("architecture_layers", {})),
+        }
+
         fingerprint_data = {
             "language": static.get("dominant_language"),
             "framework": static.get("framework"),
@@ -200,32 +232,23 @@ class ProjectPromptGenerator:
             "critical_paths": sorted(config.get("critical_paths", [])),
             "custom_rules_count": len(config.get("custom_rules", [])),
             "top_3_cats": top_3_cats,
+            "api_patterns": api_patterns_sig,
+            "sample_files": sample_files_sig,
+            "style": style_sig,
+            "tree_head": tree_sig,
+            "graph": graph_sig,
         }
 
         raw = json.dumps(fingerprint_data, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
-    async def _get_last_project_prompt(self, project_id: int) -> Tuple[Optional[str], Optional[Dict]]:
+    async def _get_last_project_prompt(self, repo_id: str) -> Tuple[Optional[str], Optional[Dict]]:
         """获取该项目最新的专属 Prompt 文本及其 metadata。"""
-        prefix = f"project-{project_id}-v"
-        try:
-            result = await self.session.execute(
-                select(PromptExperiment)
-                .where(PromptExperiment.version.like(f"{prefix}%"))
-                .order_by(select(func.max(PromptExperiment.created_at)))
-                .limit(1)
-            )
-            # 上面的 order_by 写法不对，应该用子查询或 desc。修正：
-        except Exception:
-            logger.exception("Failed to get last project prompt for %s", project_id)
-            return None, None
-
-        # 重新用正确方式查询
         try:
             from sqlalchemy import desc
             result = await self.session.execute(
                 select(PromptExperiment)
-                .where(PromptExperiment.version.like(f"{prefix}%"))
+                .where(PromptExperiment.repo_id == repo_id)
                 .order_by(desc(PromptExperiment.created_at))
                 .limit(1)
             )
@@ -233,7 +256,8 @@ class ProjectPromptGenerator:
             if row:
                 return row.prompt_text, row.metadata_json or {}
         except Exception:
-            logger.exception("Failed to get last project prompt for %s", project_id)
+            logger.exception("Failed to get last project prompt for %s", repo_id)
+            await self.session.rollback()
         return None, None
 
     def _should_evolve(
@@ -297,6 +321,22 @@ class ProjectPromptGenerator:
         if new_findings >= self.EVOLVE_MIN_NEW_FINDINGS:
             reasons.append(f"新增 findings 达到阈值: +{new_findings}")
 
+        # 6. 知识图谱架构变化
+        last_graph = last_metadata.get("graph", {})
+        curr_graph = current_features.get("graph", {})
+        last_entity_types = set(last_graph.get("entity_type_counts", {}).keys())
+        curr_entity_types = set(curr_graph.get("entity_type_counts", {}).keys())
+        if last_entity_types != curr_entity_types:
+            reasons.append("实体类型分布变化")
+        last_layers = set(last_graph.get("architecture_layers", {}).keys())
+        curr_layers = set(curr_graph.get("architecture_layers", {}).keys())
+        if last_layers != curr_layers:
+            reasons.append("架构分层变化")
+        last_god = len(last_graph.get("god_class_candidates", []))
+        curr_god = len(curr_graph.get("god_class_candidates", []))
+        if last_god != curr_god:
+            reasons.append(f"God Class 数量变化: {last_god} -> {curr_god}")
+
         if reasons:
             return True, "; ".join(reasons)
 
@@ -317,7 +357,7 @@ class ProjectPromptGenerator:
 
             result = subprocess.run(
                 ["git", "-C", repo_path, "log", "-30", "--format=%s"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
             )
             messages = [line.strip() for line in result.stdout.splitlines() if line.strip()]
             patterns = {"feat": 0, "fix": 0, "bugfix": 0, "refactor": 0, "test": 0, "docs": 0, "chore": 0, "other": 0}
@@ -350,6 +390,13 @@ class ProjectPromptGenerator:
             features["dominant_language"] = "unknown"
             features["framework"] = "unknown"
             features["key_paths"] = []
+
+        # 3. 代码内容上下文扫描
+        try:
+            features["code_context"] = self._scan_code_context(repo_path)
+        except Exception as exc:
+            logger.warning("Failed to scan code context for %s: %s", repo_path, exc)
+            features["code_context"] = {}
 
         return features
 
@@ -469,6 +516,258 @@ class ProjectPromptGenerator:
             pass
         return hints
 
+    # ------------------------------------------------------------------
+    # 代码内容上下文扫描
+    # ------------------------------------------------------------------
+
+    def _scan_code_context(self, repo_path: str) -> Dict:
+        """扫描项目实际代码内容，提取架构上下文、代码风格、API 模式等。"""
+        context: Dict = {
+            "directory_tree": [],
+            "config_summary": {},
+            "code_samples": [],
+            "api_patterns": [],
+            "import_style": None,
+            "naming_convention": None,
+        }
+
+        EXCLUDE_DIRS = {
+            ".git", "node_modules", "__pycache__", ".venv", "venv",
+            "target", "build", "dist", ".next", ".idea", ".vscode",
+            ".pytest_cache", ".ruff_cache", ".mypy_cache", "coverage",
+            "out", ".turbo", ".nx", ".parcel-cache", ".gradle",
+        }
+        EXCLUDE_EXTS = {
+            ".lock", ".log", ".ico", ".png", ".jpg", ".jpeg", ".gif",
+            ".svg", ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
+            ".zip", ".tar", ".gz", ".7z", ".exe", ".dll", ".so", ".dylib",
+            ".pyc", ".pyo", ".class", ".o", ".obj", ".min.js", ".min.css",
+        }
+
+        # 1. 目录树快照（最大深度 4）
+        tree_lines: List[str] = []
+        for root, dirs, files in os.walk(repo_path):
+            depth = root[len(repo_path):].count(os.sep)
+            if depth >= 4:
+                del dirs[:]
+                continue
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
+            rel_root = os.path.relpath(root, repo_path)
+            indent = "  " * depth
+            dir_name = os.path.basename(root) or "."
+            meaningful = [
+                f for f in files
+                if not f.startswith(".")
+                and os.path.splitext(f)[1].lower() not in EXCLUDE_EXTS
+            ]
+            if depth == 0:
+                tree_lines.append(f"{dir_name}/")
+            else:
+                tree_lines.append(f"{indent}{dir_name}/")
+            for f in sorted(meaningful)[:5]:
+                tree_lines.append(f"{indent}  {f}")
+            if len(tree_lines) >= 100:
+                del dirs[:]
+                break
+        context["directory_tree"] = tree_lines[:100]
+
+        # 2. 关键配置文件内容摘要
+        config_files = [
+            ("pyproject.toml", 25),
+            ("requirements.txt", 20),
+            ("package.json", 25),
+            ("tsconfig.json", 20),
+            ("next.config.js", 15),
+            ("next.config.ts", 15),
+            ("tailwind.config.js", 15),
+            ("tailwind.config.ts", 15),
+            ("Dockerfile", 15),
+            ("docker-compose.yml", 15),
+            (".review-config.yml", 15),
+            ("go.mod", 15),
+            ("Cargo.toml", 15),
+            ("pom.xml", 15),
+            ("build.gradle", 15),
+        ]
+        for fname, max_lines in config_files:
+            content = self._read_file_head(os.path.join(repo_path, fname), max_lines)
+            if content:
+                context["config_summary"][fname] = content
+
+        # 3. 入口文件和代表性代码片段
+        entry_patterns = {
+            "main.py", "app.py", "manage.py", "wsgi.py", "asgi.py",
+            "index.js", "index.ts", "index.tsx", "main.js", "main.ts",
+            "server.ts", "server.js", "app.ts", "app.tsx",
+            "App.tsx", "App.vue", "app.vue",
+        }
+        samples: List[Dict] = []
+        found_entries: set[str] = set()
+
+        for root, dirs, files in os.walk(repo_path):
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
+            rel_root = os.path.relpath(root, repo_path)
+            for f in files:
+                ext = os.path.splitext(f)[1].lower()
+                if ext in EXCLUDE_EXTS:
+                    continue
+                fpath = os.path.join(root, f)
+                try:
+                    size = os.path.getsize(fpath)
+                    if size > 200 * 1024:
+                        continue
+                except OSError:
+                    continue
+                rel_file = os.path.join(rel_root, f) if rel_root != "." else f
+
+                if f in entry_patterns:
+                    content = self._read_file_head(fpath, 35)
+                    if content:
+                        samples.append({"file": rel_file, "role": "entry", "content": content})
+                        found_entries.add(f)
+
+                # API 模式扫描（轻量：只读前 30 行）
+                if ext in (".py", ".js", ".ts", ".tsx", ".java", ".go", ".rs"):
+                    self._scan_api_patterns(fpath, rel_file, ext, context)
+
+        # 补充代表性样本（关键目录）
+        if len(samples) < 4:
+            sample_dirs = {"src", "app", "lib", "api", "routes", "controllers", "services", "models", "handlers", "pages", "internal", "pkg", "cmd"}
+            for root, dirs, files in os.walk(repo_path):
+                dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
+                rel_root = os.path.relpath(root, repo_path)
+                parts = rel_root.split(os.sep)
+                if not any(p in sample_dirs for p in parts):
+                    continue
+                for f in sorted(files):
+                    ext = os.path.splitext(f)[1].lower()
+                    if ext not in (".py", ".js", ".ts", ".tsx", ".go", ".java", ".rs"):
+                        continue
+                    rel_file = os.path.join(rel_root, f) if rel_root != "." else f
+                    if any(s["file"] == rel_file for s in samples):
+                        continue
+                    fpath = os.path.join(root, f)
+                    try:
+                        if os.path.getsize(fpath) > 100 * 1024:
+                            continue
+                    except OSError:
+                        continue
+                    content = self._read_file_head(fpath, 25)
+                    if content:
+                        samples.append({"file": rel_file, "role": "sample", "content": content})
+                        break
+                if len(samples) >= 8:
+                    break
+
+        context["code_samples"] = samples[:8]
+        context["api_patterns"] = list(dict.fromkeys(context["api_patterns"]))[:10]
+        self._detect_code_style(context)
+        return context
+
+    def _read_file_head(self, file_path: str, max_lines: int = 30) -> Optional[str]:
+        """安全读取文件头部若干行。"""
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = []
+                for _ in range(max_lines):
+                    line = f.readline()
+                    if not line:
+                        break
+                    # 过滤掉过长的行（如 minified）
+                    if len(line) > 500:
+                        line = line[:500] + "...\n"
+                    lines.append(line)
+                return "".join(lines).rstrip()
+        except Exception:
+            return None
+
+    def _scan_api_patterns(self, file_path: str, rel_file: str, ext: str, context: Dict) -> None:
+        """轻量扫描代码文件，识别 API/路由/模型模式。"""
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                head = f.read(8000)  # 只读前 8KB
+        except Exception:
+            return
+
+        patterns = context.setdefault("api_patterns", [])
+
+        if ext == ".py":
+            # FastAPI / Flask / Django 路由
+            route_matches = re.findall(r"@(app|router|blueprint)\.\s*(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]", head, re.I)
+            for m in route_matches:
+                patterns.append(f"{rel_file}: {m[1].upper()} {m[2]}")
+            # Pydantic / Django ORM 模型
+            if re.search(r"class\s+\w+\s*\(\s*BaseModel\s*\)", head):
+                patterns.append(f"{rel_file}: Pydantic BaseModel")
+            if re.search(r"class\s+\w+\s*\(\s*models\.Model\s*\)", head):
+                patterns.append(f"{rel_file}: Django ORM Model")
+            # SQLAlchemy
+            if re.search(r"class\s+\w+\s*\([^)]*DeclarativeBase|Base\s*\)", head):
+                patterns.append(f"{rel_file}: SQLAlchemy Model")
+            # Alembic migration
+            if "alembic" in rel_file.lower() and re.search(r"def\s+upgrade\s*\(", head):
+                patterns.append(f"{rel_file}: Alembic Migration")
+
+        elif ext in (".js", ".ts", ".tsx"):
+            # Next.js / Express 路由
+            if re.search(r"export\s+(default\s+)?(async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH)\s*\(", head, re.I):
+                patterns.append(f"{rel_file}: Next.js API Route")
+            route_matches = re.findall(r"(app\.|router\.)\s*(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]", head, re.I)
+            for m in route_matches:
+                patterns.append(f"{rel_file}: {m[1].upper()} {m[2]}")
+            # React Component
+            if re.search(r"export\s+(default\s+)?(function|const)\s+\w+.*Component|React\.FC|JSX\.Element", head, re.I):
+                patterns.append(f"{rel_file}: React Component")
+            # Hook
+            if re.search(r"export\s+(function|const)\s+use[A-Z]\w+", head):
+                patterns.append(f"{rel_file}: React Hook")
+
+        elif ext == ".go":
+            if re.search(r"func\s+\w+\s*\([^)]*\*?gin\.Context\)", head):
+                patterns.append(f"{rel_file}: Gin Handler")
+            if re.search(r"http\.Handle(Func)?\s*\(", head):
+                patterns.append(f"{rel_file}: stdlib HTTP Handler")
+
+        elif ext == ".java":
+            if re.search(r"@RestController|@Controller", head):
+                patterns.append(f"{rel_file}: Spring Controller")
+            if re.search(r"@Entity|@Table\s*\(", head):
+                patterns.append(f"{rel_file}: JPA Entity")
+
+    def _detect_code_style(self, context: Dict) -> None:
+        """基于代码样本识别项目的命名规范和导入风格。"""
+        all_content = "\n".join(
+            s.get("content", "") for s in context.get("code_samples", [])
+        )
+        if not all_content:
+            return
+
+        # Import 风格
+        import_lines = re.findall(r"^(?:from\s+\S+\s+import|import\s+\S+)", all_content, re.M)
+        if import_lines:
+            if len([l for l in import_lines if l.startswith("from ")]) > len(import_lines) * 0.5:
+                context["import_style"] = "absolute (from X import Y)"
+            else:
+                context["import_style"] = "direct import"
+
+        # JS/TS import 风格
+        js_imports = re.findall(r"^(import\s+.*from\s+['\"])", all_content, re.M)
+        if js_imports:
+            rel_count = sum(1 for i in js_imports if i.startswith("import ") and "from '" in i or 'from "' in i)
+            if rel_count:
+                context["import_style"] = "ES Module (import X from 'Y')"
+
+        # 命名规范
+        snake_case = len(re.findall(r"\b[a-z_][a-z0-9_]*\b", all_content))
+        camel_case = len(re.findall(r"\b[a-z][a-zA-Z0-9]+[A-Z][a-zA-Z0-9]*\b", all_content))
+        pascal_case = len(re.findall(r"\b[A-Z][a-zA-Z0-9]*\b", all_content))
+        if snake_case > camel_case and snake_case > pascal_case:
+            context["naming_convention"] = "snake_case"
+        elif camel_case > pascal_case:
+            context["naming_convention"] = "camelCase"
+        else:
+            context["naming_convention"] = "PascalCase / mixed"
+
     def _collect_project_config(self, project) -> Dict:
         """读取项目配置中的 critical_paths 和 custom_rules。"""
         result: Dict = {"critical_paths": [], "custom_rules": []}
@@ -510,10 +809,194 @@ class ProjectPromptGenerator:
         return result
 
     # ------------------------------------------------------------------
+    # 知识图谱特征采集
+    # ------------------------------------------------------------------
+
+    async def _collect_graph_features(self, repo_id: str, org_id: str = "default") -> Dict:
+        """从知识图谱采集项目架构特征：实体分布、关键实体、架构层、关系模式。"""
+        result: Dict = {
+            "entity_type_counts": {},
+            "relation_type_counts": {},
+            "top_entities": [],
+            "architecture_layers": {},
+            "has_circular_dependency": False,
+            "god_class_candidates": [],
+        }
+
+        # 1. 实体类型分布
+        try:
+            stmt = (
+                select(CodeEntity.entity_type, func.count(CodeEntity.id))
+                .where(CodeEntity.repo_id == repo_id, CodeEntity.org_id == org_id)
+                .group_by(CodeEntity.entity_type)
+            )
+            rows = (await self.session.execute(stmt)).all()
+            result["entity_type_counts"] = {row[0]: row[1] for row in rows}
+        except Exception as exc:
+            logger.warning("Failed to query entity types: %s", exc)
+
+        # 2. 关系类型分布
+        try:
+            stmt = (
+                select(CodeRelationship.relation_type, func.count(CodeRelationship.id))
+                .where(CodeRelationship.repo_id == repo_id, CodeRelationship.org_id == org_id)
+                .group_by(CodeRelationship.relation_type)
+            )
+            rows = (await self.session.execute(stmt)).all()
+            result["relation_type_counts"] = {row[0]: row[1] for row in rows}
+        except Exception as exc:
+            logger.warning("Failed to query relation types: %s", exc)
+
+        # 3. 入度最高的实体（被引用最多的函数/类）
+        try:
+            in_degree_stmt = (
+                select(
+                    CodeEntity.id,
+                    CodeEntity.name,
+                    CodeEntity.entity_type,
+                    CodeEntity.file_path,
+                    func.count(CodeRelationship.id).label("in_degree"),
+                )
+                .join(
+                    CodeRelationship,
+                    CodeEntity.id == CodeRelationship.target_entity_id,
+                )
+                .where(
+                    CodeEntity.repo_id == repo_id,
+                    CodeEntity.org_id == org_id,
+                    CodeRelationship.relation_type.in_(["calls", "inherits", "implements", "decorates"]),
+                )
+                .group_by(CodeEntity.id, CodeEntity.name, CodeEntity.entity_type, CodeEntity.file_path)
+                .order_by(func.count(CodeRelationship.id).desc())
+                .limit(10)
+            )
+            rows = (await self.session.execute(in_degree_stmt)).all()
+            result["top_entities"] = [
+                {
+                    "name": row[1],
+                    "type": row[2],
+                    "file": row[3],
+                    "in_degree": row[4],
+                }
+                for row in rows
+            ]
+        except Exception as exc:
+            logger.warning("Failed to query top entities: %s", exc)
+
+        # 4. 架构分层推断（基于文件路径）
+        try:
+            stmt = (
+                select(CodeEntity.file_path, func.count(CodeEntity.id))
+                .where(CodeEntity.repo_id == repo_id, CodeEntity.org_id == org_id)
+                .group_by(CodeEntity.file_path)
+            )
+            rows = (await self.session.execute(stmt)).all()
+            layers: Dict[str, Dict] = {}
+            for file_path, count in rows:
+                layer = self._infer_architecture_layer(file_path)
+                if layer not in layers:
+                    layers[layer] = {"entity_count": 0}
+                layers[layer]["entity_count"] += count
+            result["architecture_layers"] = layers
+        except Exception as exc:
+            logger.warning("Failed to infer architecture layers: %s", exc)
+
+        # 5. 循环依赖检测（自环）
+        try:
+            stmt = (
+                select(func.count(CodeRelationship.id))
+                .where(
+                    CodeRelationship.repo_id == repo_id,
+                    CodeRelationship.org_id == org_id,
+                    CodeRelationship.source_entity_id == CodeRelationship.target_entity_id,
+                )
+            )
+            count = (await self.session.execute(stmt)).scalar() or 0
+            result["has_circular_dependency"] = count > 0
+        except Exception as exc:
+            logger.warning("Failed to detect circular dependencies: %s", exc)
+
+        # 6. God Class 候选（入度 > 20 的类）
+        try:
+            god_stmt = (
+                select(
+                    CodeEntity.name,
+                    CodeEntity.file_path,
+                    func.count(CodeRelationship.id).label("in_degree"),
+                )
+                .join(
+                    CodeRelationship,
+                    CodeEntity.id == CodeRelationship.target_entity_id,
+                )
+                .where(
+                    CodeEntity.repo_id == repo_id,
+                    CodeEntity.org_id == org_id,
+                    CodeEntity.entity_type == "class",
+                    CodeRelationship.relation_type.in_(["calls", "inherits", "implements", "contains"]),
+                )
+                .group_by(CodeEntity.id, CodeEntity.name, CodeEntity.file_path)
+                .having(func.count(CodeRelationship.id) > 20)
+                .order_by(func.count(CodeRelationship.id).desc())
+                .limit(5)
+            )
+            rows = (await self.session.execute(god_stmt)).all()
+            result["god_class_candidates"] = [
+                {"name": row[0], "file": row[1], "in_degree": row[2]}
+                for row in rows
+            ]
+        except Exception as exc:
+            logger.warning("Failed to query god classes: %s", exc)
+
+        return result
+
+    @staticmethod
+    def _infer_architecture_layer(file_path: str) -> str:
+        """根据文件路径推断架构层。优先匹配目录名，其次匹配文件名。"""
+        path_lower = file_path.lower().replace("\\", "/")
+        parts = path_lower.split("/")
+        dir_parts = parts[:-1] if len(parts) > 1 else []
+        file_name = parts[-1] if parts else ""
+
+        # 先按目录名匹配（更可靠）
+        for part in dir_parts:
+            if part in ("controller", "controllers", "handler", "handlers", "route", "routes", "view", "views", "endpoint", "endpoints", "api"):
+                return "controller"
+            elif part in ("service", "services", "business", "usecase", "usecases", "application"):
+                return "service"
+            elif part in ("model", "models", "entity", "entities", "repository", "repositories", "repo", "repos", "db", "dao", "daos", "schema", "schemas"):
+                return "data"
+            elif part in ("middleware", "middlewares", "filter", "filters", "interceptor", "interceptors", "guard", "guards", "auth"):
+                return "middleware"
+            elif part in ("util", "utils", "helper", "helpers", "common", "lib", "libs", "shared", "tool", "tools"):
+                return "utility"
+            elif part in ("test", "tests", "spec", "specs", "fixture", "fixtures", "mock", "mocks"):
+                return "test"
+            elif part in ("config", "configs", "setting", "settings", "env"):
+                return "config"
+
+        # 目录未匹配，再按文件名匹配
+        if any(seg in file_name for seg in ["controller", "handler", "route", "view", "endpoint"]):
+            return "controller"
+        elif any(seg in file_name for seg in ["service", "business", "usecase"]):
+            return "service"
+        elif any(seg in file_name for seg in ["model", "repository", "dao", "schema"]):
+            return "data"
+        elif any(seg in file_name for seg in ["middleware", "filter", "interceptor", "guard"]):
+            return "middleware"
+        elif any(seg in file_name for seg in ["util", "helper", "common"]):
+            return "utility"
+        elif any(seg in file_name for seg in ["test", "spec", "mock"]):
+            return "test"
+        elif any(seg in file_name for seg in ["config", "setting"]):
+            return "config"
+
+        return "other"
+
+    # ------------------------------------------------------------------
     # Prompt 构建
     # ------------------------------------------------------------------
 
-    def _build_structured_prompt(self, features: Dict, config: Dict, historical: Dict) -> str:
+    def _build_structured_prompt(self, features: Dict, config: Dict, historical: Dict, graph: Dict) -> str:
         """基于规则构建高质量结构化 Prompt（不依赖 LLM）。"""
         language = features.get("dominant_language", "未知")
         framework = features.get("framework", "unknown")
@@ -523,6 +1006,7 @@ class ProjectPromptGenerator:
         custom_rules = config.get("custom_rules", [])
         hist_cats = historical.get("historical_categories", {})
         top_risk = historical.get("top_risk_category", "")
+        code_context = features.get("code_context", {}) or {}
 
         lines: List[str] = [
             "你是一位资深的代码审查专家。请分析提供的代码变更（diff），并以 JSON 对象格式返回发现的问题列表。",
@@ -542,7 +1026,89 @@ class ProjectPromptGenerator:
             if others:
                 lines.append(f"- 其他历史问题: {', '.join(others)}")
 
-        lines.append("")
+        # --- 代码内容上下文 ---
+        tree = code_context.get("directory_tree", [])
+        config_summary = code_context.get("config_summary", {})
+        api_patterns = code_context.get("api_patterns", [])
+        import_style = code_context.get("import_style")
+        naming = code_context.get("naming_convention")
+        code_samples = code_context.get("code_samples", [])
+
+        if tree:
+            lines.append("")
+            lines.append("【项目目录结构快照】")
+            lines.append("```")
+            for line in tree[:40]:
+                lines.append(line)
+            if len(tree) > 40:
+                lines.append(f"... ({len(tree) - 40} more items)")
+            lines.append("```")
+
+        if config_summary:
+            lines.append("")
+            lines.append("【关键配置摘要】")
+            for fname, content in list(config_summary.items())[:3]:
+                lines.append(f"--- {fname} ---")
+                lines.append(content)
+                lines.append("")
+
+        if api_patterns:
+            lines.append("【识别的 API / 模型模式】")
+            for p in api_patterns[:8]:
+                lines.append(f"  - {p}")
+            lines.append("")
+
+        # --- 知识图谱架构上下文 ---
+        if graph:
+            entity_counts = graph.get("entity_type_counts", {})
+            relation_counts = graph.get("relation_type_counts", {})
+            top_entities = graph.get("top_entities", [])
+            layers = graph.get("architecture_layers", {})
+            god_classes = graph.get("god_class_candidates", [])
+            has_cycle = graph.get("has_circular_dependency", False)
+
+            graph_lines: List[str] = []
+            if entity_counts:
+                graph_lines.append(f"- 实体分布: {', '.join(f'{k}({v})' for k, v in entity_counts.items())}")
+            if relation_counts:
+                graph_lines.append(f"- 关系分布: {', '.join(f'{k}({v})' for k, v in relation_counts.items())}")
+            if layers:
+                layer_summary = ', '.join(f"{k}({v.get('entity_count', 0)})" for k, v in layers.items())
+                graph_lines.append(f"- 架构分层: {layer_summary}")
+            if top_entities:
+                graph_lines.append("- 核心实体（高被引用）:")
+                for ent in top_entities[:5]:
+                    graph_lines.append(f"  • [{ent['type']}] {ent['name']} (入度: {ent['in_degree']}, 文件: {ent['file']})")
+            if god_classes:
+                graph_lines.append("- God Class 候选（被引用过多的类）:")
+                for gc in god_classes[:3]:
+                    graph_lines.append(f"  • {gc['name']} (入度: {gc['in_degree']}, 文件: {gc['file']})")
+            if has_cycle:
+                graph_lines.append("- ⚠️ 检测到循环依赖")
+
+            if graph_lines:
+                lines.append("【知识图谱架构分析】")
+                lines.extend(graph_lines)
+                lines.append("")
+
+        if import_style or naming:
+            style_parts = []
+            if import_style:
+                style_parts.append(f"导入风格: {import_style}")
+            if naming:
+                style_parts.append(f"命名规范: {naming}")
+            lines.append(f"【代码风格】{', '.join(style_parts)}")
+            lines.append("")
+
+        if code_samples:
+            lines.append("【代表性代码片段（供理解项目风格）】")
+            for sample in code_samples[:4]:
+                lines.append(f"--- {sample['file']} ({sample.get('role', 'sample')}) ---")
+                lines.append("```")
+                lines.append(sample["content"])
+                lines.append("```")
+                lines.append("")
+
         lines.append("【审查检查清单】")
 
         # 1. 通用层
@@ -689,6 +1255,23 @@ class ProjectPromptGenerator:
         framework = features.get("framework", "unknown")
         commit_type = features.get("dominant_commit_type", "mixed")
         top_risk = historical.get("top_risk_category", "")
+        code_context = features.get("code_context", {}) or {}
+
+        # 构建代码上下文摘要
+        code_ctx_parts: List[str] = []
+        api_patterns = code_context.get("api_patterns", [])
+        if api_patterns:
+            code_ctx_parts.append(f"API/模型模式: {', '.join(api_patterns[:5])}")
+        import_style = code_context.get("import_style")
+        naming = code_context.get("naming_convention")
+        if import_style:
+            code_ctx_parts.append(f"导入风格: {import_style}")
+        if naming:
+            code_ctx_parts.append(f"命名规范: {naming}")
+        code_samples = code_context.get("code_samples", [])
+        if code_samples:
+            code_ctx_parts.append(f"代表性文件: {', '.join(s['file'] for s in code_samples[:3])}")
+        code_ctx_str = "\n".join(f"- {p}" for p in code_ctx_parts) if code_ctx_parts else "暂无代码上下文"
 
         user_msg = (
             f"请对以下结构化代码审查 Prompt 进行润色和增强。\n\n"
@@ -696,13 +1279,16 @@ class ProjectPromptGenerator:
             f"- 技术栈: {language}" + (f" ({framework})" if framework != "unknown" else "") + "\n"
             f"- 主要 Commit 类型: {commit_type}\n"
             f"- 历史高频问题: {top_risk or '暂无数据'}\n\n"
+            f"【代码上下文摘要】\n"
+            f"{code_ctx_str}\n\n"
             f"【当前 Prompt】\n"
             f"{base_prompt}\n\n"
             f"【要求】\n"
             f"1. 保持检查清单结构和 JSON 输出格式完全不变。\n"
-            f"2. 将技术栈特征和历史问题数据自然融入对应检查项的描述中，使其更具针对性。\n"
-            f"3. 语言保持专业、简洁、可执行。\n"
-            f"4. 直接返回润色后的完整 Prompt 文本。"
+            f"2. 将技术栈特征、代码上下文和历史问题数据自然融入对应检查项的描述中，使其更具针对性。\n"
+            f"3. 例如：如果项目使用 FastAPI + Pydantic，在数据校验项中强化 Pydantic 模型兼容性提示；如果项目有 Alembic migration，在数据一致性项中强化 migration 安全性提示。\n"
+            f"4. 语言保持专业、简洁、可执行。\n"
+            f"5. 直接返回润色后的完整 Prompt 文本。"
         )
 
         text = await self.provider.generate_text(
@@ -734,9 +1320,15 @@ class ProjectPromptGenerator:
 
         return text
 
-    async def _next_version(self, project_id: int) -> str:
-        """生成下一个版本号，如 project-123-v1, project-123-v2。"""
-        prefix = f"project-{project_id}-v"
+    @staticmethod
+    def _sanitize_repo_id(repo_id: str) -> str:
+        """清理 repo_id 中的特殊字符，只保留字母、数字、下划线和连字符。"""
+        return re.sub(r"[^a-zA-Z0-9_-]", "-", repo_id)
+
+    async def _next_version(self, project_id: int, repo_id: str) -> str:
+        """生成下一个版本号，如 wxj-1019-latte-code-v1。"""
+        safe_repo = self._sanitize_repo_id(repo_id)
+        prefix = f"{safe_repo}-v"
         try:
             result = await self.session.execute(
                 select(PromptExperiment.version)
@@ -751,4 +1343,5 @@ class ProjectPromptGenerator:
             return f"{prefix}{max_num + 1}"
         except Exception:
             logger.exception("Failed to compute next version for project %s", project_id)
+            await self.session.rollback()
             return f"{prefix}1"

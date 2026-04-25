@@ -128,7 +128,7 @@ async def _do_sync(
     """后台执行仓库同步，并实时报告进度。"""
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
     from models.base import async_engine
-    from sqlalchemy import select
+    from sqlalchemy import select, update
     from models.project_repo import ProjectRepo
     from commits.scanner import GitLogScanner
     from commits.service import CommitService
@@ -147,6 +147,16 @@ async def _do_sync(
             )
             await _git_cmd(local_path, ["fetch", "origin"], timeout=60)
 
+            # 验证 HEAD 是否有效（防止之前 clone/checkout 失败导致仓库损坏）
+            try:
+                await _git_cmd(local_path, ["rev-parse", "HEAD"], timeout=10)
+            except RuntimeError:
+                logger.warning(
+                    "Project %s: HEAD invalid, forcing checkout of %s",
+                    project_id, branch,
+                )
+                await _git_cmd(local_path, ["checkout", "-f", branch], timeout=30)
+
             await AnalysisProgressTracker.update(
                 project_id, step="checking_updates", progress=30, total=100,
                 message="检查更新中...",
@@ -163,6 +173,39 @@ async def _do_sync(
                 message=f"发现 {ahead_count} 个新提交，正在 pull...",
             )
             await _git_cmd(local_path, ["pull", "origin", branch], timeout=60)
+
+            # 获取 pull 后的变更文件列表用于增量更新知识图谱
+            try:
+                changed_files_raw = await _git_cmd(
+                    local_path,
+                    ["diff", "--name-only", "HEAD@{1}", "HEAD"],
+                    timeout=10,
+                )
+                changed_files = [f.strip() for f in changed_files_raw.strip().split("\n") if f.strip()]
+            except Exception:
+                changed_files = []
+
+            if changed_files:
+                logger.info("Project %s: detected %s changed files for incremental graph update", project_id, len(changed_files))
+                try:
+                    async with AsyncSessionLocal() as session:
+                        from graph.entity_builder import EntityGraphBuilder
+                        from sqlalchemy import select
+                        from models.project_repo import ProjectRepo
+                        proj_result = await session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
+                        proj = proj_result.scalar_one_or_none()
+                        if proj:
+                            builder = EntityGraphBuilder(session)
+                            stats = await builder.incremental_update(
+                                repo_path=local_path,
+                                repo_id=proj.repo_id,
+                                changed_files=changed_files,
+                                org_id=proj.org_id or "default",
+                            )
+                            await session.commit()
+                            logger.info("Project %s: incremental graph update done: %s", project_id, stats)
+                except Exception as exc:
+                    logger.warning("Project %s: incremental graph update failed: %s", project_id, exc)
         else:
             await AnalysisProgressTracker.update(
                 project_id, step="cloning", progress=20, total=100,
@@ -176,9 +219,12 @@ async def _do_sync(
                 else:
                     os.remove(abs_local_path)
             os.makedirs(os.path.dirname(abs_local_path), exist_ok=True)
+            clone_args = ["clone", repo_url, os.path.basename(abs_local_path)]
+            if sys.platform == "win32":
+                clone_args = ["clone", "--config", "core.longpaths=true", repo_url, os.path.basename(abs_local_path)]
             await _git_cmd(
                 os.path.dirname(abs_local_path),
-                ["clone", repo_url, os.path.basename(abs_local_path)],
+                clone_args,
                 timeout=300,
             )
             detected = await _git_cmd(
@@ -227,7 +273,11 @@ async def _do_sync(
                 project = project_result.scalar_one_or_none()
                 if project:
                     project.last_analyzed_sha = commits[0].hash
-                    project.total_commits += saved
+                    await session.execute(
+                        update(ProjectRepo)
+                        .where(ProjectRepo.id == project_id)
+                        .values(total_commits=ProjectRepo.total_commits + saved)
+                    )
                     project.status = "ready"
                     await session.commit()
 

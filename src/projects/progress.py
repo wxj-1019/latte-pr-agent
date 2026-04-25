@@ -85,6 +85,8 @@ class AnalysisProgressTracker:
             {
                 "status": "completed",
                 "step": "finished",
+                "progress": 100,
+                "total": 100,
                 "message": f"{cls._operation_name(payload.get('operation', '分析'))}完成",
                 "result": result or {},
                 "timestamp": _now_iso(),

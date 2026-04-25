@@ -102,6 +102,18 @@ async def optimize_prompt(
     return result
 
 
+@router.delete("/versions/{version}")
+async def delete_version(version: str, db: AsyncSession = Depends(get_db)) -> dict:
+    if version == "v1":
+        raise HTTPException(status_code=400, detail="不允许删除默认版本 v1")
+    registry = PromptRegistry(db)
+    await registry.load_from_db()
+    deleted = await registry.delete_version(version)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Prompt 版本不存在")
+    return {"message": f"已删除版本 {version}", "version": version}
+
+
 @router.post("/generate-for-project/{project_id}")
 async def generate_project_prompt(
     project_id: int,

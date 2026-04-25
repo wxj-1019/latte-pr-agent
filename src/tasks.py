@@ -7,6 +7,7 @@ import sys
 import time
 
 from celery import Celery
+from celery.signals import worker_init
 
 from config import settings
 from services.review_service import run_review
@@ -29,6 +30,13 @@ celery_app.conf.update(
     task_time_limit=600,
     task_soft_time_limit=300,
 )
+
+
+@worker_init.connect
+def _on_worker_init(**kwargs):
+    from logging_config import setup_celery_logging
+    setup_celery_logging(settings.log_level)
+    logger.info("Celery worker logging configured [level=%s]", settings.log_level)
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -116,7 +124,7 @@ async def _do_clone(project_id: int) -> None:
                     loop = asyncio.get_running_loop()
                     def _clone() -> subprocess.CompletedProcess:
                         return subprocess.run(
-                            ["git", "clone", project.repo_url, clone_target],
+                            ["git", "clone", "--config", "core.longpaths=true", project.repo_url, clone_target],
                             capture_output=True,
                             timeout=300,
                             cwd=clone_cwd,

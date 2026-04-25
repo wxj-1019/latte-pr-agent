@@ -10,8 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from utils.timezone import beijing_now
-
 logger = logging.getLogger(__name__)
 
 PROMPT_DIR = Path(__file__).parent.parent / "llm" / "prompts"
@@ -125,6 +123,7 @@ class PromptRegistry:
         version: str,
         text: str,
         metadata: Optional[dict] = None,
+        repo_id: Optional[str] = None,
     ) -> None:
         """保存新版本到内存和数据库。"""
         self._versions[version] = PromptVersion(version, text, metadata)
@@ -138,6 +137,7 @@ class PromptRegistry:
                 version=version,
                 prompt_text=text,
                 metadata_json=metadata or {},
+                repo_id=repo_id,
                 created_at=beijing_now(),
             )
             .on_conflict_do_update(
@@ -145,12 +145,40 @@ class PromptRegistry:
                 set_={
                     "prompt_text": text,
                     "metadata_json": metadata or {},
+                    "repo_id": repo_id,
                     "created_at": beijing_now(),
                 },
             )
         )
         await self.session.execute(stmt)
         await self.session.commit()
+
+    async def delete_version(self, version: str) -> bool:
+        """删除指定版本的 Prompt。不允许删除 v1（默认版本）。"""
+        if version == "v1":
+            return False
+        if not self.session:
+            self._versions.pop(version, None)
+            return True
+        from models import PromptExperiment, PromptExperimentAssignment
+
+        result = await self.session.execute(
+            select(PromptExperiment).where(PromptExperiment.version == version)
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            self._versions.pop(version, None)
+            return False
+
+        await self.session.execute(
+            PromptExperimentAssignment.__table__.delete().where(
+                PromptExperimentAssignment.version == version
+            )
+        )
+        await self.session.delete(row)
+        await self.session.commit()
+        self._versions.pop(version, None)
+        return True
 
     async def get_experiment_assignment(
         self,

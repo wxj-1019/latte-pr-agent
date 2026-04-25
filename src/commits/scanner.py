@@ -22,25 +22,37 @@ class GitLogScanner:
         t0 = time.monotonic()
         if sys.platform == "win32":
             loop = asyncio.get_running_loop()
+
             def _run() -> subprocess.CompletedProcess:
                 return subprocess.run(
                     ["git", "-C", self.repo_path, *args],
                     capture_output=True,
                     timeout=timeout,
                 )
-            proc = await loop.run_in_executor(None, _run)
+
+            try:
+                proc = await loop.run_in_executor(None, _run)
+            except subprocess.TimeoutExpired:
+                raise asyncio.TimeoutError(f"git {' '.join(args)} timed out after {timeout}s")
             if proc.returncode != 0:
-                raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.decode('utf-8', errors='replace')}")
+                raise RuntimeError(
+                    f"git {' '.join(args)} failed: {proc.stderr.decode('utf-8', errors='replace')}"
+                )
             stdout = proc.stdout.decode("utf-8", errors="replace")
         else:
             proc = await asyncio.create_subprocess_exec(
-                "git", "-C", self.repo_path, *args,
+                "git",
+                "-C",
+                self.repo_path,
+                *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout_b, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             if proc.returncode != 0:
-                raise RuntimeError(f"git {' '.join(args)} failed: {stderr.decode('utf-8', errors='replace')}")
+                raise RuntimeError(
+                    f"git {' '.join(args)} failed: {stderr.decode('utf-8', errors='replace')}"
+                )
             stdout = stdout_b.decode("utf-8", errors="replace")
         elapsed = time.monotonic() - t0
         logger.info("Git command [%s] completed in %.2fs", cmd_str, elapsed)
@@ -56,7 +68,11 @@ class GitLogScanner:
     ) -> List[CommitInfo]:
         logger.info(
             "Scanning commits: repo=%s branch=%s max_count=%s since=%s after_sha=%s",
-            self.repo_path, branch, max_count, since, after_sha,
+            self.repo_path,
+            branch,
+            max_count,
+            since,
+            after_sha,
         )
         args = ["log", f"-{max_count}", "--format=%H|%P|%an|%ae|%s|%aI", "--numstat"]
         if since:
@@ -66,11 +82,13 @@ class GitLogScanner:
         args.append(branch)
 
         output = await self._run_git(args, timeout=60)
-        commits = self._parse_log_output(output, progress_callback=progress_callback, max_count=max_count)
+        commits = await self._parse_log_output(
+            output, progress_callback=progress_callback, max_count=max_count
+        )
         logger.info("Parsed %d commits from git log", len(commits))
         return commits
 
-    def _parse_log_output(
+    async def _parse_log_output(
         self,
         output: str,
         progress_callback: ProgressCallback = None,
@@ -134,45 +152,52 @@ class GitLogScanner:
                 else:
                     break
 
-            commits.append(CommitInfo(
-                hash=commit_hash,
-                parent_hash=parent_hash,
-                author_name=author_name,
-                author_email=author_email,
-                message=message,
-                timestamp=timestamp,
-                additions=additions,
-                deletions=deletions,
-                changed_files=len(files),
-                files=files,
-            ))
+            commits.append(
+                CommitInfo(
+                    hash=commit_hash,
+                    parent_hash=parent_hash,
+                    author_name=author_name,
+                    author_email=author_email,
+                    message=message,
+                    timestamp=timestamp,
+                    additions=additions,
+                    deletions=deletions,
+                    changed_files=len(files),
+                    files=files,
+                )
+            )
             parsed_count += 1
 
             if progress_callback and parsed_count % report_interval == 0:
-                asyncio.create_task(
-                    progress_callback("parsing_git_log", parsed_count, max_count)
-                )
+                await progress_callback("parsing_git_log", parsed_count, max_count)
 
         return commits
 
-    def get_commit_diff(self, commit_hash: str, max_chars: int = 8000) -> str:
+    async def get_commit_diff(self, commit_hash: str, max_chars: int = 8000) -> str:
         parent = f"{commit_hash}^" if commit_hash else "HEAD^"
         try:
-            output = self._run_git_sync(["diff", "--no-color", parent, commit_hash], timeout=30)
+            output = await self._run_git(
+                ["diff", "--no-color", parent, commit_hash], timeout=30
+            )
         except RuntimeError:
-            output = self._run_git_sync(["show", "--no-color", "--format=", commit_hash], timeout=30)
+            output = await self._run_git(
+                ["show", "--no-color", "--format=", commit_hash], timeout=30
+            )
         if len(output) > max_chars:
             output = output[:max_chars] + "\n... (truncated)"
         return output
 
-    def get_commit_stats(self, commit_hash: str) -> dict:
-        output = self._run_git_sync(["show", "--stat", "--format=", commit_hash], timeout=15)
+    async def get_commit_stats(self, commit_hash: str) -> dict:
+        output = await self._run_git(
+            ["show", "--stat", "--format=", commit_hash], timeout=15
+        )
         total_add = 0
         total_del = 0
         file_count = 0
         for line in output.strip().split("\n"):
             if "insertion" in line or "deletion" in line:
                 import re
+
                 add_match = re.search(r"(\d+) insertion", line)
                 del_match = re.search(r"(\d+) deletion", line)
                 file_match = re.search(r"(\d+) file", line)
@@ -181,8 +206,8 @@ class GitLogScanner:
                 file_count = int(file_match.group(1)) if file_match else 0
         return {"additions": total_add, "deletions": total_del, "changed_files": file_count}
 
-    def get_contributors(self, branch: str = "main") -> List[ContributorInfo]:
-        output = self._run_git_sync(
+    async def get_contributors(self, branch: str = "main") -> List[ContributorInfo]:
+        output = await self._run_git(
             ["shortlog", "-sne", branch],
             timeout=15,
         )
@@ -201,19 +226,7 @@ class GitLogScanner:
                 else:
                     name = name_email
                     email = ""
-                contributors.append(ContributorInfo(name=name, email=email, commits=count, latest=""))
+                contributors.append(
+                    ContributorInfo(name=name, email=email, commits=count, latest="")
+                )
         return contributors
-
-    def _run_git_sync(self, args: List[str], timeout: int = 30) -> str:
-        import subprocess
-        result = subprocess.run(
-            ["git", "-C", self.repo_path] + args,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr}")
-        return result.stdout

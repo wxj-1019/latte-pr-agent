@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import time
 import uuid
 
 from fastapi import Depends, FastAPI, Request
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
-from logging_config import setup_logging, request_id_var
+from logging_config import setup_logging, request_id_var, log_request
 from rate_limit import limiter
 from webhooks.router import router as webhook_router
 from feedback.router import router as feedback_router
@@ -31,7 +32,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging(settings.log_level)
+    setup_logging(
+        log_level=settings.log_level,
+        log_format=settings.log_format or None,
+        log_file=settings.log_file or None,
+    )
     logger.info("Latte PR Agent startup complete [env=%s]", settings.app_env)
     yield
     logger.info("Latte PR Agent shutting down")
@@ -56,16 +61,25 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
-    """为每个请求注入 X-Request-ID。"""
+    """为每个请求注入 X-Request-ID 并记录请求日志。"""
 
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         token = request_id_var.set(request_id)
+        start = time.monotonic()
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
             return response
         finally:
+            duration = time.monotonic() - start
+            log_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code if "response" in dir() else 500,
+                duration=duration,
+                request_id=request_id,
+            )
             request_id_var.reset(token)
 
 

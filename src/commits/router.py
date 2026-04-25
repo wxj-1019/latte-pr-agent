@@ -100,7 +100,7 @@ async def _do_scan(
             saved = await commit_svc.save_commits(project_id, commits, progress_callback=_on_progress)
 
             if commits:
-                from sqlalchemy import select
+                from sqlalchemy import select, update
                 from models.project_repo import ProjectRepo
                 project_result = await session.execute(
                     select(ProjectRepo).where(ProjectRepo.id == project_id)
@@ -108,7 +108,11 @@ async def _do_scan(
                 project = project_result.scalar_one_or_none()
                 if project:
                     project.last_analyzed_sha = commits[0].hash
-                    project.total_commits += saved
+                    await session.execute(
+                        update(ProjectRepo)
+                        .where(ProjectRepo.id == project_id)
+                        .values(total_commits=ProjectRepo.total_commits + saved)
+                    )
                     await session.commit()
 
         await AnalysisProgressTracker.complete(
@@ -209,6 +213,136 @@ async def contributor_analysis(project_id: int, db: AsyncSession = Depends(get_d
     return await svc.get_contributor_analysis(project_id)
 
 
+@router.get("/knowledge-graph")
+async def knowledge_graph(project_id: int, db: AsyncSession = Depends(get_db)):
+    """获取项目知识图谱数据（文件依赖图 + 模块聚合图）。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_knowledge_graph(project_id)
+
+
+@router.get("/architecture")
+async def architecture_diagram(project_id: int, db: AsyncSession = Depends(get_db)):
+    """获取项目架构图（Mermaid 语法），基于 LLM 分析或目录结构回退生成。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    mermaid = await svc.get_architecture_mermaid(project_id, project.local_path)
+    return {"mermaid": mermaid}
+
+
+@router.post("/entity-graph/build")
+async def build_entity_graph(
+    project_id: int,
+    force: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """构建项目实体级知识图谱（函数/类节点 + 调用/继承/装饰器关系）。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
+        raise HTTPException(status_code=400, detail="Project repository not cloned yet")
+    try:
+        stats = await svc.build_entity_graph(project_id, force=force)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Build entity graph failed for project %s", project_id)
+        raise HTTPException(status_code=500, detail=f"构建实体图谱失败: {exc}")
+    return stats
+
+
+@router.get("/entity-graph")
+async def get_entity_graph(project_id: int, db: AsyncSession = Depends(get_db)):
+    """获取项目实体级知识图谱数据。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_entity_graph(project_id)
+
+
+@router.get("/entity-graph/entities/{entity_id}/neighbors")
+async def get_entity_neighbors(project_id: int, entity_id: int, db: AsyncSession = Depends(get_db)):
+    """获取指定实体的邻居关系（入边 + 出边）。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_entity_neighbors(project_id, entity_id)
+
+
+@router.get("/code-search")
+async def code_search(
+    project_id: int,
+    q: str,
+    entity_type: Optional[str] = None,
+    top_k: int = 10,
+    db: AsyncSession = Depends(get_db),
+):
+    """语义代码搜索：基于自然语言查询返回相关代码实体。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    try:
+        results = await svc.semantic_code_search(
+            project_id, query=q, entity_type=entity_type, top_k=top_k
+        )
+    except Exception as exc:
+        logger.exception("Code search failed for project %s", project_id)
+        raise HTTPException(status_code=500, detail=f"搜索失败: {exc}")
+    return {"query": q, "results": results}
+
+
+@router.post("/graph-rag/retrieve")
+async def graph_rag_retrieve(
+    project_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """GraphRAG 检索：结合向量搜索 + 图遍历获取相关代码上下文。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    query = body.get("query", "")
+    changed_files = body.get("changed_files", [])
+    depth = body.get("depth", 2)
+    top_k = body.get("top_k", 10)
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    try:
+        results = await svc.graph_rag_retrieve(
+            project_id,
+            query=query,
+            changed_files=changed_files,
+            depth=depth,
+            top_k=top_k,
+        )
+    except Exception as exc:
+        logger.exception("GraphRAG retrieve failed for project %s", project_id)
+        raise HTTPException(status_code=500, detail=f"检索失败: {exc}")
+    return {"query": query, "results": results}
+
+
+@router.get("/code-complexity")
+async def code_complexity(project_id: int, db: AsyncSession = Depends(get_db)):
+    """获取项目代码复杂度指标（基于知识图谱）。"""
+    svc = CommitService(db)
+    project = await svc.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundException(project_id)
+    return await svc.get_code_complexity(project_id)
+
+
 @router.get("/contributors/{author_email:path}")
 async def contributor_detail(project_id: int, author_email: str, db: AsyncSession = Depends(get_db)):
     svc = CommitService(db)
@@ -247,6 +381,20 @@ async def analyze_commit(
     return {"commit_hash": commit_hash, "status": "started"}
 
 
+def _extract_changed_files_from_diff(diff_content: str) -> list[str]:
+    """从 git diff 输出中提取变更文件路径列表。"""
+    files = []
+    for line in diff_content.splitlines():
+        if line.startswith("diff --git "):
+            parts = line.split()
+            if len(parts) >= 4:
+                # b/path/to/file
+                target = parts[-1]
+                if target.startswith("b/"):
+                    files.append(target[2:])
+    return files
+
+
 async def _do_analyze_commit(
     project_id: int,
     commit_hash: str,
@@ -272,9 +420,7 @@ async def _do_analyze_commit(
                 return
 
             scanner = GitLogScanner(local_path)
-            diff_content = await asyncio.get_running_loop().run_in_executor(
-                None, scanner.get_commit_diff, commit_hash
-            )
+            diff_content = await scanner.get_commit_diff(commit_hash)
 
             commit.diff_content = diff_content
             await session.commit()
@@ -284,6 +430,7 @@ async def _do_analyze_commit(
         from sqlalchemy import select
 
         project_prompt = None
+        project_repo_id = None
         async with AsyncSessionLocal() as session:
             registry = PromptRegistry(session)
             await registry.load_from_db()
@@ -291,6 +438,31 @@ async def _do_analyze_commit(
             project = project_result.scalar_one_or_none()
             if project:
                 project_prompt = await registry.get_project_prompt_text(project.repo_id)
+                project_repo_id = project.repo_id
+
+        # GraphRAG: retrieve relevant code context based on changed files
+        graph_rag_context = ""
+        if project_repo_id:
+            try:
+                from graph.graph_rag import GraphRAGRetriever
+                changed_files = _extract_changed_files_from_diff(diff_content)
+                async with AsyncSessionLocal() as session:
+                    retriever = GraphRAGRetriever(session)
+                    rag_results = await retriever.retrieve(
+                        repo_id=project_repo_id,
+                        query=f"分析 commit {commit_hash} 的代码变更影响",
+                        changed_files=changed_files,
+                        depth=2,
+                        top_k=8,
+                    )
+                    if rag_results:
+                        rag_lines = ["【相关代码上下文（GraphRAG 检索）】"]
+                        for r in rag_results:
+                            sig = r.get("signature") or r.get("name", "")
+                            rag_lines.append(f"- [{r.get('entity_type', '')}] {r.get('name', '')} ({r.get('file_path', '')}:{r.get('start_line', '')}) {sig}")
+                        graph_rag_context = "\n".join(rag_lines)
+            except Exception as exc:
+                logger.warning("GraphRAG retrieval skipped for commit %s: %s", commit_hash, exc)
 
         system_prompt = project_prompt or (
             "你是一位资深的代码审查专家。请分析提供的代码变更（diff），并以 JSON 对象格式返回发现的问题列表。\n\n"
@@ -301,6 +473,9 @@ async def _do_analyze_commit(
             '"summary": "总结", "risk_level": "low|medium|high"}\n\n'
             "请保持简洁和准确。如果没有发现问题，返回空的 issues 数组。"
         )
+        if graph_rag_context:
+            system_prompt += f"\n\n{graph_rag_context}"
+
         user_prompt = (
             f"## Commit: {commit_hash}\n"
             f"**Author**: {commit.author_name} <{commit.author_email}>\n"
@@ -353,6 +528,17 @@ async def _do_analyze_commit(
 
             await session.commit()
 
+            # 原子更新项目 total_findings（避免并发竞争）
+            if issues:
+                from sqlalchemy import update
+                from models.project_repo import ProjectRepo
+                await session.execute(
+                    update(ProjectRepo)
+                    .where(ProjectRepo.id == project_id)
+                    .values(total_findings=ProjectRepo.total_findings + len(issues))
+                )
+                await session.commit()
+
         logger.info("Commit %s analysis completed: %d findings", commit_hash, len(issues))
 
     except Exception as exc:
@@ -372,7 +558,7 @@ async def _do_analyze_commit(
 async def analyze_all_commits(
     project_id: int,
     background_tasks: BackgroundTasks,
-    max_commits: int = Query(default=20, ge=1, le=100),
+    max_commits: int = Query(default=0, ge=0, le=10000),
     db: AsyncSession = Depends(get_db),
 ):
     svc = CommitService(db)
@@ -412,8 +598,9 @@ async def _do_analyze_all(
                     CommitAnalysis.status.in_(["pending", "failed"]),
                 )
                 .order_by(CommitAnalysis.commit_ts.desc())
-                .limit(max_commits)
             )
+            if max_commits > 0:
+                query = query.limit(max_commits)
             result = await session.execute(query)
             pending_commits = list(result.scalars().all())
 

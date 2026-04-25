@@ -85,6 +85,24 @@ class ReviewEngine:
         if context:
             built_context.update(context)
 
+        # 2.5 GraphRAG: retrieve related code context for changed files
+        if self.repo_id and changed_files:
+            try:
+                from graph.graph_rag import GraphRAGRetriever
+                graph_rag = GraphRAGRetriever(self.session)
+                rag_results = await graph_rag.retrieve(
+                    repo_id=self.repo_id,
+                    query="分析 PR 代码变更的影响范围",
+                    changed_files=changed_files,
+                    depth=2,
+                    top_k=8,
+                )
+                if rag_results:
+                    built_context["graph_rag"] = rag_results
+                    logger.info("Review %s: GraphRAG retrieved %s related entities", review_id, len(rag_results))
+            except Exception as exc:
+                logger.warning("Review %s: GraphRAG retrieval skipped: %s", review_id, exc)
+
         # 3. Determine effective model from project config if available
         effective_router = self._get_effective_router()
 
@@ -224,6 +242,13 @@ class ReviewEngine:
                 ctx_lines.append(f"API Breaking Changes: {api['breaking_count']}")
         if context.get("similar_bugs"):
             ctx_lines.append("Similar Historical Bugs:\n" + str(context["similar_bugs"]))
+        if context.get("graph_rag"):
+            rag = context["graph_rag"]
+            rag_lines = ["相关代码上下文（GraphRAG 检索）:"]
+            for r in rag[:8]:
+                sig = r.get("signature") or ""
+                rag_lines.append(f"- [{r.get('entity_type', '')}] {r.get('name', '')} ({r.get('file_path', '')}:{r.get('start_line', '')}) {sig}")
+            ctx_lines.append("\n".join(rag_lines))
 
         ctx_str = "\n\n".join(ctx_lines)
         return f"""请审查以下 Pull Request 的代码变更。

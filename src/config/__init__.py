@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from pydantic import field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,8 @@ _env_override = f".env.{_env}" if os.path.exists(f".env.{_env}") else None
 _env_files = [".env"]
 if _env_override:
     _env_files.append(_env_override)
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -43,11 +46,33 @@ class Settings(BaseSettings):
     # App
     app_env: str = "development"
     log_level: str = "INFO"
+    log_format: str = "text"
+    log_file: str = ""
     max_concurrent_reviews: int = 20
     enable_reasoner_review: bool = False
     cors_origins: str = "*"
     admin_api_key: str = ""
-    repos_base_path: str = "./repos"
+    repos_base_path: str = ""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.repos_base_path.strip():
+            self.repos_base_path = self._default_repos_path()
+
+    @staticmethod
+    def _default_repos_path() -> str:
+        home = Path.home()
+        default = home / ".latte-pr-agent" / "repos"
+        default.mkdir(parents=True, exist_ok=True)
+        return str(default)
+
+    def get_repos_base_path(self) -> str:
+        raw = self.repos_base_path.strip()
+        if raw:
+            resolved = Path(raw).resolve()
+            resolved.mkdir(parents=True, exist_ok=True)
+            return str(resolved)
+        return self._default_repos_path()
 
     @field_validator("app_env", mode="before")
     @classmethod
