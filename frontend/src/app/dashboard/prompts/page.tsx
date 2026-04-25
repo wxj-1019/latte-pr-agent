@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { usePrompts } from "@/hooks/use-prompts";
 import { useToast } from "@/components/ui/toast";
+import { notifySuccess, notifyError } from "@/components/ui/notification";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api } from "@/lib/api";
 import { Plus, FlaskConical, Loader2, ChevronDown, ChevronUp, GitBranch, Trash2 } from "lucide-react";
@@ -66,8 +67,11 @@ export default function PromptsPage() {
       setNewContent("");
       setNewMetadata("");
       mutate();
+      notifySuccess("Prompt 已创建", `版本 ${newVersion.trim()} 已保存`, { category: "prompt", action_url: "/dashboard/prompts" });
     } catch (err) {
-      showToast("创建失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+      const msg = err instanceof Error ? err.message : "未知错误";
+      showToast("创建失败：" + msg, "error");
+      notifyError("Prompt 创建失败", msg, { category: "prompt" });
     } finally {
       setCreateLoading(false);
     }
@@ -101,8 +105,11 @@ export default function PromptsPage() {
       });
       setEditingId(null);
       mutate();
+      notifySuccess("Prompt 已更新", `版本 ${editVersion.trim()} 已保存`, { category: "prompt", action_url: "/dashboard/prompts" });
     } catch (err) {
-      showToast("保存失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+      const msg = err instanceof Error ? err.message : "未知错误";
+      showToast("保存失败：" + msg, "error");
+      notifyError("Prompt 更新失败", msg, { category: "prompt" });
     } finally {
       setEditLoading(false);
     }
@@ -121,9 +128,12 @@ export default function PromptsPage() {
     try {
       await api.deletePromptVersion(deleteDialog.version);
       showToast(`已删除版本 ${deleteDialog.version}`);
+      notifySuccess("Prompt 已删除", `版本 ${deleteDialog.version} 已移除`, { category: "prompt", action_url: "/dashboard/prompts" });
       mutate();
     } catch (err) {
-      showToast("删除失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+      const msg = err instanceof Error ? err.message : "未知错误";
+      showToast("删除失败：" + msg, "error");
+      notifyError("Prompt 删除失败", msg, { category: "prompt" });
     } finally {
       setDeleteDialog({ open: false, version: null });
     }

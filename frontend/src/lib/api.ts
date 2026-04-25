@@ -1,5 +1,6 @@
 import { Review, ReviewFinding, PromptVersion, ReviewMetrics, CombinedMetrics, MetricsDataPoint, DashboardStats, AnalyzeResult, ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail } from "@/types";
 import { csrfHeaders } from "./csrf";
+import { notifyError } from "@/components/ui/notification";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -28,11 +29,19 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     } catch {
       // response is not JSON, keep default message
     }
+    /* also push to notification panel */
+    if (typeof window !== "undefined") {
+      notifyError("请求失败", message, { category: "system" });
+    }
     throw new Error(message);
   }
   const contentType = res.headers.get("content-type");
   if (!contentType || !contentType.includes("application/json")) {
-    throw new Error(`API 返回了非 JSON 响应 (${contentType || "unknown"})`);
+    const msg = `API 返回了非 JSON 响应 (${contentType || "unknown"})`;
+    if (typeof window !== "undefined") {
+      notifyError("请求失败", msg, { category: "system" });
+    }
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }

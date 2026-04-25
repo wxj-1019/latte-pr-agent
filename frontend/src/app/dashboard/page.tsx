@@ -8,6 +8,7 @@ import { FadeInUp } from "@/components/motion/fade-in-up";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CountUp } from "@/components/ui/count-up";
 import { useToast } from "@/components/ui/toast";
+import { notifySuccess, notifyError } from "@/components/ui/notification";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 import { ManualTriggerDialog } from "@/components/dashboard/manual-trigger-dialog";
 import { Button } from "@/components/ui/button";
@@ -61,8 +62,11 @@ export default function DashboardPage() {
       setScanningId(projectId);
       await api.scanCommits(projectId, 100);
       await loadProjects();
+      notifySuccess("扫描完成", `项目 #${projectId} 的提交扫描已成功触发`, { category: "sync", action_url: `/dashboard/projects/${projectId}` });
     } catch (err) {
-      showToast("扫描失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+      const msg = err instanceof Error ? err.message : "未知错误";
+      showToast("扫描失败：" + msg, "error");
+      notifyError("扫描失败", msg, { category: "sync" });
     } finally {
       setScanningId(null);
     }

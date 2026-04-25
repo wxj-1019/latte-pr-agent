@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { notifySuccess, notifyError, notifyInfo } from "@/components/ui/notification";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail, AnalysisProgress } from "@/types";
 import {
@@ -141,14 +142,18 @@ export default function ProjectDetailPage() {
         const data = JSON.parse(event.data) as AnalysisProgress;
         setAnalysisProgress(data);
         if (data.status === "completed") {
-          showToast(`${data.message}：扫描 ${data.result?.scanned ?? 0} 条，新增 ${data.result?.saved ?? data.result?.new_commits ?? 0} 条`);
+          const msg = `${data.message}：扫描 ${data.result?.scanned ?? 0} 条，新增 ${data.result?.saved ?? data.result?.new_commits ?? 0} 条`;
+          showToast(msg);
+          notifySuccess("任务完成", msg, { category: "sync", action_url: `/dashboard/projects/${projectId}` });
           closeSSE();
           load();
           setScanLoading(false);
           setSyncLoading(false);
           setAnalyzeLoading(false);
         } else if (data.status === "failed") {
-          showToast(`分析失败：${data.error || data.message}`, "error");
+          const msg = data.error || data.message || "任务执行失败";
+          showToast(`分析失败：${msg}`, "error");
+          notifyError("任务失败", msg, { category: "sync", action_url: `/dashboard/projects/${projectId}` });
           closeSSE();
           setScanLoading(false);
           setSyncLoading(false);
@@ -182,14 +187,18 @@ export default function ProjectDetailPage() {
       const res = await api.scanCommits(projectId, 200);
       if (res.status === "started") {
         connectSSE();
+        notifyInfo("扫描已启动", "正在后台扫描提交记录，完成后将通知您", { category: "sync", action_url: `/dashboard/projects/${projectId}` });
       } else {
         // fallback for old sync behavior
         showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
+        notifySuccess("扫描完成", `扫描 ${res.scanned} 个提交，新增 ${res.saved} 条`, { category: "sync", action_url: `/dashboard/projects/${projectId}` });
         await load();
         setScanLoading(false);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "扫描失败");
+      const msg = e instanceof Error ? e.message : "扫描失败";
+      setError(msg);
+      notifyError("扫描失败", msg, { category: "sync" });
       setScanLoading(false);
     }
   };
@@ -202,13 +211,17 @@ export default function ProjectDetailPage() {
       const res = await api.syncProject(projectId);
       if (res.status === "syncing") {
         connectSSE();
+        notifyInfo("同步已启动", "正在后台同步代码仓库，完成后将通知您", { category: "sync", action_url: `/dashboard/projects/${projectId}` });
       } else {
         showToast(`同步完成：${res.status}，新增 ${res.new_commits} 个提交`);
+        notifySuccess("同步完成", `新增 ${res.new_commits} 个提交`, { category: "sync", action_url: `/dashboard/projects/${projectId}` });
         await load();
         setSyncLoading(false);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "同步失败");
+      const msg = e instanceof Error ? e.message : "同步失败";
+      setError(msg);
+      notifyError("同步失败", msg, { category: "sync" });
       setSyncLoading(false);
     }
   };
@@ -222,12 +235,15 @@ export default function ProjectDetailPage() {
       if (res.status === "started") {
         connectSSE();
         showToast("分析已启动，后台运行中...");
+        notifyInfo("分析已启动", "正在后台分析项目提交，完成后将通知您", { category: "project", action_url: `/dashboard/projects/${projectId}` });
       } else {
         showToast(`分析已启动`);
         setAnalyzeLoading(false);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "分析失败");
+      const msg = e instanceof Error ? e.message : "分析失败";
+      setError(msg);
+      notifyError("分析失败", msg, { category: "project" });
       setAnalyzeLoading(false);
     }
   };
@@ -240,11 +256,13 @@ export default function ProjectDetailPage() {
     try {
       await api.deleteProject(projectId);
       showToast("项目已删除");
+      notifySuccess("项目已删除", "项目及其关联数据已被移除", { category: "project" });
       router.push("/dashboard/projects");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "删除失败";
       setError(msg);
       showToast(msg, "error");
+      notifyError("删除失败", msg, { category: "project" });
     } finally {
       setDeleteDialogOpen(false);
     }
@@ -256,8 +274,11 @@ export default function ProjectDetailPage() {
       setError("");
       const res = await api.generateProjectPrompt(projectId);
       showToast(`项目 Prompt 已生成：${res.version}`);
+      notifySuccess("Prompt 已生成", `版本 ${res.version} 已创建`, { category: "prompt", action_url: `/dashboard/prompts` });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "生成 Prompt 失败");
+      const msg = e instanceof Error ? e.message : "生成 Prompt 失败";
+      setError(msg);
+      notifyError("Prompt 生成失败", msg, { category: "prompt" });
     } finally {
       setPromptLoading(false);
     }

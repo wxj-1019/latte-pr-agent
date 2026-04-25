@@ -315,3 +315,18 @@ export interface ContributorDetail {
   }>;
   total: number;
 }
+
+export type NotificationType = "info" | "success" | "warning" | "error";
+export type NotificationCategory = "system" | "review" | "project" | "prompt" | "sync";
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  category: NotificationCategory;
+  read: boolean;
+  created_at: string;
+  action_url?: string;
+  metadata?: Record<string, unknown>;
+}

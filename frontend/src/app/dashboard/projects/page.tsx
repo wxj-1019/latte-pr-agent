@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { notifySuccess, notifyError, notifyInfo } from "@/components/ui/notification";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ProjectRepo } from "@/types";
 import {
@@ -75,8 +76,11 @@ export default function ProjectsPage() {
       setShowAdd(false);
       setAddForm({ platform: "github", repo_url: "", branch: "main" });
       await loadProjects();
+      notifySuccess("项目添加成功", `仓库 ${repo_id} 已添加到项目列表`, { category: "project", action_url: "/dashboard/projects" });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "添加项目失败");
+      const msg = e instanceof Error ? e.message : "添加项目失败";
+      setError(msg);
+      notifyError("添加项目失败", msg, { category: "project" });
     } finally {
       setAddLoading(false);
     }
@@ -92,10 +96,12 @@ export default function ProjectsPage() {
       await api.deleteProject(deleteDialog.id);
       setProjects((prev) => prev.filter((p) => p.id !== deleteDialog.id));
       showToast("项目已删除");
+      notifySuccess("项目已删除", "项目及其关联数据已被移除", { category: "project" });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "删除失败";
       setError(msg);
       showToast(msg, "error");
+      notifyError("删除失败", msg, { category: "project" });
     } finally {
       setDeleteDialog({ open: false, id: null });
     }
@@ -107,9 +113,12 @@ export default function ProjectsPage() {
       setError("");
       const res = await api.syncProject(id);
       showToast(`同步已启动：${res.status}`);
+      notifyInfo("同步已启动", `项目同步任务已提交，状态：${res.status}`, { category: "sync", action_url: `/dashboard/projects/${id}` });
       await loadProjects();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "同步失败");
+      const msg = e instanceof Error ? e.message : "同步失败";
+      setError(msg);
+      notifyError("同步失败", msg, { category: "sync" });
     } finally {
       setSyncLoading(null);
     }
