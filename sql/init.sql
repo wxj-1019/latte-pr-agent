@@ -207,8 +207,65 @@ CREATE TABLE IF NOT EXISTS prompt_experiments (
     version         VARCHAR(50) PRIMARY KEY,
     prompt_text     TEXT NOT NULL,
     metadata_json   JSONB,
+    repo_id         VARCHAR(200),
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_prompt_experiments_repo ON prompt_experiments(repo_id);
+
+-- 11. 代码实体表（函数、类、接口等）
+CREATE TABLE IF NOT EXISTS code_entities (
+    id BIGSERIAL PRIMARY KEY,
+    org_id VARCHAR(100) NOT NULL DEFAULT 'default',
+    repo_id VARCHAR(100) NOT NULL,
+    file_path TEXT NOT NULL,
+    entity_type VARCHAR(20) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    signature TEXT,
+    start_line INTEGER NOT NULL,
+    end_line INTEGER NOT NULL,
+    meta_json JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_code_entities_repo_file ON code_entities(repo_id, file_path);
+CREATE INDEX IF NOT EXISTS idx_code_entities_repo_type ON code_entities(repo_id, entity_type);
+CREATE INDEX IF NOT EXISTS idx_code_entities_repo_name ON code_entities(repo_id, name);
+
+-- 12. 代码关系表（调用、继承、包含等）
+CREATE TABLE IF NOT EXISTS code_relationships (
+    id BIGSERIAL PRIMARY KEY,
+    org_id VARCHAR(100) NOT NULL DEFAULT 'default',
+    repo_id VARCHAR(100) NOT NULL,
+    source_entity_id BIGINT NOT NULL,
+    target_entity_id BIGINT,
+    relation_type VARCHAR(20) NOT NULL,
+    source_file TEXT NOT NULL,
+    target_file TEXT,
+    meta_json JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_code_rel_repo ON code_relationships(repo_id);
+CREATE INDEX IF NOT EXISTS idx_code_rel_source ON code_relationships(source_entity_id);
+CREATE INDEX IF NOT EXISTS idx_code_rel_target ON code_relationships(target_entity_id);
+CREATE INDEX IF NOT EXISTS idx_code_rel_type ON code_relationships(repo_id, relation_type);
+
+-- 13. 代码实体向量嵌入表（语义搜索）
+CREATE TABLE IF NOT EXISTS code_entity_embeddings (
+    id BIGSERIAL PRIMARY KEY,
+    org_id VARCHAR(100) NOT NULL DEFAULT 'default',
+    repo_id VARCHAR(100) NOT NULL,
+    entity_id BIGINT NOT NULL,
+    embedding vector(768),
+    text_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_code_entity_emb_repo ON code_entity_embeddings(repo_id);
+CREATE INDEX IF NOT EXISTS idx_code_entity_emb_entity ON code_entity_embeddings(entity_id);
+CREATE INDEX IF NOT EXISTS idx_code_entity_emb_vec ON code_entity_embeddings
+    USING hnsw (embedding vector_cosine_ops);
 
 -- 10. Prompt 实验分配表
 CREATE TABLE IF NOT EXISTS prompt_experiment_assignments (

@@ -8,6 +8,9 @@ from models.system_settings import SystemSettings
 from models.project_repo import ProjectRepo
 from models.commit_analysis import CommitAnalysis
 from models.commit_finding import CommitFinding
+from models.code_entity import CodeEntity
+from models.code_relationship import CodeRelationship
+from models.code_entity_embedding import CodeEntityEmbedding
 
 __all__ = [
     "Base",
@@ -26,4 +29,7 @@ __all__ = [
     "ProjectRepo",
     "CommitAnalysis",
     "CommitFinding",
+    "CodeEntity",
+    "CodeRelationship",
+    "CodeEntityEmbedding",
 ]
