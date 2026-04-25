@@ -262,7 +262,7 @@ async def test_build_structured_prompt():
         "historical_categories": {"logic": 5, "security": 2},
     }
 
-    prompt = gen._build_structured_prompt(features, config, historical)
+    prompt = gen._build_structured_prompt(features, config, historical, {})
 
     assert "Python" in prompt
     assert "FastAPI" in prompt
@@ -283,7 +283,7 @@ async def test_build_structured_prompt_fallback_no_data():
     session = MagicMock()
     gen = ProjectPromptGenerator(session)
 
-    prompt = gen._build_structured_prompt({}, {}, {})
+    prompt = gen._build_structured_prompt({}, {}, {}, {})
     assert "JSON" in prompt
     assert "issues" in prompt
     assert "功能完整性" in prompt
@@ -318,16 +318,16 @@ async def test_next_version():
     async with session_maker() as session:
         gen = ProjectPromptGenerator(session)
 
-        v1 = await gen._next_version(42)
-        assert v1 == "project-42-v1"
+        v1 = await gen._next_version(42, "org/repo")
+        assert v1 == "org-repo-v1"
 
         session.add(
-            PromptExperiment(version="project-42-v1", prompt_text="test", repo_id="org/repo")
+            PromptExperiment(version="org-repo-v1", prompt_text="test", repo_id="org/repo")
         )
         await session.commit()
 
-        v2 = await gen._next_version(42)
-        assert v2 == "project-42-v2"
+        v2 = await gen._next_version(42, "org/repo")
+        assert v2 == "org-repo-v2"
 
     await engine.dispose()
 
@@ -368,3 +368,348 @@ async def test_generate_for_project_api(async_client_with_db):
     """测试手动触发生成项目 Prompt 的 API（404 场景）。"""
     resp = await async_client_with_db.post("/prompts/generate-for-project/99999")
     assert resp.status_code == 404
+
+
+def test_scan_code_context():
+    """测试代码上下文扫描能正确识别目录结构、API 模式和代码风格。"""
+    import os as _os
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    repo_path = _os.path.normpath("/fake/repo")
+    pkg_path = _os.path.join(repo_path, "package.json")
+    main_path = _os.path.join(repo_path, "main.py")
+
+    with patch("os.walk") as mock_walk, \
+         patch("os.path.getsize", return_value=1024), \
+         patch.object(gen, "_read_file_head") as mock_read, \
+         patch.object(gen, "_scan_api_patterns") as mock_scan_api, \
+         patch.object(gen, "_detect_code_style") as mock_detect_style:
+
+        mock_walk.return_value = [
+            (repo_path, ["src", ".git"], ["main.py", "package.json", ".env"]),
+            (_os.path.join(repo_path, "src"), ["api", "models"], ["app.py"]),
+            (_os.path.join(repo_path, "src", "api"), [], ["routes.py"]),
+            (_os.path.join(repo_path, "src", "models"), [], ["user.py"]),
+        ]
+        mock_read.side_effect = lambda path, max_lines: {
+            pkg_path: '{"dependencies": {"fastapi": "^0.100"}}',
+            main_path: "from fastapi import FastAPI\napp = FastAPI()",
+        }.get(path)
+
+        ctx = gen._scan_code_context(repo_path)
+
+        assert len(ctx["directory_tree"]) > 0
+        assert "package.json" in ctx["config_summary"]
+        assert "main.py" in [s["file"] for s in ctx["code_samples"]]
+        mock_detect_style.assert_called_once()
+
+
+def test_build_structured_prompt_with_code_context():
+    """测试带有 code_context 的结构化 Prompt 构建。"""
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    features = {
+        "dominant_language": "Python",
+        "framework": "FastAPI",
+        "dominant_commit_type": "feat",
+        "key_paths": ["src", "api"],
+        "code_context": {
+            "directory_tree": ["src/", "  api/", "    routes.py", "  models/", "    user.py"],
+            "config_summary": {"pyproject.toml": "[tool.poetry.dependencies]\nfastapi = \"^0.100\""},
+            "code_samples": [
+                {"file": "src/main.py", "role": "entry", "content": "from fastapi import FastAPI\napp = FastAPI()"},
+            ],
+            "api_patterns": ["src/api/routes.py: GET /users", "src/models/user.py: Pydantic BaseModel"],
+            "import_style": "absolute (from X import Y)",
+            "naming_convention": "snake_case",
+        },
+    }
+    config = {"critical_paths": [], "custom_rules": []}
+    historical = {}
+
+    prompt = gen._build_structured_prompt(features, config, historical, {})
+
+    assert "项目目录结构快照" in prompt
+    assert "src/" in prompt
+    assert "关键配置摘要" in prompt
+    assert "pyproject.toml" in prompt
+    assert "识别的 API / 模型模式" in prompt
+    assert "GET /users" in prompt
+    assert "Pydantic BaseModel" in prompt
+    assert "代码风格" in prompt
+    assert "snake_case" in prompt
+    assert "代表性代码片段" in prompt
+    assert "src/main.py" in prompt
+    assert "FastAPI" in prompt
+    assert "JSON" in prompt
+
+
+def test_fingerprint_includes_code_context():
+    """测试指纹计算包含 code_context 的关键特征。"""
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    features_with_ctx = {
+        "static": {
+            "dominant_language": "Python",
+            "framework": "FastAPI",
+            "commit_patterns": {"feat": 5},
+            "key_paths": ["src"],
+            "code_context": {
+                "api_patterns": ["src/api.py: GET /users"],
+                "code_samples": [{"file": "src/main.py"}],
+                "import_style": "absolute",
+                "naming_convention": "snake_case",
+                "directory_tree": ["src/"],
+            },
+        },
+        "config": {"critical_paths": [], "custom_rules": []},
+        "historical": {"historical_categories": {}, "total_findings": 0},
+    }
+
+    features_without_ctx = {
+        "static": {
+            "dominant_language": "Python",
+            "framework": "FastAPI",
+            "commit_patterns": {"feat": 5},
+            "key_paths": ["src"],
+            "code_context": {},
+        },
+        "config": {"critical_paths": [], "custom_rules": []},
+        "historical": {"historical_categories": {}, "total_findings": 0},
+    }
+
+    fp1 = gen._compute_fingerprint(features_with_ctx)
+    fp2 = gen._compute_fingerprint(features_without_ctx)
+
+    assert fp1 != fp2
+    assert len(fp1) == 16
+    assert len(fp2) == 16
+
+    # 相同特征应产生相同指纹
+    fp3 = gen._compute_fingerprint(features_with_ctx)
+    assert fp1 == fp3
+
+
+# ------------------------------------------------------------------
+# 知识图谱集成测试
+# ------------------------------------------------------------------
+
+def test_infer_architecture_layer():
+    """测试架构层推断。"""
+    assert ProjectPromptGenerator._infer_architecture_layer("src/controllers/user.py") == "controller"
+    assert ProjectPromptGenerator._infer_architecture_layer("src/services/order.py") == "service"
+    assert ProjectPromptGenerator._infer_architecture_layer("src/models/db.py") == "data"
+    assert ProjectPromptGenerator._infer_architecture_layer("src/middleware/auth.py") == "middleware"
+    assert ProjectPromptGenerator._infer_architecture_layer("src/utils/helper.py") == "utility"
+    assert ProjectPromptGenerator._infer_architecture_layer("tests/test_user.py") == "test"
+    assert ProjectPromptGenerator._infer_architecture_layer("config/settings.py") == "config"
+    assert ProjectPromptGenerator._infer_architecture_layer("src/main.py") == "other"
+    # Windows path
+    assert ProjectPromptGenerator._infer_architecture_layer("src\\handlers\\api.py") == "controller"
+
+
+@pytest.mark.asyncio
+async def test_collect_graph_features():
+    """测试从知识图谱采集项目特征。"""
+    session = MagicMock()
+
+    # Mock entity type counts
+    entity_result = MagicMock()
+    entity_result.all.return_value = [("function", 42), ("class", 10), ("interface", 3)]
+
+    # Mock relation type counts
+    rel_result = MagicMock()
+    rel_result.all.return_value = [("calls", 120), ("inherits", 8), ("decorates", 5)]
+
+    # Mock top entities (in_degree)
+    top_ent_result = MagicMock()
+    top_ent_result.all.return_value = [
+        (1, "UserService", "class", "src/services/user.py", 15),
+        (2, "get_user", "function", "src/services/user.py", 8),
+    ]
+
+    # Mock architecture layers
+    layer_result = MagicMock()
+    layer_result.all.return_value = [
+        ("src/services/user.py", 4),      # 3 functions + 1 class
+        ("src/controllers/user.py", 2),   # 2 functions
+    ]
+
+    # Mock circular dependency
+    cycle_result = MagicMock()
+    cycle_result.scalar.return_value = 1
+
+    # Mock god classes
+    god_result = MagicMock()
+    god_result.all.return_value = [
+        ("OrderManager", "src/services/order.py", 25),
+    ]
+
+    # Queries are executed in fixed order in _collect_graph_features
+    session.execute = AsyncMock(side_effect=[
+        entity_result,   # 1. entity type counts
+        rel_result,      # 2. relation type counts
+        top_ent_result,  # 3. top entities
+        layer_result,    # 4. architecture layers
+        cycle_result,    # 5. circular dependency
+        god_result,      # 6. god classes
+    ])
+
+    gen = ProjectPromptGenerator(session)
+    result = await gen._collect_graph_features("repo-123", "default")
+
+    assert result["entity_type_counts"] == {"function": 42, "class": 10, "interface": 3}
+    assert result["relation_type_counts"] == {"calls": 120, "inherits": 8, "decorates": 5}
+    assert len(result["top_entities"]) == 2
+    assert result["top_entities"][0]["name"] == "UserService"
+    assert result["top_entities"][0]["in_degree"] == 15
+    assert "service" in result["architecture_layers"]
+    assert "controller" in result["architecture_layers"]
+    assert result["has_circular_dependency"] is True
+    assert len(result["god_class_candidates"]) == 1
+    assert result["god_class_candidates"][0]["name"] == "OrderManager"
+
+
+@pytest.mark.asyncio
+async def test_collect_graph_features_empty():
+    """测试无图谱数据时的 graceful fallback。"""
+    session = MagicMock()
+    empty_result = MagicMock()
+    empty_result.all.return_value = []
+    empty_result.scalar.return_value = 0
+    session.execute = AsyncMock(return_value=empty_result)
+
+    gen = ProjectPromptGenerator(session)
+    result = await gen._collect_graph_features("empty-repo", "default")
+
+    assert result["entity_type_counts"] == {}
+    assert result["relation_type_counts"] == {}
+    assert result["top_entities"] == []
+    assert result["architecture_layers"] == {}
+    assert result["has_circular_dependency"] is False
+    assert result["god_class_candidates"] == []
+
+
+def test_build_structured_prompt_with_graph():
+    """测试 Prompt 正确注入知识图谱上下文。"""
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    features = {"dominant_language": "Python", "framework": "FastAPI", "dominant_commit_type": "feat"}
+    config = {"critical_paths": [], "custom_rules": []}
+    historical = {}
+    graph = {
+        "entity_type_counts": {"function": 50, "class": 12},
+        "relation_type_counts": {"calls": 200},
+        "architecture_layers": {
+            "controller": {"entity_count": 8, "types": {"function": 6, "class": 2}},
+            "service": {"entity_count": 15, "types": {"function": 10, "class": 5}},
+        },
+        "top_entities": [
+            {"name": "UserService", "type": "class", "file": "src/services/user.py", "in_degree": 20},
+        ],
+        "god_class_candidates": [
+            {"name": "OrderManager", "file": "src/services/order.py", "in_degree": 30},
+        ],
+        "has_circular_dependency": True,
+    }
+
+    prompt = gen._build_structured_prompt(features, config, historical, graph)
+
+    assert "知识图谱架构分析" in prompt
+    assert "function(50)" in prompt
+    assert "controller(8)" in prompt
+    assert "UserService" in prompt
+    assert "入度: 20" in prompt
+    assert "OrderManager" in prompt
+    assert "检测到循环依赖" in prompt
+
+
+def test_should_evolve_graph_changes():
+    """测试图谱变化触发 Prompt 进化。"""
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    current_features = {
+        "static": {},
+        "config": {},
+        "historical": {},
+        "graph": {
+            "entity_type_counts": {"function": 50, "class": 12},
+            "architecture_layers": {"controller": {}, "service": {}},
+            "god_class_candidates": [{"name": "A"}],
+        },
+    }
+
+    # 实体类型变化
+    last_metadata = {
+        "feature_fingerprint": "old",
+        "graph": {
+            "entity_type_counts": {"function": 50},  # 缺少 class
+            "architecture_layers": {"controller": {}, "service": {}},
+            "god_class_candidates": [{"name": "A"}],
+        },
+    }
+    should, reason = gen._should_evolve("new", last_metadata, current_features)
+    assert should is True
+    assert "实体类型分布变化" in reason
+
+    # 架构分层变化
+    last_metadata2 = {
+        "feature_fingerprint": "old",
+        "graph": {
+            "entity_type_counts": {"function": 50, "class": 12},
+            "architecture_layers": {"controller": {}},  # 缺少 service
+            "god_class_candidates": [{"name": "A"}],
+        },
+    }
+    should2, reason2 = gen._should_evolve("new", last_metadata2, current_features)
+    assert should2 is True
+    assert "架构分层变化" in reason2
+
+    # God Class 数量变化
+    last_metadata3 = {
+        "feature_fingerprint": "old",
+        "graph": {
+            "entity_type_counts": {"function": 50, "class": 12},
+            "architecture_layers": {"controller": {}, "service": {}},
+            "god_class_candidates": [],  # 空
+        },
+    }
+    should3, reason3 = gen._should_evolve("new", last_metadata3, current_features)
+    assert should3 is True
+    assert "God Class 数量变化" in reason3
+
+
+def test_fingerprint_includes_graph():
+    """测试指纹计算包含图谱特征。"""
+    session = MagicMock()
+    gen = ProjectPromptGenerator(session)
+
+    features_with_graph = {
+        "static": {"dominant_language": "Python", "framework": "FastAPI", "commit_patterns": {"feat": 5}, "key_paths": ["src"]},
+        "config": {"critical_paths": [], "custom_rules": []},
+        "historical": {"historical_categories": {}, "total_findings": 0},
+        "graph": {
+            "entity_type_counts": {"function": 50},
+            "relation_type_counts": {"calls": 100},
+            "top_entities": [{"name": "A", "in_degree": 10}],
+            "architecture_layers": {"service": {"entity_count": 5}},
+        },
+    }
+
+    features_without_graph = {
+        "static": {"dominant_language": "Python", "framework": "FastAPI", "commit_patterns": {"feat": 5}, "key_paths": ["src"]},
+        "config": {"critical_paths": [], "custom_rules": []},
+        "historical": {"historical_categories": {}, "total_findings": 0},
+        "graph": {},
+    }
+
+    fp1 = gen._compute_fingerprint(features_with_graph)
+    fp2 = gen._compute_fingerprint(features_without_graph)
+
+    assert fp1 != fp2
+    assert len(fp1) == 16
