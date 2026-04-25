@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 
 type ToastType = "success" | "error" | "info";
 
@@ -22,18 +23,21 @@ let toastId = 0;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  const remove = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const showToast = useCallback((message: string, type: ToastType = "success") => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  }, []);
+    setToasts((prev) => [...prev.slice(-4), { id, message, type }]);
+    const duration = type === "error" ? 5000 : 3000;
+    setTimeout(() => remove(id), duration);
+  }, [remove]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
@@ -42,7 +46,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className={`pointer-events-auto px-4 py-3 rounded-latte-lg text-sm font-medium shadow-lg backdrop-blur-md border ${
+              className={`pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-latte-lg text-sm font-medium shadow-lg backdrop-blur-md border max-w-sm ${
                 toast.type === "success"
                   ? "bg-latte-success-bg text-latte-text-primary border-latte-success/20"
                   : toast.type === "error"
@@ -50,7 +54,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   : "bg-latte-bg-tertiary text-latte-text-secondary border-latte-text-primary/10"
               }`}
             >
-              {toast.message}
+              <span className="flex-1">{toast.message}</span>
+              <button
+                onClick={() => remove(toast.id)}
+                className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+              >
+                <X size={14} />
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>

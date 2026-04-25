@@ -12,8 +12,8 @@ export function middleware(request: NextRequest) {
 
     // Allow same-origin requests
     const isSameOrigin =
-      (!origin || origin.includes(host)) &&
-      (!referer || referer.includes(host));
+      (!origin || new URL(origin).hostname === host) &&
+      (!referer || new URL(referer).hostname === host);
 
     if (!isSameOrigin) {
       return new NextResponse("CSRF 验证失败", { status: 403 });

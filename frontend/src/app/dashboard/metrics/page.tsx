@@ -5,12 +5,12 @@ import { useMetrics } from "@/hooks/use-metrics";
 import { GlassCard } from "@/components/ui/glass-card";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { LiquidGauge } from "@/components/ui/liquid-gauge";
-import { NebulaChart } from "@/components/ui/nebula-chart";
+import { DonutChart } from "@/components/ui/donut-chart";
 import { api } from "@/lib/api";
 import type { ProjectRepo } from "@/types";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -190,7 +190,25 @@ export default function MetricsPage() {
               <div className="h-80 w-full">
                 {mounted ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--latte-gold)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--latte-gold)" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="roseGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--latte-rose)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--latte-rose)" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="infoGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--latte-info)" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="var(--latte-info)" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="successGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--latte-success)" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="var(--latte-success)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="var(--latte-chart-grid)"
@@ -218,45 +236,49 @@ export default function MetricsPage() {
                       <Legend
                         wrapperStyle={{ fontSize: 12, color: "var(--latte-text-secondary)" }}
                       />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="analyses"
                         name="Commit 分析"
                         stroke="var(--latte-gold)"
                         strokeWidth={2}
+                        fill="url(#goldGrad)"
                         dot={{ fill: "var(--latte-gold)", strokeWidth: 0, r: 3 }}
                         activeDot={{ r: 5, fill: "var(--latte-gold)" }}
                       />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="commit_findings"
                         name="Commit 发现项"
                         stroke="var(--latte-rose)"
                         strokeWidth={2}
+                        fill="url(#roseGrad)"
                         dot={{ fill: "var(--latte-rose)", strokeWidth: 0, r: 3 }}
                         activeDot={{ r: 5, fill: "var(--latte-rose)" }}
                       />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="reviews"
                         name="PR 审查"
                         stroke="var(--latte-info)"
                         strokeWidth={2}
+                        strokeDasharray="5 5"
+                        fill="url(#infoGrad)"
                         dot={{ fill: "var(--latte-info)", strokeWidth: 0, r: 3 }}
                         activeDot={{ r: 5, fill: "var(--latte-info)" }}
-                        strokeDasharray="5 5"
                       />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="pr_findings"
                         name="PR 发现项"
                         stroke="var(--latte-success)"
                         strokeWidth={2}
+                        strokeDasharray="5 5"
+                        fill="url(#successGrad)"
                         dot={{ fill: "var(--latte-success)", strokeWidth: 0, r: 3 }}
                         activeDot={{ r: 5, fill: "var(--latte-success)" }}
-                        strokeDasharray="5 5"
                       />
-                    </LineChart>
+                    </AreaChart>
                   </ResponsiveContainer>
                 ) : null}
               </div>
@@ -266,9 +288,9 @@ export default function MetricsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <FadeInUp delay={0.2}>
               <GlassCard className="p-6">
-                <NebulaChart
+                <DonutChart
                   data={categoryDistribution ?? {}}
-                  title="发现项类别星云"
+                  title="发现项类别分布"
                   height={280}
                 />
               </GlassCard>
@@ -276,9 +298,9 @@ export default function MetricsPage() {
 
             <FadeInUp delay={0.25}>
               <GlassCard className="p-6">
-                <NebulaChart
+                <DonutChart
                   data={severityDistribution ?? {}}
-                  title="严重级别星云"
+                  title="严重级别分布"
                   height={280}
                 />
               </GlassCard>

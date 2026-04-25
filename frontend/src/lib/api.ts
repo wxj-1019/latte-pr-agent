@@ -89,6 +89,12 @@ export const api = {
     });
   },
 
+  deletePromptVersion: async (version: string) => {
+    return fetchJson<{ message: string; version: string }>(`/prompts/versions/${encodeURIComponent(version)}`, {
+      method: "DELETE",
+    });
+  },
+
   generateProjectPrompt: async (projectId: number) => {
     return fetchJson<{ message: string; version: string }>(`/prompts/generate-for-project/${projectId}`, {
       method: "POST",
@@ -263,6 +269,125 @@ export const api = {
     );
   },
 
+  getKnowledgeGraph: async (projectId: number) => {
+    return fetchJson<{ file_graph: { nodes: Array<{ id: string; group: string }>; edges: Array<{ source: string; target: string; type: string }> }; module_graph: { nodes: Array<{ id: string; group: string }>; edges: Array<{ source: string; target: string; count: number }> } }>(
+      `/projects/${projectId}/knowledge-graph`
+    );
+  },
+
+  getEntityGraph: async (projectId: number) => {
+    return fetchJson<{
+      nodes: Array<{
+        id: string;
+        name: string;
+        type: string;
+        file: string;
+        group: string;
+        start_line: number;
+        end_line: number;
+      }>;
+      edges: Array<{
+        source: string;
+        target: string | null;
+        type: string;
+        source_file: string;
+        target_file: string | null;
+      }>;
+    }>(`/projects/${projectId}/entity-graph`);
+  },
+
+  buildEntityGraph: async (projectId: number) => {
+    return fetchJson<{ entities: number; relationships: number; skipped?: boolean }>(
+      `/projects/${projectId}/entity-graph/build`,
+      { method: "POST" }
+    );
+  },
+
+  getEntityNeighbors: async (projectId: number, entityId: number) => {
+    return fetchJson<{
+      entity: {
+        id: number;
+        name: string;
+        type: string;
+        file: string;
+        signature: string;
+        start_line: number;
+        end_line: number;
+        meta: Record<string, unknown>;
+      } | null;
+      incoming: Array<{
+        relation_id: number;
+        relation_type: string;
+        source_entity: { id: number; name: string; type: string; file: string };
+        meta: Record<string, unknown>;
+      }>;
+      outgoing: Array<{
+        relation_id: number;
+        relation_type: string;
+        target_entity: { id: number; name: string; type: string; file: string };
+        meta: Record<string, unknown>;
+      }>;
+    }>(`/projects/${projectId}/entity-graph/entities/${entityId}/neighbors`);
+  },
+
+  codeSearch: async (projectId: number, query: string, entityType?: string, topK: number = 10) => {
+    const params = new URLSearchParams({ q: query, top_k: String(topK) });
+    if (entityType) params.set("entity_type", entityType);
+    return fetchJson<{
+      query: string;
+      results: Array<{
+        id: number;
+        name: string;
+        entity_type: string;
+        file_path: string;
+        start_line: number;
+        signature: string;
+        meta_json: Record<string, unknown>;
+        similarity: number;
+        neighbors: Array<{ id: number; name: string; entity_type: string; file_path: string; relation_type: string }>;
+      }>;
+    }>(`/projects/${projectId}/code-search?${params.toString()}`);
+  },
+
+  getCodeComplexity: async (projectId: number) => {
+    return fetchJson<{
+      total_entities: number;
+      total_functions: number;
+      total_classes: number;
+      god_class_count: number;
+      god_classes: Array<{ name: string; incoming: number }>;
+      cycle_dependencies: number;
+      isolated_functions: number;
+      isolated_ratio: number;
+    }>(`/projects/${projectId}/code-complexity`);
+  },
+
+  graphRagRetrieve: async (projectId: number, body: { query: string; changed_files?: string[]; depth?: number; top_k?: number }) => {
+    return fetchJson<{
+      query: string;
+      results: Array<{
+        id: number;
+        name: string;
+        entity_type: string;
+        file_path: string;
+        signature: string;
+        start_line: number;
+        meta_json: Record<string, unknown>;
+        depth: number;
+      }>;
+    }>(`/projects/${projectId}/graph-rag/retrieve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  getArchitectureDiagram: async (projectId: number) => {
+    return fetchJson<{ mermaid: string }>(
+      `/projects/${projectId}/architecture`
+    );
+  },
+
   analyzeCommit: async (projectId: number, commitHash: string) => {
     return fetchJson<{ commit_hash: string; status: string; message?: string }>(
       `/projects/${projectId}/commits/${commitHash}/analyze`,
@@ -270,9 +395,12 @@ export const api = {
     );
   },
 
-  analyzeProject: async (projectId: number, maxCommits: number = 20) => {
+  analyzeProject: async (projectId: number, maxCommits?: number) => {
+    const params = new URLSearchParams();
+    if (maxCommits !== undefined && maxCommits > 0) params.set("max_commits", String(maxCommits));
+    const query = params.toString();
     return fetchJson<{ project_id: number; status: string; operation: string }>(
-      `/projects/${projectId}/analyze?max_commits=${maxCommits}`,
+      `/projects/${projectId}/analyze${query ? `?${query}` : ""}`,
       { method: "POST" }
     );
   },

@@ -250,7 +250,7 @@ export default function ConfigPage() {
             <label className="text-sm text-latte-text-secondary">依赖深度</label>
             <Input
               type="number"
-              value={reviewConfig.context_analysis?.dependency_depth || 2}
+              value={reviewConfig.context_analysis?.dependency_depth ?? 2}
               onChange={(e) =>
                 setConfig({
                   ...config,

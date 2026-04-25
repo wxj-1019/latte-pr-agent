@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { FadeInUp } from "@/components/motion/fade-in-up";
 import { usePrompts } from "@/hooks/use-prompts";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api } from "@/lib/api";
-import { Check, FlaskConical, Loader2, ChevronDown, ChevronUp, GitBranch } from "lucide-react";
+import { Check, FlaskConical, Loader2, ChevronDown, ChevronUp, GitBranch, Trash2 } from "lucide-react";
 
 interface TestState {
   loading: boolean;
@@ -18,6 +19,9 @@ interface TestState {
 }
 
 export default function PromptsPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { prompts, isLoading, mutate } = usePrompts();
   const { showToast } = useToast();
 
@@ -36,6 +40,7 @@ export default function PromptsPage() {
   const [testStates, setTestStates] = useState<Record<number, TestState>>({});
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
   const [expandedPreviews, setExpandedPreviews] = useState<Set<number>>(new Set());
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; version: string | null }>({ open: false, version: null });
 
   async function handleCreate() {
     if (!newVersion.trim() || !newContent.trim()) return;
@@ -100,6 +105,27 @@ export default function PromptsPage() {
       showToast("保存失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
     } finally {
       setEditLoading(false);
+    }
+  }
+
+  function handleDelete(prompt: (typeof prompts)[0]) {
+    if (prompt.version === "v1") {
+      showToast("不允许删除默认版本 v1", "error");
+      return;
+    }
+    setDeleteDialog({ open: true, version: prompt.version });
+  }
+
+  async function confirmDelete() {
+    if (!deleteDialog.version) return;
+    try {
+      await api.deletePromptVersion(deleteDialog.version);
+      showToast(`已删除版本 ${deleteDialog.version}`);
+      mutate();
+    } catch (err) {
+      showToast("删除失败：" + (err instanceof Error ? err.message : "未知错误"), "error");
+    } finally {
+      setDeleteDialog({ open: false, version: null });
     }
   }
 
@@ -222,12 +248,24 @@ export default function PromptsPage() {
         </FadeInUp>
       )}
 
-      {isLoading ? (
+      {!mounted || isLoading ? (
         <div className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="h-32 bg-latte-bg-secondary rounded-latte-xl animate-pulse" />
           ))}
         </div>
+      ) : prompts.length === 0 ? (
+        <FadeInUp>
+          <GlassCard className="p-10 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-latte-gold/10 flex items-center justify-center mb-4">
+              <FlaskConical size={24} className="text-latte-gold" />
+            </div>
+            <h3 className="text-lg font-medium text-latte-text-primary">暂无 Prompt 版本</h3>
+            <p className="text-sm text-latte-text-secondary mt-2 max-w-sm">
+              点击右上角「新版本」按钮创建第一个 Prompt，或在项目详情页点击「生成 Prompt」自动生成项目专属版本。
+            </p>
+          </GlassCard>
+        </FadeInUp>
       ) : (
         <div className="space-y-4">
           {prompts.map((prompt, index) => {
@@ -342,6 +380,16 @@ export default function PromptsPage() {
                             )}
                             测试
                           </Button>
+                          {prompt.version !== "v1" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(prompt)}
+                              className="text-latte-critical hover:bg-latte-critical/10"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -392,6 +440,16 @@ export default function PromptsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="删除 Prompt 版本"
+        description={deleteDialog.version ? `确定删除版本 "${deleteDialog.version}"？此操作不可恢复。` : ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteDialog({ open: false, version: null })}
+        confirmText="确认删除"
+        cancelText="取消"
+      />
     </div>
   );
 }

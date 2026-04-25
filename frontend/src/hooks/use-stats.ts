@@ -9,8 +9,10 @@ export function useStats() {
     typeof window === "undefined" ? null : "/stats",
     () => api.getStats(),
     {
-      onErrorRetry: (err) => {
+      onErrorRetry: (err, _key, _config, revalidate, { retryCount }) => {
+        if (retryCount >= 3) return;
         if (err.message?.includes("API")) return;
+        setTimeout(() => revalidate({ retryCount }), 3000);
       },
     }
   );

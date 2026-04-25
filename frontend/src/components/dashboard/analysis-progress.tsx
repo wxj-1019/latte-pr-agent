@@ -13,6 +13,8 @@ const operationLabels: Record<string, string> = {
   clone: "克隆仓库",
   sync: "同步仓库",
   scan: "扫描提交",
+  analyze: "AI 分析",
+  analyze_project: "AI 分析",
 };
 
 const stepIcons: Record<string, React.ReactNode> = {

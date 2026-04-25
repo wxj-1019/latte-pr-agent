@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ProjectRepo, CommitAnalysis, ProjectStats, ContributorInfo, ContributorDetail, AnalysisProgress } from "@/types";
 import {
   ArrowLeft,
@@ -26,42 +27,23 @@ import {
   Trash2,
   Zap,
   GitPullRequest,
+  Network,
+  LayoutTemplate,
 } from "lucide-react";
 import { AnalysisProgressPanel } from "@/components/dashboard/analysis-progress";
 import { LiquidGauge } from "@/components/ui/liquid-gauge";
-import { NebulaChart } from "@/components/ui/nebula-chart";
-import {
-  BarChart,
-  Bar,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+import { DonutChart } from "@/components/ui/donut-chart";
+import { HorizontalBarChart } from "@/components/ui/horizontal-bar-chart";
+import KnowledgeGraphPanel from "@/components/dashboard/knowledge-graph-panel";
+import ArchitectureDiagramPanel from "@/components/dashboard/architecture-diagram-panel";
+import CodeSearchPanel from "@/components/dashboard/code-search-panel";
+
 
 const riskColors: Record<string, string> = {
   critical: "bg-latte-critical/10 text-latte-critical border-latte-critical/20",
   high: "bg-latte-warning/10 text-latte-warning border-latte-warning/20",
   medium: "bg-latte-gold/10 text-latte-gold border-latte-gold/20",
   low: "bg-latte-success/10 text-latte-success border-latte-success/20",
-};
-
-const chartColors = [
-  "var(--latte-gold)",
-  "var(--latte-rose)",
-  "var(--latte-success)",
-  "var(--latte-info)",
-  "var(--latte-warning)",
-  "var(--latte-critical)",
-];
-
-const riskBarColors: Record<string, string> = {
-  critical: "var(--latte-critical)",
-  high: "var(--latte-warning)",
-  medium: "var(--latte-gold)",
-  low: "var(--latte-success)",
 };
 
 const sevColors: Record<string, string> = {
@@ -89,17 +71,28 @@ export default function ProjectDetailPage() {
   const [commits, setCommits] = useState<CommitAnalysis[]>([]);
   const [contributors, setContributors] = useState<ContributorInfo[]>([]);
   const [total, setTotal] = useState(0);
+
+  if (isNaN(projectId)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-latte-text-secondary">无效的项目 ID</p>
+      </div>
+    );
+  }
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [scanLoading, setScanLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [commitAnalyzing, setCommitAnalyzing] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"commits" | "contributors" | "stats">("contributors");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"commits" | "contributors" | "stats" | "knowledge-graph" | "architecture" | "code-search">("commits");
   const [error, setError] = useState("");
   const [expandedContributor, setExpandedContributor] = useState<string | null>(null);
   const [contributorCommits, setContributorCommits] = useState<Record<string, ContributorDetail>>({});
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const [codeComplexity, setCodeComplexity] = useState<any>(null);
   const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
@@ -113,9 +106,11 @@ export default function ProjectDetailPage() {
       ]);
       setProject(proj);
       setStats(stat);
+      api.getCodeComplexity(projectId).then(setCodeComplexity).catch(() => {});
       setCommits(commitRes.commits || []);
       setTotal(commitRes.total || 0);
       setContributors(contribRes.contributors || []);
+      setContributorCommits({});
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -191,10 +186,10 @@ export default function ProjectDetailPage() {
         // fallback for old sync behavior
         showToast(`扫描完成：${res.scanned} 个提交，新增 ${res.saved} 条`);
         await load();
+        setScanLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "扫描失败");
-    } finally {
       setScanLoading(false);
     }
   };
@@ -210,10 +205,10 @@ export default function ProjectDetailPage() {
       } else {
         showToast(`同步完成：${res.status}，新增 ${res.new_commits} 个提交`);
         await load();
+        setSyncLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "同步失败");
-    } finally {
       setSyncLoading(false);
     }
   };
@@ -223,30 +218,48 @@ export default function ProjectDetailPage() {
       setAnalyzeLoading(true);
       setError("");
       setAnalysisProgress(null);
-      connectSSE();
-      const res = await api.analyzeProject(projectId, 20);
+      const res = await api.analyzeProject(projectId, project?.total_commits ?? 0);
       if (res.status === "started") {
+        connectSSE();
         showToast("分析已启动，后台运行中...");
       } else {
         showToast(`分析已启动`);
-        closeSSE();
+        setAnalyzeLoading(false);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "分析失败");
-      closeSSE();
-    } finally {
       setAnalyzeLoading(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm("确定删除该项目及其所有分析数据？此操作不可恢复。")) return;
+  const handleDelete = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
     try {
       await api.deleteProject(projectId);
       showToast("项目已删除");
       router.push("/dashboard/projects");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      const msg = e instanceof Error ? e.message : "删除失败";
+      setError(msg);
+      showToast(msg, "error");
+    } finally {
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleGeneratePrompt = async () => {
+    try {
+      setPromptLoading(true);
+      setError("");
+      const res = await api.generateProjectPrompt(projectId);
+      showToast(`项目 Prompt 已生成：${res.version}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "生成 Prompt 失败");
+    } finally {
+      setPromptLoading(false);
     }
   };
 
@@ -306,51 +319,78 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/dashboard/projects")}
-          className="p-2 hover:bg-latte-bg-tertiary rounded-lg transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-latte-text-primary">{project.repo_id}</h1>
-          <p className="text-sm text-latte-text-secondary mt-1">
-            {project.platform} · {project.branch} · {project.total_commits} 提交 · {project.total_findings} 发现
-          </p>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        {/* 左侧：返回 + 标题 */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => router.push("/dashboard/projects")}
+            className="p-2 hover:bg-latte-bg-tertiary rounded-lg transition-colors shrink-0"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-latte-text-primary truncate">{project.repo_id}</h1>
+            <p className="text-sm text-latte-text-secondary mt-1">
+              {project.platform} · {project.branch} · {project.total_commits} 提交 · {project.total_findings} 发现
+            </p>
+          </div>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-latte-info text-latte-bg-primary rounded-lg hover:bg-latte-info/90 disabled:opacity-50 transition-colors text-sm"
-        >
-          {syncLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          同步仓库
-        </button>
-        <button
-          onClick={handleScan}
-          disabled={project.status !== "ready" || scanLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-latte-gold text-latte-bg-primary rounded-lg hover:bg-latte-gold/90 disabled:opacity-50 transition-colors text-sm"
-        >
-          {scanLoading ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
-          扫描提交
-        </button>
-        <button
-          onClick={handleAnalyzeProject}
-          disabled={analyzeLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-latte-success text-latte-bg-primary rounded-lg hover:bg-latte-success/90 disabled:opacity-50 transition-colors text-sm"
-        >
-          {analyzeLoading ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
-          AI 整体分析
-        </button>
-        <button
-          onClick={handleDelete}
-          className="flex items-center gap-2 px-4 py-2 border border-latte-critical/30 text-latte-critical rounded-lg hover:bg-latte-critical/5 transition-colors text-sm"
-          title="删除项目"
-        >
-          <Trash2 size={16} />
-          删除
-        </button>
+
+        {/* 右侧：操作按钮 */}
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+          {/* 核心工作流 */}
+          <div className="flex items-center gap-1.5 p-1 bg-latte-bg-secondary border border-latte-border rounded-xl">
+            <button
+              onClick={handleSync}
+              disabled={syncLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-latte-bg-tertiary disabled:opacity-50 transition-colors text-latte-text-primary"
+              title="同步仓库"
+            >
+              {syncLoading ? <Loader2 size={14} className="animate-spin text-latte-info" /> : <RefreshCw size={14} className="text-latte-info" />}
+              <span className="hidden sm:inline">同步</span>
+            </button>
+            <div className="w-px h-4 bg-latte-border" />
+            <button
+              onClick={handleScan}
+              disabled={project.status !== "ready" || scanLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-latte-bg-tertiary disabled:opacity-50 transition-colors text-latte-text-primary"
+              title="扫描提交"
+            >
+              {scanLoading ? <Loader2 size={14} className="animate-spin text-latte-gold" /> : <SearchIcon size={14} className="text-latte-gold" />}
+              <span className="hidden sm:inline">扫描</span>
+            </button>
+            <div className="w-px h-4 bg-latte-border" />
+            <button
+              onClick={handleAnalyzeProject}
+              disabled={analyzeLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-latte-bg-tertiary disabled:opacity-50 transition-colors text-latte-text-primary"
+              title="AI 整体分析"
+            >
+              {analyzeLoading ? <Loader2 size={14} className="animate-spin text-latte-success" /> : <Shield size={14} className="text-latte-success" />}
+              <span className="hidden sm:inline">分析</span>
+            </button>
+          </div>
+
+          {/* 辅助操作 */}
+          <button
+            onClick={handleGeneratePrompt}
+            disabled={promptLoading || project.status !== "ready"}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-latte-border rounded-xl hover:bg-latte-bg-secondary hover:border-latte-gold/40 disabled:opacity-50 transition-colors text-latte-text-secondary hover:text-latte-gold"
+            title="生成项目 Prompt"
+          >
+            {promptLoading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+            <span className="hidden sm:inline">Prompt</span>
+          </button>
+
+          {/* 危险操作 */}
+          <button
+            onClick={handleDelete}
+            className="flex items-center justify-center w-8 h-8 rounded-xl border border-latte-critical/20 text-latte-critical hover:bg-latte-critical/10 hover:border-latte-critical/40 transition-colors"
+            title="删除项目"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       <AnalysisProgressPanel progress={analysisProgress} />
@@ -363,7 +403,7 @@ export default function ProjectDetailPage() {
       )}
 
       <div className="flex gap-2 border-b border-latte-border pb-0">
-        {(["contributors", "commits", "stats"] as const).map((tab) => (
+        {(["contributors", "commits", "stats", "knowledge-graph", "architecture", "code-search"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -373,7 +413,7 @@ export default function ProjectDetailPage() {
                 : "border-transparent text-latte-text-secondary hover:text-latte-text-primary"
             }`}
           >
-            {tab === "contributors" ? "贡献者分析" : tab === "commits" ? "提交记录" : "统计概览"}
+            {tab === "contributors" ? "贡献者分析" : tab === "commits" ? "提交记录" : tab === "stats" ? "统计概览" : tab === "knowledge-graph" ? "知识图谱" : tab === "architecture" ? "架构图" : "代码搜索"}
           </button>
         ))}
       </div>
@@ -385,6 +425,12 @@ export default function ProjectDetailPage() {
               <Users size={36} className="mx-auto mb-3 opacity-40" />
               <p>暂无贡献者数据</p>
               <p className="text-sm mt-1">请先扫描提交记录</p>
+            </div>
+          ) : stats?.analyzed_commits === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-latte-text-secondary">
+              <Shield size={48} className="mb-4 opacity-40" />
+              <p className="text-lg font-medium">尚未进行 AI 分析</p>
+              <p className="text-sm mt-1">点击上方「AI 整体分析」按钮开始分析代码质量</p>
             </div>
           ) : (
             <>
@@ -402,7 +448,10 @@ export default function ProjectDetailPage() {
                 <div className="p-4 bg-latte-bg-secondary border border-latte-border rounded-xl text-center">
                   <p className="text-2xl font-bold text-latte-text-primary">
                     {contributors.length > 0
-                      ? Math.round(contributors.reduce((s, c) => s + c.quality_score, 0) / contributors.length)
+                      ? Math.round(
+                          contributors.reduce((s, c) => s + (c.quality_score ?? 0), 0) /
+                            (contributors.filter((c) => c.quality_score != null).length || 1)
+                        )
                       : 0}
                   </p>
                   <p className="text-xs text-latte-text-secondary mt-1">平均质量分</p>
@@ -446,15 +495,29 @@ export default function ProjectDetailPage() {
                               {contributor.findings.total} 发现 (密度 {contributor.finding_density})
                             </span>
                           )}
+                          {contributor.analyzed_commits === 0 && (
+                            <span className="text-latte-text-muted">未分析</span>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-4 shrink-0">
                         <div className="text-center">
-                          <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-latte-bg-primary font-bold text-sm ${gradeColors[contributor.grade] || "bg-latte-text-muted"}`}>
-                            {contributor.grade}
-                          </div>
-                          <p className="text-xs text-latte-text-secondary mt-1">{contributor.quality_score}分</p>
+                          {contributor.grade != null ? (
+                            <>
+                              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-latte-bg-primary font-bold text-sm ${gradeColors[contributor.grade] || "bg-latte-text-muted"}`}>
+                                {contributor.grade}
+                              </div>
+                              <p className="text-xs text-latte-text-secondary mt-1">{contributor.quality_score}分</p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-latte-bg-tertiary text-latte-text-muted font-bold text-sm">
+                                -
+                              </div>
+                              <p className="text-xs text-latte-text-secondary mt-1">未分析</p>
+                            </>
+                          )}
                         </div>
 
                         <div className="flex gap-1.5">
@@ -473,9 +536,14 @@ export default function ProjectDetailPage() {
                               {contributor.findings.info} 信息
                             </span>
                           )}
-                          {contributor.findings.total === 0 && (
+                          {contributor.findings.total === 0 && contributor.analyzed_commits > 0 && (
                             <span className="px-2 py-0.5 rounded-full text-xs bg-latte-success/10 text-latte-success">
                               无问题
+                            </span>
+                          )}
+                          {contributor.analyzed_commits === 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-latte-bg-tertiary text-latte-text-muted">
+                              未分析
                             </span>
                           )}
                         </div>
@@ -495,12 +563,16 @@ export default function ProjectDetailPage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 h-2 bg-latte-bg-tertiary rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${contributor.quality_score >= 75 ? "bg-latte-success" : contributor.quality_score >= 50 ? "bg-latte-gold" : "bg-latte-critical"}`}
-                                    style={{ width: `${contributor.quality_score}%` }}
-                                  />
+                                  {contributor.quality_score != null ? (
+                                    <div
+                                      className={`h-full rounded-full ${contributor.quality_score >= 75 ? "bg-latte-success" : contributor.quality_score >= 50 ? "bg-latte-gold" : "bg-latte-critical"}`}
+                                      style={{ width: `${contributor.quality_score}%` }}
+                                    />
+                                  ) : (
+                                    <div className="h-full rounded-full bg-latte-bg-tertiary" />
+                                  )}
                                 </div>
-                                <span className="text-sm font-medium">{contributor.quality_score}</span>
+                                <span className="text-sm font-medium">{contributor.quality_score ?? "-"}</span>
                               </div>
                             </div>
                             <div className="p-3 bg-latte-bg-secondary rounded-lg border border-latte-border">
@@ -509,7 +581,7 @@ export default function ProjectDetailPage() {
                                 发现密度
                               </div>
                               <p className="text-lg font-semibold">
-                                {contributor.finding_density}
+                                {contributor.finding_density ?? "-"}
                                 <span className="text-xs font-normal text-latte-text-secondary ml-1">/ 提交</span>
                               </p>
                             </div>
@@ -588,9 +660,17 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {activeTab === "stats" && stats && (
+      {activeTab === "stats" && (
         <div className="space-y-5">
-          <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+          {(!stats || stats.analyzed_commits === 0) ? (
+            <div className="flex flex-col items-center justify-center py-16 text-latte-text-secondary">
+              <BarChart3 size={48} className="mb-4 opacity-40" />
+              <p className="text-lg font-medium">尚未进行 AI 分析</p>
+              <p className="text-sm mt-1">点击上方「AI 整体分析」按钮开始分析代码质量</p>
+            </div>
+          ) : (
+          <>
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
               <LiquidGauge
                 value={stats.analyzed_commits}
@@ -632,16 +712,16 @@ export default function ProjectDetailPage() {
           {/* Charts row 1 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <NebulaChart
+              <DonutChart
                 data={stats.category_distribution ?? {}}
-                title="发现项类别星云"
+                title="发现项类别分布"
                 height={280}
               />
             </div>
             <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <NebulaChart
+              <DonutChart
                 data={stats.severity_distribution ?? {}}
-                title="严重级别星云"
+                title="严重级别分布"
                 height={280}
               />
             </div>
@@ -651,44 +731,11 @@ export default function ProjectDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Risk Level Distribution */}
             <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
-              <div className="flex items-center gap-2 mb-4">
-                <Zap size={16} className="text-latte-warning" />
-                <h3 className="text-sm font-medium text-latte-text-primary">风险级别分布</h3>
-              </div>
-              <div className="h-64">
-                {Object.keys(stats.risk_distribution ?? {}).length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={Object.entries(stats.risk_distribution ?? {}).map(([name, value]) => ({
-                        name: name === "critical" ? "严重" : name === "high" ? "高" : name === "medium" ? "中" : name === "low" ? "低" : name,
-                        value,
-                      }))}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--latte-chart-grid)" vertical={false} />
-                      <XAxis dataKey="name" stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
-                      <YAxis stroke="var(--latte-text-tertiary)" tick={{ fill: "var(--latte-text-tertiary)", fontSize: 12 }} />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--latte-bg-secondary)",
-                          border: "1px solid var(--latte-chart-tooltip-border)",
-                          borderRadius: "12px",
-                        }}
-                      />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {Object.entries(stats.risk_distribution ?? {}).map(([key], index) => (
-                          <Cell key={key} fill={riskBarColors[key] || chartColors[index % chartColors.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-latte-text-tertiary">
-                    <Zap size={36} className="opacity-30 mb-2" />
-                    <p className="text-sm">暂无风险级别数据</p>
-                    <p className="text-xs mt-1 opacity-60">分析提交后将自动更新</p>
-                  </div>
-                )}
-              </div>
+              <HorizontalBarChart
+                data={stats.risk_distribution ?? {}}
+                title="风险级别分布"
+                height={260}
+              />
             </div>
 
             {/* Code Changes Visual */}
@@ -761,6 +808,81 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Code Complexity Metrics */}
+          {codeComplexity && codeComplexity.total_entities > 0 && (
+            <div className="p-5 bg-latte-bg-secondary border border-latte-border rounded-xl">
+              <h3 className="text-sm font-medium text-latte-text-primary mb-4">代码复杂度指标（基于知识图谱）</h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="text-center p-3 rounded-lg bg-latte-bg-tertiary border border-latte-border">
+                  <p className="text-2xl font-bold text-latte-text-primary">{codeComplexity.total_entities}</p>
+                  <p className="text-xs text-latte-text-secondary mt-1">实体总数</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-latte-bg-tertiary border border-latte-border">
+                  <p className="text-2xl font-bold text-latte-critical">{codeComplexity.god_class_count}</p>
+                  <p className="text-xs text-latte-text-secondary mt-1">上帝类数量</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-latte-bg-tertiary border border-latte-border">
+                  <p className="text-2xl font-bold text-latte-warning">{codeComplexity.cycle_dependencies}</p>
+                  <p className="text-xs text-latte-text-secondary mt-1">循环依赖</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-latte-bg-tertiary border border-latte-border">
+                  <p className="text-2xl font-bold text-latte-info">{(codeComplexity.isolated_ratio * 100).toFixed(0)}%</p>
+                  <p className="text-xs text-latte-text-secondary mt-1">孤立函数占比</p>
+                </div>
+              </div>
+              {codeComplexity.god_classes && codeComplexity.god_classes.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-latte-text-secondary mb-1.5">上帝类 Top</p>
+                  <div className="flex flex-wrap gap-2">
+                    {codeComplexity.god_classes.map((g: any) => (
+                      <span key={g.name} className="text-[11px] px-2 py-1 rounded bg-latte-bg-tertiary border border-latte-border text-latte-text-secondary">
+                        {g.name} ({g.incoming})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          </>
+        )}
+      </div>
+      )}
+
+      {activeTab === "knowledge-graph" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-latte-text-primary flex items-center gap-2">
+              <Network size={18} className="text-latte-gold" />
+              项目知识图谱
+            </h3>
+          </div>
+          <KnowledgeGraphPanel projectId={projectId} />
+        </div>
+      )}
+
+      {activeTab === "architecture" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-latte-text-primary flex items-center gap-2">
+              <LayoutTemplate size={18} className="text-latte-gold" />
+              项目架构图
+            </h3>
+          </div>
+          <ArchitectureDiagramPanel projectId={projectId} />
+        </div>
+      )}
+
+      {activeTab === "code-search" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-latte-text-primary flex items-center gap-2">
+              <SearchIcon size={18} className="text-latte-gold" />
+              语义代码搜索
+            </h3>
+          </div>
+          <CodeSearchPanel projectId={projectId} />
         </div>
       )}
 
@@ -866,6 +988,16 @@ export default function ProjectDetailPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="删除项目"
+        description="确定删除该项目及其所有分析数据？此操作不可恢复。"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteDialogOpen(false)}
+        confirmText="确认删除"
+        cancelText="取消"
+      />
     </div>
   );
 }

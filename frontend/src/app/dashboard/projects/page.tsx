@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ProjectRepo } from "@/types";
 import {
   FolderGit2,
@@ -34,6 +35,8 @@ export default function ProjectsPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [error, setError] = useState("");
   const [scanLoading, setScanLoading] = useState<number | null>(null);
+  const [syncLoading, setSyncLoading] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
 
   const loadProjects = useCallback(async () => {
     try {
@@ -79,22 +82,36 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("确定删除该项目及其所有分析数据？")) return;
+  const handleDelete = (id: number) => {
+    setDeleteDialog({ open: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteDialog.id == null) return;
     try {
-      await api.deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+      await api.deleteProject(deleteDialog.id);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteDialog.id));
+      showToast("项目已删除");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      const msg = e instanceof Error ? e.message : "删除失败";
+      setError(msg);
+      showToast(msg, "error");
+    } finally {
+      setDeleteDialog({ open: false, id: null });
     }
   };
 
   const handleSync = async (id: number) => {
     try {
-      await api.syncProject(id);
+      setSyncLoading(id);
+      setError("");
+      const res = await api.syncProject(id);
+      showToast(`同步已启动：${res.status}`);
       await loadProjects();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "同步失败");
+    } finally {
+      setSyncLoading(null);
     }
   };
 
@@ -264,11 +281,16 @@ export default function ProjectsPage() {
                     </button>
                     <button
                       onClick={() => handleSync(project.id)}
-                      disabled={project.status !== "ready"}
+                      disabled={project.status !== "ready" || syncLoading === project.id}
                       className="flex items-center gap-1 px-3 py-1.5 text-sm border border-latte-border rounded-lg hover:bg-latte-bg-tertiary disabled:opacity-50 transition-colors"
                       title="同步仓库"
                     >
-                      <RefreshCw size={14} />
+                      {syncLoading === project.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={14} />
+                      )}
+                      {syncLoading === project.id ? "同步中" : "同步"}
                     </button>
                     <button
                       onClick={() => handleDelete(project.id)}
@@ -291,6 +313,16 @@ export default function ProjectsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="删除项目"
+        description="确定删除该项目及其所有分析数据？此操作不可恢复。"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteDialog({ open: false, id: null })}
+        confirmText="确认删除"
+        cancelText="取消"
+      />
     </div>
   );
 }

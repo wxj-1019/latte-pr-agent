@@ -287,9 +287,9 @@ export interface ContributorInfo {
     info: number;
     total: number;
   };
-  finding_density: number;
-  quality_score: number;
-  grade: string;
+  finding_density: number | null;
+  quality_score: number | null;
+  grade: string | null;
 }
 
 export interface ContributorDetail {
