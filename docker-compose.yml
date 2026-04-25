@@ -20,13 +20,14 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QWEN_API_KEY=${QWEN_API_KEY}
       - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - REPOS_BASE_PATH=/app/repos
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
     volumes:
-      - ./repos:/app/repos
+      - repos-data:/app/repos
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -81,6 +82,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QWEN_API_KEY=${QWEN_API_KEY}
       - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - REPOS_BASE_PATH=/app/repos
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,3 +99,4 @@ services:
 volumes:
   pg-data:
   redis-data:
+  repos-data:
