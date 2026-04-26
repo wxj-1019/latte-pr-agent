@@ -253,6 +253,28 @@ async def _do_clone(project_id: int) -> None:
                 project.last_analyzed_sha = commits[0].hash
                 project.total_commits = saved
 
+            # Clone 成功后自动全量构建知识图谱（失败不影响主流程）
+            try:
+                await AnalysisProgressTracker.update(
+                    project_id, step="building_graph", progress=88, total=100,
+                    message="正在构建知识图谱...",
+                )
+                from graph.entity_builder import EntityGraphBuilder
+                builder = EntityGraphBuilder(session)
+                graph_stats = await builder.build(
+                    repo_path=project.local_path,
+                    repo_id=project.repo_id,
+                    org_id=project.org_id or "default",
+                    force=True,
+                )
+                logger.info("Project %s: entity graph built: %s", project_id, graph_stats)
+                await AnalysisProgressTracker.update(
+                    project_id, step="graph_done", progress=92, total=100,
+                    message=f"知识图谱构建完成（{graph_stats.get('entities', 0)} 个实体）",
+                )
+            except Exception as exc:
+                logger.warning("Project %s: entity graph build failed: %s", project_id, exc)
+
             project.status = "ready"
             await session.commit()
             logger.info("Project %s: clone and scan completed", project_id)

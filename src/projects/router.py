@@ -196,15 +196,30 @@ async def _do_sync(
             await _git_cmd(local_path, ["pull", "origin", branch], timeout=180, retries=2)
 
             # 获取 pull 后的变更文件列表用于增量更新知识图谱
+            changed_files = []
             try:
-                changed_files_raw = await _git_cmd(
-                    local_path,
-                    ["diff", "--name-only", "HEAD@{1}", "HEAD"],
-                    timeout=10,
-                )
-                changed_files = [f.strip() for f in changed_files_raw.strip().split("\n") if f.strip()]
-            except Exception:
-                changed_files = []
+                # 先尝试获取 HEAD^（上一个 commit），比 HEAD@{1} 更可靠
+                prev_head = await _git_cmd(local_path, ["rev-parse", "HEAD^"], timeout=10)
+                prev_hash = prev_head.strip()
+                if prev_hash:
+                    changed_files_raw = await _git_cmd(
+                        local_path,
+                        ["diff", "--name-only", prev_hash, "HEAD"],
+                        timeout=10,
+                    )
+                    changed_files = [f.strip() for f in changed_files_raw.strip().split("\n") if f.strip()]
+            except Exception as exc:
+                logger.warning("Project %s: failed to get changed files via HEAD^: %s", project_id, exc)
+                # Fallback: 尝试 HEAD@{1}（reflog 语法）
+                try:
+                    changed_files_raw = await _git_cmd(
+                        local_path,
+                        ["diff", "--name-only", "HEAD@{1}", "HEAD"],
+                        timeout=10,
+                    )
+                    changed_files = [f.strip() for f in changed_files_raw.strip().split("\n") if f.strip()]
+                except Exception as exc2:
+                    logger.warning("Project %s: fallback HEAD@{1} also failed: %s", project_id, exc2)
 
             if changed_files:
                 logger.info("Project %s: detected %s changed files for incremental graph update", project_id, len(changed_files))

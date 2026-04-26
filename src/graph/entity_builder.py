@@ -25,6 +25,8 @@ EXTENSION_TO_LANG = {
     ".go": "go",
     ".ts": "typescript",
     ".tsx": "typescript",
+    ".js": "typescript",
+    ".jsx": "typescript",
 }
 
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".next", ".pytest_cache", "target"}
@@ -85,12 +87,14 @@ class EntityGraphBuilder:
 
             try:
                 source = file_path.read_bytes()
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to read %s: %s", file_path, exc)
                 continue
 
             parser = TreeSitterParser(lang)
             tree = parser.parse(source)
             if not tree:
+                logger.warning("AST parse failed for %s", file_path)
                 continue
 
             rel_file = str(file_path.relative_to(repo_root)).replace("\\", "/")
@@ -139,6 +143,9 @@ class EntityGraphBuilder:
         if entity_records:
             self.session.add_all(entity_records)
             await self.session.flush()
+            logger.info("Entity graph: inserted %s entities for %s", len(entity_records), repo_id)
+        else:
+            logger.warning("Entity graph: no entities found for %s (check language support and file extensions)", repo_id)
 
         # Build lookup by ID after flush
         entity_id_map: Dict[Tuple[str, str, str], int] = {}
@@ -159,12 +166,14 @@ class EntityGraphBuilder:
 
             try:
                 source = file_path.read_bytes()
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to read %s: %s", file_path, exc)
                 continue
 
             parser = TreeSitterParser(lang)
             tree = parser.parse(source)
             if not tree:
+                logger.warning("AST parse failed for %s", file_path)
                 continue
 
             rel_file = str(file_path.relative_to(repo_root)).replace("\\", "/")
@@ -237,10 +246,15 @@ class EntityGraphBuilder:
         if rel_records:
             self.session.add_all(rel_records)
             await self.session.flush()
+            logger.info("Entity graph: inserted %s relationships for %s", len(rel_records), repo_id)
 
         # Phase 3: generate embeddings for semantic search
         emb_count = await self._generate_embeddings(entity_records, repo_id, org_id)
 
+        logger.info(
+            "Entity graph build complete for %s: %s entities, %s relationships, %s embeddings",
+            repo_id, len(entity_records), len(rel_records), emb_count,
+        )
         return {
             "entities": len(entity_records),
             "relationships": len(rel_records),
@@ -301,24 +315,33 @@ class EntityGraphBuilder:
         entity_records: List[CodeEntity] = []
         entity_key_map: Dict[Tuple[str, str, str], CodeEntity] = {}
 
+        skipped_files = 0
         for rel_file in changed_files:
             file_path = repo_root / rel_file
             if not file_path.exists() or not file_path.is_file():
+                skipped_files += 1
                 continue
             if any(part in SKIP_DIRS for part in file_path.parts):
+                skipped_files += 1
                 continue
             lang = EXTENSION_TO_LANG.get(file_path.suffix)
             if not lang:
+                skipped_files += 1
+                logger.debug("Skipping unsupported file type: %s", rel_file)
                 continue
 
             try:
                 source = file_path.read_bytes()
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to read %s: %s", file_path, exc)
+                skipped_files += 1
                 continue
 
             parser = TreeSitterParser(lang)
             tree = parser.parse(source)
             if not tree:
+                logger.warning("AST parse failed for %s", file_path)
+                skipped_files += 1
                 continue
 
             root = tree.root_node
@@ -468,6 +491,10 @@ class EntityGraphBuilder:
         # Step 5: Generate embeddings for new/changed entities
         emb_count = await self._generate_embeddings(entity_records, repo_id, org_id)
 
+        logger.info(
+            "Incremental graph update for %s: %s changed files, %s parsed, %s entities, %s relationships, %s embeddings, %s deleted",
+            repo_id, len(changed_files), len(changed_files) - skipped_files, len(entity_records), len(rel_records), emb_count, len(old_entity_ids),
+        )
         return {
             "entities": len(entity_records),
             "relationships": len(rel_records),
