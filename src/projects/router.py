@@ -70,35 +70,59 @@ async def delete_project(project_id: int, db: AsyncSession = Depends(get_db)):
     return {"id": project_id, "status": "deleted"}
 
 
-async def _git_cmd(cwd: str, args: list[str], timeout: int = 60) -> str:
-    t0 = time.monotonic()
-    if sys.platform == "win32":
-        loop = asyncio.get_running_loop()
-        def _run() -> subprocess.CompletedProcess:
-            return subprocess.run(
-                ["git", *args],
-                cwd=cwd,
-                capture_output=True,
-                timeout=timeout,
+async def _git_cmd(cwd: str, args: list[str], timeout: int = 60, retries: int = 0) -> str:
+    """执行 git 命令，支持超时和重试。"""
+    last_err: Exception | None = None
+    attempt_timeout = timeout
+    for attempt in range(retries + 1):
+        t0 = time.monotonic()
+        try:
+            if sys.platform == "win32":
+                loop = asyncio.get_running_loop()
+                def _run() -> subprocess.CompletedProcess:
+                    return subprocess.run(
+                        ["git", *args],
+                        cwd=cwd,
+                        capture_output=True,
+                        timeout=attempt_timeout,
+                    )
+                proc = await loop.run_in_executor(None, _run)
+                if proc.returncode != 0:
+                    raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.decode('utf-8', errors='replace')}")
+                stdout = proc.stdout.decode("utf-8", errors="replace")
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    "git", *args,
+                    cwd=cwd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout_b, stderr = await asyncio.wait_for(proc.communicate(), timeout=attempt_timeout)
+                if proc.returncode != 0:
+                    raise RuntimeError(f"git {' '.join(args)} failed: {stderr.decode('utf-8', errors='replace')}")
+                stdout = stdout_b.decode("utf-8", errors="replace")
+            elapsed = time.monotonic() - t0
+            if attempt > 0:
+                logger.info(
+                    "Git command [git %s] in %s succeeded on attempt %d in %.2fs",
+                    ' '.join(args), cwd, attempt + 1, elapsed,
+                )
+            else:
+                logger.info("Git command [git %s] in %s completed in %.2fs", ' '.join(args), cwd, elapsed)
+            return stdout
+        except (TimeoutError, asyncio.TimeoutError) as exc:
+            last_err = exc
+            elapsed = time.monotonic() - t0
+            logger.warning(
+                "Git command [git %s] in %s timed out after %.2fs (attempt %d/%d)",
+                ' '.join(args), cwd, elapsed, attempt + 1, retries + 1,
             )
-        proc = await loop.run_in_executor(None, _run)
-        if proc.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.decode('utf-8', errors='replace')}")
-        stdout = proc.stdout.decode("utf-8", errors="replace")
-    else:
-        proc = await asyncio.create_subprocess_exec(
-            "git", *args,
-            cwd=cwd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout_b, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        if proc.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)} failed: {stderr.decode('utf-8', errors='replace')}")
-        stdout = stdout_b.decode("utf-8", errors="replace")
-    elapsed = time.monotonic() - t0
-    logger.info("Git command [git %s] in %s completed in %.2fs", ' '.join(args), cwd, elapsed)
-    return stdout
+            if attempt < retries:
+                attempt_timeout = int(attempt_timeout * 1.5)
+                await asyncio.sleep(2 ** attempt)
+        except Exception:
+            raise
+    raise last_err or TimeoutError(f"git {' '.join(args)} failed after {retries + 1} attempts")
 
 
 @router.post("/{project_id}/sync", response_model=SyncResponse)
@@ -142,7 +166,7 @@ async def _do_sync(
                 project_id, step="fetching", progress=10, total=100,
                 message="正在 fetch 远程仓库...",
             )
-            await _git_cmd(local_path, ["fetch", "origin"], timeout=60)
+            await _git_cmd(local_path, ["fetch", "origin"], timeout=180, retries=2)
 
             # 验证 HEAD 是否有效（防止之前 clone/checkout 失败导致仓库损坏）
             try:
@@ -169,7 +193,7 @@ async def _do_sync(
                 project_id, step="pulling", progress=50, total=100,
                 message=f"发现 {ahead_count} 个新提交，正在 pull...",
             )
-            await _git_cmd(local_path, ["pull", "origin", branch], timeout=60)
+            await _git_cmd(local_path, ["pull", "origin", branch], timeout=180, retries=2)
 
             # 获取 pull 后的变更文件列表用于增量更新知识图谱
             try:
