@@ -4,7 +4,10 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    ca-certificates \
     build-essential \
+    libpq-dev \
+    && git config --global http.version HTTP/1.1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
@@ -18,6 +21,8 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    ca-certificates \
+    && git config --global http.version HTTP/1.1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
