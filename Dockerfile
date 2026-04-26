@@ -5,8 +5,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
-    build-essential \
-    libpq-dev \
     && git config --global http.version HTTP/1.1 \
     && rm -rf /var/lib/apt/lists/*
 
