@@ -96,6 +96,7 @@ class ReviewEngine:
                     changed_files=changed_files,
                     depth=2,
                     top_k=8,
+                    skip_vector_search=bool(changed_files),
                 )
                 if rag_results:
                     built_context["graph_rag"] = rag_results

@@ -606,6 +606,7 @@ class CommitService:
             depth=depth,
             top_k=top_k,
             org_id=project.org_id or "default",
+            skip_vector_search=bool(changed_files),
         )
 
     async def get_code_complexity(self, project_id: int) -> Dict:
