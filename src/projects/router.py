@@ -240,6 +240,21 @@ async def _do_sync(
                             )
                             await session.commit()
                             logger.info("Project %s: incremental graph update done: %s", project_id, stats)
+
+                            # Incremental dependency graph update
+                            try:
+                                from graph.builder import DependencyGraphBuilder
+                                dep_builder = DependencyGraphBuilder(session)
+                                await dep_builder.build(
+                                    repo_path=local_path,
+                                    repo_id=proj.repo_id,
+                                    org_id=proj.org_id or "default",
+                                    force=False,
+                                )
+                                await session.commit()
+                                logger.info("Project %s: incremental dependency graph update done", project_id)
+                            except Exception as dep_exc:
+                                logger.warning("Project %s: incremental dependency graph update failed: %s", project_id, dep_exc)
                 except Exception as exc:
                     logger.warning("Project %s: incremental graph update failed: %s", project_id, exc)
         else:
@@ -286,6 +301,27 @@ async def _do_sync(
                 project_id, step="clone_done", progress=60, total=100,
                 message="克隆完成",
             )
+
+            # 初次 clone 后构建文件依赖图
+            try:
+                async with AsyncSessionLocal() as session:
+                    from sqlalchemy import select
+                    from models.project_repo import ProjectRepo
+                    proj_result = await session.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
+                    proj = proj_result.scalar_one_or_none()
+                    if proj:
+                        from graph.builder import DependencyGraphBuilder
+                        dep_builder = DependencyGraphBuilder(session)
+                        await dep_builder.build(
+                            repo_path=local_path,
+                            repo_id=proj.repo_id,
+                            org_id=proj.org_id or "default",
+                            force=True,
+                        )
+                        await session.commit()
+                        logger.info("Project %s: dependency graph built after clone", project_id)
+            except Exception as dep_exc:
+                logger.warning("Project %s: dependency graph build failed after clone: %s", project_id, dep_exc)
 
         # 同步完成后自动扫描提交
         await AnalysisProgressTracker.update(
