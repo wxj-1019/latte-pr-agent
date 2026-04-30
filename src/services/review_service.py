@@ -58,7 +58,7 @@ async def _run_review_core(
     changed_files = pr_diff_obj.get_changed_files()
 
     # Infer local repo path (if cloned locally)
-    repos_base = os.getenv("REPOS_BASE_PATH", "")
+    repos_base = settings.get_repos_base_path()
     repo_path = None
     if repos_base:
         repo_path = os.path.join(repos_base, review.repo_id.replace("/", "_"))

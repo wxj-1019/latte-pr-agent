@@ -33,10 +33,11 @@ class TestSemgrepAnalyzer:
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(json.dumps(mock_output).encode(), b""))
 
-        with patch("static.semgrep.shutil.which", return_value="semgrep"):
-            with patch("static.semgrep.asyncio.create_subprocess_exec", return_value=mock_proc):
-                with patch("pathlib.Path.exists", return_value=True):
-                    result = await analyzer.analyze("/repo", ["src/main.py"])
+        with patch("static.semgrep.sys.platform", "linux"):
+            with patch("static.semgrep.shutil.which", return_value="semgrep"):
+                with patch("static.semgrep.asyncio.create_subprocess_exec", return_value=mock_proc):
+                    with patch("pathlib.Path.exists", return_value=True):
+                        result = await analyzer.analyze("/repo", ["src/main.py"])
 
         assert len(result) == 1
         assert result[0]["file"] == "src/main.py"

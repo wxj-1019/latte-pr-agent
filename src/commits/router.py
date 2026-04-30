@@ -35,8 +35,15 @@ async def scan_commits(
     if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
         raise HTTPException(status_code=400, detail="Project repository not cloned yet")
 
-    from tasks import scan_commits_task
-    scan_commits_task.delay(project_id, project.local_path, project.branch, max_commits, since, project.last_analyzed_sha)
+    try:
+        from tasks import scan_commits_task
+        scan_commits_task.delay(project_id, project.local_path, project.branch, max_commits, since, project.last_analyzed_sha)
+    except Exception as exc:
+        logger.warning(
+            "Celery dispatch failed for scan_commits_task (project %s): %s: %s",
+            project_id, type(exc).__name__, exc
+        )
+        raise HTTPException(status_code=503, detail="任务队列不可用，请稍后重试")
     return {"project_id": project_id, "status": "started", "operation": "scan"}
 
 
@@ -371,8 +378,15 @@ async def analyze_commit(
     commit.status = "analyzing"
     await db.commit()
 
-    from tasks import analyze_commit_task
-    analyze_commit_task.delay(project_id, commit_hash, project.local_path)
+    try:
+        from tasks import analyze_commit_task
+        analyze_commit_task.delay(project_id, commit_hash, project.local_path)
+    except Exception as exc:
+        logger.warning(
+            "Celery dispatch failed for analyze_commit_task (project %s commit %s): %s: %s",
+            project_id, commit_hash, type(exc).__name__, exc
+        )
+        raise HTTPException(status_code=503, detail="任务队列不可用，请稍后重试")
     return {"commit_hash": commit_hash, "status": "started"}
 
 
@@ -565,8 +579,15 @@ async def analyze_all_commits(
     if not project.local_path or not os.path.isdir(os.path.join(project.local_path, ".git")):
         raise HTTPException(status_code=400, detail="Project repository not cloned yet")
 
-    from tasks import analyze_commits_task
-    analyze_commits_task.delay(project_id, project.local_path, max_commits)
+    try:
+        from tasks import analyze_commits_task
+        analyze_commits_task.delay(project_id, project.local_path, max_commits)
+    except Exception as exc:
+        logger.warning(
+            "Celery dispatch failed for analyze_commits_task (project %s): %s: %s",
+            project_id, type(exc).__name__, exc
+        )
+        raise HTTPException(status_code=503, detail="任务队列不可用，请稍后重试")
     return {"project_id": project_id, "status": "started", "operation": "analyze"}
 
 

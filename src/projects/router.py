@@ -40,8 +40,14 @@ async def add_project(
         logger.exception("Failed to add project %s/%s", body.platform, body.repo_id)
         raise HTTPException(status_code=500, detail=f"添加项目失败: {exc}")
     if project.status == "cloning":
-        from tasks import clone_project_task
-        clone_project_task.delay(project.id)
+        try:
+            from tasks import clone_project_task
+            clone_project_task.delay(project.id)
+        except Exception as exc:
+            logger.warning(
+                "Celery dispatch failed for clone_project_task (project %s): %s: %s",
+                project.id, type(exc).__name__, exc
+            )
     return project
 
 
@@ -136,7 +142,9 @@ async def sync_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     from tasks import sync_project_task
-    sync_project_task.delay(project_id, project.local_path, project.branch, project.repo_url)
+    from utils.git_url import inject_git_auth_url
+    auth_repo_url = inject_git_auth_url(project.repo_url, project.platform)
+    sync_project_task.delay(project_id, project.local_path, project.branch, auth_repo_url)
     return SyncResponse(id=project.id, status="syncing", new_commits=0)
 
 
@@ -166,6 +174,8 @@ async def _do_sync(
                 project_id, step="fetching", progress=10, total=100,
                 message="正在 fetch 远程仓库...",
             )
+            # 更新 remote URL 以注入认证信息（兼容私有仓库）
+            await _git_cmd(local_path, ["remote", "set-url", "origin", repo_url], timeout=10)
             await _git_cmd(local_path, ["fetch", "origin"], timeout=180, retries=2)
 
             # 验证 HEAD 是否有效（防止之前 clone/checkout 失败导致仓库损坏）

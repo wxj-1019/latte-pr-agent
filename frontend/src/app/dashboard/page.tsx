@@ -36,7 +36,12 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectRepo[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [scanningId, setScanningId] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -293,7 +298,7 @@ export default function DashboardPage() {
                           #{review.pr_number} {review.pr_title || "未命名 PR"}
                         </p>
                         <p className="text-xs text-latte-text-tertiary mt-0.5">
-                          {review.repo_id} · {new Date(review.created_at).toLocaleString()}
+                          {review.repo_id} · {mounted ? new Date(review.created_at).toLocaleString() : review.created_at}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">

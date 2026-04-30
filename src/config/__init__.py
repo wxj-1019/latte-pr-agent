@@ -84,18 +84,24 @@ class Settings(BaseSettings):
     def get_cors_origins(self) -> list[str]:
         """根据环境自动推断 CORS origins。
 
-        - 生产环境：必须显式配置，不能为 * 或空
+        - 生产环境：未显式配置时记录警告并返回空列表（最安全）
         - 开发环境：未配置时自动展开为常见本地端口
         """
+        import logging
+
         raw = self.cors_origins.strip()
         if raw and raw != "*":
             return [o.strip() for o in raw.split(",") if o.strip()]
 
         if self.app_env == "production":
-            raise RuntimeError(
-                "生产环境必须显式配置 CORS_ORIGINS，"
-                "例如：CORS_ORIGINS=https://your-domain.com"
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "生产环境 CORS_ORIGINS 未显式配置（当前为 '%s'）。"
+                "请设置 CORS_ORIGINS=https://your-domain.com 以限制跨域来源。"
+                "当前返回空列表，不允许任何跨域请求。",
+                raw or "空",
             )
+            return []
 
         # 开发环境默认值
         return [

@@ -8,6 +8,7 @@ import type { Review } from "@/types";
 import { motion } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 interface ReviewListProps {
   reviews: Review[];
@@ -25,6 +26,18 @@ function formatTimeAgo(isoString: string) {
   if (diffMins < 60) return `${diffMins} 分钟前`;
   if (diffHours < 24) return `${diffHours} 小时前`;
   return `${diffDays} 天前`;
+}
+
+function TimeAgo({ isoString }: { isoString: string }) {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    setText(formatTimeAgo(isoString));
+    const id = setInterval(() => setText(formatTimeAgo(isoString)), 60000);
+    return () => clearInterval(id);
+  }, [isoString]);
+
+  return <span className="text-xs text-latte-text-muted whitespace-nowrap">{text}</span>;
 }
 
 export function ReviewList({ reviews }: ReviewListProps) {
@@ -96,9 +109,7 @@ export function ReviewList({ reviews }: ReviewListProps) {
                     {review.risk_level === "critical" ? "严重" : review.risk_level === "high" ? "高" : review.risk_level === "medium" ? "中" : review.risk_level}
                   </Badge>
                 )}
-                <span className="text-xs text-latte-text-muted whitespace-nowrap">
-                  {formatTimeAgo(review.created_at)}
-                </span>
+                <TimeAgo isoString={review.created_at} />
               </div>
             </GlassCard>
           </Link>

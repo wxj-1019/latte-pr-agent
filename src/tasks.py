@@ -73,6 +73,9 @@ def clone_project_task(self, project_id: int) -> None:
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(_do_clone(project_id))
+    except Exception as exc:
+        logger.exception("Clone task failed for project %s: %s", project_id, exc)
+        raise
     finally:
         loop.close()
 
@@ -88,6 +91,9 @@ def sync_project_task(self, project_id: int, local_path: str, branch: str, repo_
     try:
         from projects.router import _do_sync
         loop.run_until_complete(_do_sync(project_id, local_path, branch, repo_url))
+    except Exception as exc:
+        logger.exception("Sync task failed for project %s: %s", project_id, exc)
+        raise
     finally:
         loop.close()
 
@@ -103,6 +109,9 @@ def scan_commits_task(self, project_id: int, local_path: str, branch: str, max_c
     try:
         from commits.router import _do_scan
         loop.run_until_complete(_do_scan(project_id, local_path, branch, max_commits, since, after_sha))
+    except Exception as exc:
+        logger.exception("Scan commits task failed for project %s: %s", project_id, exc)
+        raise
     finally:
         loop.close()
 
@@ -118,6 +127,9 @@ def analyze_commits_task(self, project_id: int, local_path: str, max_commits: in
     try:
         from commits.router import _do_analyze_all
         loop.run_until_complete(_do_analyze_all(project_id, local_path, max_commits))
+    except Exception as exc:
+        logger.exception("Analyze commits task failed for project %s: %s", project_id, exc)
+        raise
     finally:
         loop.close()
 
@@ -133,6 +145,9 @@ def analyze_commit_task(self, project_id: int, commit_hash: str, local_path: str
     try:
         from commits.router import _do_analyze_commit
         loop.run_until_complete(_do_analyze_commit(project_id, commit_hash, local_path))
+    except Exception as exc:
+        logger.exception("Analyze commit task failed for project %s commit %s: %s", project_id, commit_hash, exc)
+        raise
     finally:
         loop.close()
 
@@ -154,8 +169,11 @@ async def _do_clone(project_id: int) -> None:
             logger.warning("Clone task: project %s not found", project_id)
             return
 
+        from utils.git_url import inject_git_auth_url
+
         await AnalysisProgressTracker.start(project_id, "clone")
-        logger.info("Starting clone for project %s: %s -> %s", project_id, project.repo_url, project.local_path)
+        auth_repo_url = inject_git_auth_url(project.repo_url, project.platform)
+        logger.info("Starting clone for project %s: %s -> %s", project_id, auth_repo_url, project.local_path)
 
         try:
             os.makedirs(os.path.dirname(project.local_path) if project.local_path else "/tmp/repos", exist_ok=True)
@@ -185,7 +203,7 @@ async def _do_clone(project_id: int) -> None:
                     loop = asyncio.get_running_loop()
                     def _clone() -> subprocess.CompletedProcess:
                         return subprocess.run(
-                            ["git", "clone", "--config", "core.longpaths=true", project.repo_url, clone_target],
+                            ["git", "clone", "--config", "core.longpaths=true", auth_repo_url, clone_target],
                             capture_output=True,
                             timeout=300,
                             cwd=clone_cwd,
@@ -195,7 +213,7 @@ async def _do_clone(project_id: int) -> None:
                         raise RuntimeError(f"git clone failed: {proc.stderr.decode('utf-8', errors='replace')}")
                 else:
                     proc = await asyncio.create_subprocess_exec(
-                        "git", "clone", project.repo_url, clone_target,
+                        "git", "clone", auth_repo_url, clone_target,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
                         cwd=clone_cwd,

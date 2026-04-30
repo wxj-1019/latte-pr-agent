@@ -485,7 +485,7 @@ async def trigger_manual_review(
             try:
                 from tasks import get_celery_task
                 get_celery_task().delay(review.id)
-            except (ImportError, ModuleNotFoundError, RuntimeError, OSError):
+            except Exception:
                 from services.review_service import run_review
                 import asyncio
                 asyncio.get_event_loop().create_task(run_review(review.id))

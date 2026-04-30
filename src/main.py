@@ -24,25 +24,68 @@ from stats.router import router as stats_router
 from settings.router import router as settings_router
 from projects.router import router as projects_router
 from commits.router import router as commits_router
-from models import get_db, Review
+from models import get_db, Review, Base
 from models.project_repo import ProjectRepo
 
 logger = logging.getLogger(__name__)
 
+_redis_client = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _redis_client
     setup_logging(
         log_level=settings.log_level,
         log_format=settings.log_format or None,
         log_file=settings.log_file or None,
     )
+
+    # Ensure DB tables exist (idempotent, safe for existing databases)
+    try:
+        from models.base import async_engine
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database schema verified/created")
+    except Exception:
+        logger.exception("Failed to create database tables on startup")
+
+    # Initialize shared Redis client for health checks
+    try:
+        import redis.asyncio as aioredis
+        _redis_client = aioredis.from_url(
+            settings.redis_url.get_secret_value(),
+            socket_connect_timeout=2,
+            decode_responses=True,
+        )
+    except Exception:
+        logger.exception("Failed to initialize Redis client on startup")
+        _redis_client = None
+
     logger.info("Latte PR Agent startup complete [env=%s]", settings.app_env)
     yield
+
+    # Graceful shutdown: dispose DB engine and close Redis connections
+    try:
+        from models.base import dispose_engine
+        await dispose_engine()
+    except Exception:
+        logger.exception("Error disposing database engine on shutdown")
+
+    try:
+        from engine.cache import disconnect_redis_pool
+        await disconnect_redis_pool()
+    except Exception:
+        logger.exception("Error disconnecting Redis pool on shutdown")
+
+    if _redis_client is not None:
+        try:
+            await _redis_client.aclose()
+        except Exception:
+            pass
     logger.info("Latte PR Agent shutting down")
 
 
-_cors_origins = settings.get_cors_origins()
 _docs_url = settings.get_docs_urls()["docs_url"]
 _redoc_url = settings.get_docs_urls()["redoc_url"]
 _openapi_url = settings.get_docs_urls()["openapi_url"]
@@ -67,6 +110,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         token = request_id_var.set(request_id)
         start = time.monotonic()
+        response = None
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
@@ -76,7 +120,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             log_request(
                 method=request.method,
                 path=request.url.path,
-                status_code=response.status_code if "response" in dir() else 500,
+                status_code=getattr(response, "status_code", 500),
                 duration=duration,
                 request_id=request_id,
             )
@@ -87,7 +131,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 # 这样即使内部发生异常，CORS 头也能正确返回。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -101,7 +145,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception: %s", exc)
     origin = request.headers.get("origin", "")
     headers: dict[str, str] = {}
-    if origin in _cors_origins:
+    cors_origins = settings.get_cors_origins()
+    if origin in cors_origins:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
     # 生产环境不暴露内部错误详情
@@ -137,13 +182,21 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         health["checks"]["database"] = "error"
         health["status"] = "degraded"
 
-    # Redis check (async)
+    # Redis check (reuse shared client, fallback to temp connection if not initialized)
     try:
-        import redis.asyncio as aioredis
-        redis_client = aioredis.from_url(settings.redis_url.get_secret_value(), socket_connect_timeout=2)
-        await redis_client.ping()
-        await redis_client.aclose()
-        health["checks"]["redis"] = "ok"
+        if _redis_client is not None:
+            await _redis_client.ping()
+            health["checks"]["redis"] = "ok"
+        else:
+            import redis.asyncio as aioredis
+            redis_client = aioredis.from_url(
+                settings.redis_url.get_secret_value(),
+                socket_connect_timeout=2,
+                decode_responses=True,
+            )
+            await redis_client.ping()
+            await redis_client.aclose()
+            health["checks"]["redis"] = "ok"
     except Exception as exc:
         logger.warning("Health check redis failed: %s", exc)
         health["checks"]["redis"] = "error"

@@ -100,12 +100,21 @@ function saveToStorage(items: AppNotification[]) {
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<AppNotification[]>(loadFromStorage);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  /* load from localStorage after hydration */
+  useEffect(() => {
+    setNotifications(loadFromStorage());
+    setHydrated(true);
+  }, []);
 
   /* sync to localStorage */
   useEffect(() => {
-    saveToStorage(notifications);
-  }, [notifications]);
+    if (hydrated) {
+      saveToStorage(notifications);
+    }
+  }, [notifications, hydrated]);
 
   const addNotification = useCallback(
     (n: Omit<AppNotification, "id" | "created_at" | "read">) => {
@@ -228,6 +237,13 @@ function NotificationItem({
   onRemove: (id: string) => void;
 }) {
   const router = useRouter();
+  const [timeAgo, setTimeAgo] = useState("");
+
+  useEffect(() => {
+    setTimeAgo(formatTimeAgo(item.created_at));
+    const id = setInterval(() => setTimeAgo(formatTimeAgo(item.created_at)), 60000);
+    return () => clearInterval(id);
+  }, [item.created_at]);
 
   function handleClick() {
     if (!item.read) onRead(item.id);
@@ -235,8 +251,6 @@ function NotificationItem({
       router.push(item.action_url);
     }
   }
-
-  const timeAgo = formatTimeAgo(item.created_at);
 
   return (
     <motion.div

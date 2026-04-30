@@ -31,14 +31,25 @@ async def github_webhook(
     if not x_hub_signature_256:
         logger.warning("GitHub webhook rejected: missing signature")
         raise HTTPException(status_code=401, detail="缺少 Webhook 签名")
-    webhook_secret = await resolve_setting(db, "github_webhook_secret", settings.github_webhook_secret)
+
+    try:
+        webhook_secret = await resolve_setting(db, "github_webhook_secret", settings.github_webhook_secret)
+    except Exception as exc:
+        logger.exception("Failed to resolve GitHub webhook secret: %s", exc)
+        raise HTTPException(status_code=503, detail="服务暂时不可用，请稍后重试")
+
     if not WebhookVerifier.verify_github(
         payload_bytes, x_hub_signature_256, webhook_secret
     ):
         logger.warning("GitHub webhook rejected: invalid signature")
         raise HTTPException(status_code=401, detail="Webhook 签名无效")
 
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        logger.warning("GitHub webhook rejected: invalid JSON payload: %s", exc)
+        raise HTTPException(status_code=400, detail="无效的 JSON 负载")
+
     parsed = WebhookParser.parse_github(payload)
     logger.info("GitHub webhook received: repo=%s pr=%s action=%s", parsed["repo_id"], parsed["pr_number"], parsed.get("action"))
 
@@ -78,19 +89,6 @@ async def github_webhook(
     return {"message": "审查已加入队列", "review_id": review.id}
 
 
-def _dispatch_review(background_tasks: BackgroundTasks, review_id: int) -> None:
-    """优先使用 Celery，失败则回退到 FastAPI BackgroundTasks。"""
-    try:
-        task = get_celery_task()
-        task.delay(review_id)
-    except (ImportError, ModuleNotFoundError, RuntimeError, OSError) as exc:
-        # Fallback for environments without Celery/Redis available
-        logger.warning(
-            "Celery dispatch failed (%s), falling back to BackgroundTasks", exc
-        )
-        background_tasks.add_task(run_review, review_id)
-
-
 @router.post("/gitlab")
 @limiter.limit("60/minute")
 async def gitlab_webhook(
@@ -102,14 +100,25 @@ async def gitlab_webhook(
     if not x_gitlab_token:
         logger.warning("GitLab webhook rejected: missing token")
         raise HTTPException(status_code=401, detail="缺少 Webhook Token")
-    webhook_secret = await resolve_setting(db, "gitlab_webhook_secret", settings.gitlab_webhook_secret)
+
+    try:
+        webhook_secret = await resolve_setting(db, "gitlab_webhook_secret", settings.gitlab_webhook_secret)
+    except Exception as exc:
+        logger.exception("Failed to resolve GitLab webhook secret: %s", exc)
+        raise HTTPException(status_code=503, detail="服务暂时不可用，请稍后重试")
+
     if not WebhookVerifier.verify_gitlab(
         x_gitlab_token, webhook_secret
     ):
         logger.warning("GitLab webhook rejected: invalid token")
         raise HTTPException(status_code=401, detail="Webhook Token 无效")
 
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        logger.warning("GitLab webhook rejected: invalid JSON payload: %s", exc)
+        raise HTTPException(status_code=400, detail="无效的 JSON 负载")
+
     parsed = WebhookParser.parse_gitlab(payload)
     logger.info("GitLab webhook received: repo=%s pr=%s action=%s", parsed["repo_id"], parsed["pr_number"], parsed.get("action"))
 
@@ -146,3 +155,18 @@ async def gitlab_webhook(
     logger.info("Review created: review_id=%s repo=%s pr=%s", review.id, review.repo_id, review.pr_number)
     _dispatch_review(background_tasks, review.id)
     return {"message": "审查已加入队列", "review_id": review.id}
+
+
+def _dispatch_review(background_tasks: BackgroundTasks, review_id: int) -> None:
+    """优先使用 Celery，失败则回退到 FastAPI BackgroundTasks。"""
+    try:
+        task = get_celery_task()
+        task.delay(review_id)
+    except Exception as exc:
+        # Fallback for environments without Celery/Redis available
+        # Catches kombu OperationalError, ImportError, RuntimeError, OSError, etc.
+        logger.warning(
+            "Celery dispatch failed (%s: %s), falling back to BackgroundTasks",
+            type(exc).__name__, exc
+        )
+        background_tasks.add_task(run_review, review_id)

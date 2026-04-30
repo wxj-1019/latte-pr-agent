@@ -25,9 +25,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 COPY --from=builder /install /usr/local
+# Install semgrep for static analysis in containers
+RUN pip install --no-cache-dir semgrep
 
 COPY src/ ./src/
 COPY sql/ ./sql/
+COPY alembic.ini .
+COPY alembic/ ./alembic/
+# Ensure secret key is available at runtime (consistent encryption)
+COPY src/.secret_key /app/.secret_key
+
+# Ensure git config is visible to appuser
+RUN cp /root/.gitconfig /app/.gitconfig
 
 RUN mkdir -p /app/repos && chown -R appuser:appuser /app
 
@@ -37,6 +46,6 @@ ENV PYTHONUNBUFFERED=1
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"] || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

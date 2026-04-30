@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+
 const nextConfig = {
   // Enable React strict mode for better error detection
   reactStrictMode: true,
@@ -16,8 +18,8 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
 
-  // Output standalone build for Docker (production only)
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
+  // Output standalone build for Docker (always, dev ignores this)
+  output: 'standalone',
 
   // Ensure clean builds and consistent output directory
   distDir: '.next',
@@ -41,6 +43,10 @@ const nextConfig = {
 
   // Security headers
   async headers() {
+    // Build dynamic CSP connect-src based on API URL
+    const connectSrc = apiUrl
+      ? `connect-src 'self' ${apiUrl}`
+      : "connect-src 'self'";
     return [
       {
         source: '/:path*',
@@ -71,7 +77,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000; img-src 'self' data:; font-src 'self';",
+            value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; ${connectSrc}; img-src 'self' data:; font-src 'self';`,
           },
         ],
       },

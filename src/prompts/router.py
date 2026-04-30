@@ -75,9 +75,15 @@ async def save_version(
     req: SavePromptRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    registry = PromptRegistry(db)
-    await registry.save_version(req.version, req.text, req.metadata)
-    return {"message": "已保存", "version": req.version}
+    try:
+        registry = PromptRegistry(db)
+        await registry.save_version(req.version, req.text, req.metadata)
+        return {"message": "已保存", "version": req.version}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to save prompt version %s: %s", req.version, exc)
+        raise HTTPException(status_code=500, detail=f"保存 Prompt 失败: {exc}")
 
 
 @router.post("")
@@ -93,25 +99,37 @@ async def optimize_prompt(
     req: OptimizeRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    optimizer = AutoPromptOptimizer(db)
-    result = await optimizer.analyze_and_optimize(
-        base_version=req.base_version,
-        new_version=req.new_version,
-        min_samples=req.min_samples,
-    )
-    return result
+    try:
+        optimizer = AutoPromptOptimizer(db)
+        result = await optimizer.analyze_and_optimize(
+            base_version=req.base_version,
+            new_version=req.new_version,
+            min_samples=req.min_samples,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to optimize prompt: %s", exc)
+        raise HTTPException(status_code=500, detail=f"优化 Prompt 失败: {exc}")
 
 
 @router.delete("/versions/{version}")
 async def delete_version(version: str, db: AsyncSession = Depends(get_db)) -> dict:
-    if version == "v1":
-        raise HTTPException(status_code=400, detail="不允许删除默认版本 v1")
-    registry = PromptRegistry(db)
-    await registry.load_from_db()
-    deleted = await registry.delete_version(version)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Prompt 版本不存在")
-    return {"message": f"已删除版本 {version}", "version": version}
+    try:
+        if version == "v1":
+            raise HTTPException(status_code=400, detail="不允许删除默认版本 v1")
+        registry = PromptRegistry(db)
+        await registry.load_from_db()
+        deleted = await registry.delete_version(version)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Prompt 版本不存在")
+        return {"message": f"已删除版本 {version}", "version": version}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to delete prompt version %s: %s", version, exc)
+        raise HTTPException(status_code=500, detail=f"删除 Prompt 版本失败: {exc}")
 
 
 @router.post("/generate-for-project/{project_id}")
@@ -120,18 +138,24 @@ async def generate_project_prompt(
     force: bool = False,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    from models.project_repo import ProjectRepo
-    from sqlalchemy import select
-    from prompts.project_prompt_generator import ProjectPromptGenerator
+    try:
+        from models.project_repo import ProjectRepo
+        from sqlalchemy import select
+        from prompts.project_prompt_generator import ProjectPromptGenerator
 
-    result = await db.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(status_code=404, detail="项目不存在")
+        result = await db.execute(select(ProjectRepo).where(ProjectRepo.id == project_id))
+        project = result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(status_code=404, detail="项目不存在")
 
-    generator = ProjectPromptGenerator(db)
-    version = await generator.generate(project, force=force)
-    if not version:
-        # 可能是不满足进化条件而跳过
-        return {"message": "已是最新版本，无需重新生成", "version": None}
-    return {"message": "已生成", "version": version}
+        generator = ProjectPromptGenerator(db)
+        version = await generator.generate(project, force=force)
+        if not version:
+            # 可能是不满足进化条件而跳过
+            return {"message": "已是最新版本，无需重新生成", "version": None}
+        return {"message": "已生成", "version": version}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to generate project prompt for project %s: %s", project_id, exc)
+        raise HTTPException(status_code=500, detail=f"生成项目 Prompt 失败: {exc}")

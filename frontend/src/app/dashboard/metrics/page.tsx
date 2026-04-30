@@ -69,10 +69,12 @@ export default function MetricsPage() {
 
   const chartData = chart.map((d) => ({
     ...d,
-    label: new Date(d.date).toLocaleDateString("zh-CN", {
-      month: "short",
-      day: "numeric",
-    }),
+    label: mounted
+      ? new Date(d.date).toLocaleDateString("zh-CN", {
+          month: "short",
+          day: "numeric",
+        })
+      : d.date,
   }));
 
 

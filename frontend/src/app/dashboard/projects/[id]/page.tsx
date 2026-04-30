@@ -96,6 +96,8 @@ export default function ProjectDetailPage() {
     isolated_ratio: number;
   } | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const load = useCallback(async () => {
     try {
@@ -653,7 +655,7 @@ export default function ProjectDetailPage() {
                                       <span className="text-latte-success">+{c.additions}</span>
                                       <span className="text-latte-critical">-{c.deletions}</span>
                                       <span>{c.changed_files} 文件</span>
-                                      {c.commit_ts != null && <span>{new Date(c.commit_ts).toLocaleString("zh-CN")}</span>}
+                                      {c.commit_ts != null && <span>{mounted ? new Date(c.commit_ts).toLocaleString("zh-CN") : c.commit_ts}</span>}
                                     </div>
                                     {c.findings.length > 0 && (
                             <div className="mt-2 space-y-1">
@@ -958,7 +960,7 @@ export default function ProjectDetailPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock size={12} />
-                        {new Date(c.commit_ts).toLocaleString("zh-CN")}
+                        {mounted ? new Date(c.commit_ts).toLocaleString("zh-CN") : c.commit_ts}
                       </span>
                       <span className="text-latte-success">+{c.additions}</span>
                       <span className="text-latte-critical">-{c.deletions}</span>

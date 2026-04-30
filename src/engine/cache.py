@@ -20,6 +20,14 @@ async def get_redis_client() -> redis.Redis:
     return redis.Redis(connection_pool=_redis_pool)
 
 
+async def disconnect_redis_pool() -> None:
+    """Disconnect the shared Redis connection pool. Call on shutdown."""
+    global _redis_pool
+    if _redis_pool is not None:
+        await _redis_pool.disconnect()
+        _redis_pool = None
+
+
 class ReviewCache:
     """基于 diff hash 的审查结果缓存"""
 

@@ -23,8 +23,7 @@ async def test_get_config_empty(async_client_with_db, mock_config_service):
 @pytest.mark.asyncio
 async def test_get_config_existing(async_client_with_db, mock_config_service):
     mock_config_service.get_config = AsyncMock(return_value={
-        "config_json": {"review_config": {"language": "python"}},
-        "platform": "github",
+        "review_config": {"language": "python"},
     })
 
     response = await async_client_with_db.get("/configs/org/repo")

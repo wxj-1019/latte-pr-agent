@@ -36,6 +36,13 @@ def recreate_engine():
     AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
 
+async def dispose_engine() -> None:
+    """Dispose the async engine and close all connections. Call on shutdown."""
+    global async_engine
+    if async_engine is not None:
+        await async_engine.dispose()
+
+
 async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as session:
         yield session
