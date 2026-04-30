@@ -3,6 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        http_proxy: ""
+        https_proxy: ""
     expose:
       - "8000"
     environment:
@@ -24,6 +29,7 @@ services:
       - ENABLE_REASONER_REVIEW=${ENABLE_REASONER_REVIEW:-false}
       - REPOS_BASE_PATH=/app/repos
       - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - LATTE_SECRET_KEY=${LATTE_SECRET_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,6 +55,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        http_proxy: ""
+        https_proxy: ""
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@postgres:5432/code_review
       - SYNC_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/code_review
@@ -67,6 +78,7 @@ services:
       - ENABLE_REASONER_REVIEW=${ENABLE_REASONER_REVIEW:-false}
       - REPOS_BASE_PATH=/app/repos
       - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - LATTE_SECRET_KEY=${LATTE_SECRET_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,6 +143,10 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-}"
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        http_proxy: ""
+        https_proxy: ""
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     expose:

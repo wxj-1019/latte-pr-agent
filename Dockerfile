@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml .
 COPY src/ ./src/
-RUN pip install --upgrade pip setuptools wheel && \
+RUN env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
+    pip install --upgrade pip setuptools wheel && \
+    env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
     pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.12-slim
@@ -32,8 +34,6 @@ COPY src/ ./src/
 COPY sql/ ./sql/
 COPY alembic.ini .
 COPY alembic/ ./alembic/
-# Ensure secret key is available at runtime (consistent encryption)
-COPY src/.secret_key /app/.secret_key
 
 # Ensure git config is visible to appuser
 RUN cp /root/.gitconfig /app/.gitconfig
